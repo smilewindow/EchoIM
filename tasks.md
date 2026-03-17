@@ -18,11 +18,11 @@ Each task is small enough to complete in one session. Tasks within a phase are o
 
 ## Phase 2 — Database Schema
 
-- [ ] **2.1** Write migration: `users` table (`id`, `username`, `email`, `password_hash`, `display_name`, `avatar_url`, `created_at`)
-- [ ] **2.2** Write migration: `friend_requests` table (`id`, `sender_id`, `recipient_id`, `status`, `created_at`, `updated_at`)
-- [ ] **2.3** Write migration: `conversations` + `conversation_members` tables (`last_read_at` included)
-- [ ] **2.4** Write migration: `messages` table
-- [ ] **2.5** Add DB indexes: `messages(conversation_id, created_at)`, `friend_requests(recipient_id, status)`
+- [x] **2.1** Write migration: `users` table (`id`, `username`, `email`, `password_hash`, `display_name`, `avatar_url`, `created_at`)
+- [x] **2.2** Write migration: `friend_requests` table (`id`, `sender_id`, `recipient_id`, `status`, `created_at`, `updated_at`)
+- [x] **2.3** Write migration: `conversations` + `conversation_members` tables (`last_read_at` included)
+- [x] **2.4** Write migration: `messages` table
+- [x] **2.5** Add DB indexes: `messages(conversation_id, created_at)`, `friend_requests(recipient_id, status)`
 
 ---
 
