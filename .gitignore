@@ -9,6 +9,7 @@ node_modules/
 # Build output
 dist/
 build/
+*.tsbuildinfo
 
 # Logs
 *.log
@@ -20,6 +21,7 @@ npm-debug.log*
 # IDE
 .vscode/
 .idea/
+.claude/
 
 # Docker
 postgres-data/

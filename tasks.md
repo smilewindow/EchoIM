@@ -8,11 +8,11 @@ Each task is small enough to complete in one session. Tasks within a phase are o
 
 ## Phase 1 — Project Scaffolding
 
-- [ ] **1.1** Initialize monorepo structure: `/server` (Fastify) and `/client` (React + Vite + TS)
-- [ ] **1.2** Set up `server`: install Fastify, `pg`, `bcrypt`, `jsonwebtoken`, `ws`, `dotenv`
-- [ ] **1.3** Set up `client`: install TailwindCSS, shadcn/ui, React Router
-- [ ] **1.4** Write `docker-compose.yml` with `postgres` service and env vars; confirm `pg` connects
-- [ ] **1.5** Add `eslint` + `prettier` configs to both packages; confirm lint passes
+- [x] **1.1** Initialize monorepo structure: `/server` (Fastify) and `/client` (React + Vite + TS)
+- [x] **1.2** Set up `server`: install Fastify, `pg`, `bcrypt`, `jsonwebtoken`, `ws`, `dotenv`
+- [x] **1.3** Set up `client`: install TailwindCSS, shadcn/ui, React Router
+- [x] **1.4** Write `docker-compose.yml` with `postgres` service and env vars; confirm `pg` connects
+- [x] **1.5** Add `eslint` + `prettier` configs to both packages; confirm lint passes
 
 ---
 

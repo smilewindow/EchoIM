@@ -1,0 +1,35 @@
+{
+  "name": "echoim-server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "eslint src",
+    "format": "prettier --write src"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "dotenv": "^17.3.1",
+    "fastify": "^5.8.2",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.20.0",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/bcrypt": "^6.0.0",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^20.12.7",
+    "@types/pg": "^8.18.0",
+    "@types/ws": "^8.18.1",
+    "eslint": "^10.0.3",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.8.1",
+    "tsx": "^4.7.2",
+    "typescript": "^5.4.5",
+    "typescript-eslint": "^8.57.1"
+  }
+}
