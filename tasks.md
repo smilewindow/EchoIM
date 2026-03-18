@@ -28,12 +28,14 @@ Each task is small enough to complete in one session. Tasks within a phase are o
 
 ## Phase 3 — Auth API
 
-- [ ] **3.1** `POST /api/auth/register` — validate input, hash password (bcrypt cost 12), insert user, return JWT
-- [ ] **3.2** `POST /api/auth/login` — verify credentials, return JWT
-- [ ] **3.3** Write `authenticate` Fastify hook that verifies JWT and attaches `req.user`
-- [ ] **3.4** `GET /api/users/me` — return current user profile (protected)
-- [ ] **3.5** `PUT /api/users/me` — update `display_name` and `avatar_url` (protected)
-- [ ] **3.6** Manual test: register → login → get profile with curl / Postman
+- [x] **3.1** `POST /api/auth/register` — validate input, hash password (bcrypt cost 12), insert user, return JWT
+- [x] **3.2** `POST /api/auth/login` — verify credentials, return JWT
+- [x] **3.3** Write `authenticate` Fastify hook that verifies JWT and attaches `req.user`
+- [x] **3.4** `GET /api/users/me` — return current user profile (protected)
+- [x] **3.5** `PUT /api/users/me` — update `display_name` and `avatar_url` (protected)
+- [x] **3.6** Vitest integration tests (22 cases): register, login, auth errors, profile get/update — replaced manual-only approach; curl smoke tests were done during development
+
+> **Testing infrastructure introduced here.** Vitest + real test DB (`TEST_DATABASE_URL`). Key helpers in `server/tests/helpers/`: `buildApp()` (spins up Fastify instance), `truncateAll()` (resets DB between tests), `registerUser()` (seed shortcut). Run with `npm test` from `/server`. All subsequent backend phases follow this same pattern.
 
 ---
 
@@ -45,6 +47,7 @@ Each task is small enough to complete in one session. Tasks within a phase are o
 - [ ] **4.4** `PUT /api/friend-requests/:id` — accept or decline; on accept, do nothing extra (friendship is queried from `friend_requests` where status = accepted)
 - [ ] **4.5** `GET /api/friends` — return all users where a mutual accepted request exists
 - [ ] **4.6** Manual test: two users, send request, accept, verify friends list
+- [ ] **4.7** Write integration tests: user search, send/accept/decline friend requests, friends list, duplicate-request and self-request rejection
 
 ---
 
@@ -55,6 +58,7 @@ Each task is small enough to complete in one session. Tasks within a phase are o
 - [ ] **5.3** `GET /api/conversations/:id/messages?before=<cursor>` — paginated history (50 per page, cursor = `created_at` of oldest loaded message)
 - [ ] **5.4** `PUT /api/conversations/:id/read` — set `last_read_at = NOW()` for current user
 - [ ] **5.5** Manual test: send messages, check pagination, check unread count decrements on read
+- [ ] **5.6** Write integration tests: send message (auto-create conversation), conversation list with unread counts, cursor pagination, read receipts, friendship guard
 
 ---
 
@@ -68,6 +72,7 @@ Each task is small enough to complete in one session. Tasks within a phase are o
 - [ ] **6.6** On WS connect: if user now has ≥ 1 connection, broadcast `presence.online` to all online friends
 - [ ] **6.7** On WS disconnect: if user now has 0 connections, broadcast `presence.offline` to all online friends
 - [ ] **6.8** Manual test with two browser tabs: confirm real-time delivery and presence events
+- [ ] **6.9** Write integration tests: WS auth (valid/invalid token), message broadcast, typing events forwarded, presence online/offline
 
 ---
 

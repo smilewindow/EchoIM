@@ -1,27 +1,27 @@
 import dotenv from 'dotenv'
 import { fileURLToPath } from 'url'
 import path from 'path'
-import Fastify from 'fastify'
-import pg from 'pg'
 
 // Load .env from the monorepo root, regardless of cwd
 dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.env') })
 
-const { Pool } = pg
+// Fail fast if required env vars are missing
+if (!process.env['DATABASE_URL']) {
+  console.error('ERROR: DATABASE_URL environment variable is required')
+  process.exit(1)
+}
+if (!process.env['JWT_SECRET']) {
+  console.error('ERROR: JWT_SECRET environment variable is required')
+  process.exit(1)
+}
 
-const pool = new Pool({
-  connectionString: process.env['DATABASE_URL'],
-})
-
-const app = Fastify({ logger: true })
-
-app.get('/healthz', async (_request, _reply) => {
-  return { status: 'ok' }
-})
+import { buildApp } from './app.js'
 
 const start = async () => {
+  const app = await buildApp({ logger: true })
   try {
-    await pool.query('SELECT 1')
+    // Verify DB connectivity before accepting traffic
+    await app.pool.query('SELECT 1')
     app.log.info('Database connection verified')
 
     await app.listen({ port: Number(process.env['PORT'] ?? 3000), host: '0.0.0.0' })
