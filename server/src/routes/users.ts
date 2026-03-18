@@ -47,6 +47,30 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
 
     return reply.status(200).send(result.rows[0])
   })
+
+  fastify.get('/search', {
+    schema: {
+      querystring: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['q'],
+        properties: {
+          q: { type: 'string', minLength: 1, maxLength: 50 },
+        },
+      },
+    },
+  }, async (request, reply) => {
+    const { q } = request.query as { q: string }
+    const escaped = q.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_')
+    const result = await fastify.pool.query(
+      `SELECT id, username, display_name, avatar_url
+       FROM users
+       WHERE username ILIKE '%' || $1 || '%' ESCAPE '\\' AND id <> $2
+       LIMIT 20`,
+      [escaped, request.user.id]
+    )
+    return reply.status(200).send(result.rows)
+  })
 }
 
 export default userRoutes

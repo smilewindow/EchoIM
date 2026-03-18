@@ -4,6 +4,8 @@ import dbPlugin from './plugins/db.js'
 import { registerAuthDecorator } from './hooks/authenticate.js'
 import authRoutes from './routes/auth.js'
 import userRoutes from './routes/users.js'
+import friendRequestRoutes from './routes/friend-requests.js'
+import friendRoutes from './routes/friends.js'
 
 export async function buildApp(opts: FastifyServerOptions = {}) {
   const app = Fastify({
@@ -28,6 +30,8 @@ export async function buildApp(opts: FastifyServerOptions = {}) {
   await app.register(dbPlugin)
   await app.register(authRoutes, { prefix: '/api/auth' })
   await app.register(userRoutes, { prefix: '/api/users' })
+  await app.register(friendRequestRoutes, { prefix: '/api/friend-requests' })
+  await app.register(friendRoutes, { prefix: '/api/friends' })
 
   return app
 }

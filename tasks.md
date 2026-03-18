@@ -41,13 +41,13 @@ Each task is small enough to complete in one session. Tasks within a phase are o
 
 ## Phase 4 — User Search & Friend Requests API
 
-- [ ] **4.1** `GET /api/users/search?q=` — case-insensitive partial match on `username`, exclude self
-- [ ] **4.2** `POST /api/friend-requests` — create pending request; reject duplicate or reversed existing request
-- [ ] **4.3** `GET /api/friend-requests` — return pending incoming requests for current user
-- [ ] **4.4** `PUT /api/friend-requests/:id` — accept or decline; on accept, do nothing extra (friendship is queried from `friend_requests` where status = accepted)
-- [ ] **4.5** `GET /api/friends` — return all users where a mutual accepted request exists
-- [ ] **4.6** Manual test: two users, send request, accept, verify friends list
-- [ ] **4.7** Write integration tests: user search, send/accept/decline friend requests, friends list, duplicate-request and self-request rejection
+- [x] **4.1** `GET /api/users/search?q=` — case-insensitive partial match on `username`, exclude self
+- [x] **4.2** `POST /api/friend-requests` — create pending request; reject duplicate or reversed existing request
+- [x] **4.3** `GET /api/friend-requests` — return pending incoming requests for current user
+- [x] **4.4** `PUT /api/friend-requests/:id` — accept or decline; on accept, do nothing extra (friendship is queried from `friend_requests` where status = accepted)
+- [x] **4.5** `GET /api/friends` — return all users where a mutual accepted request exists
+- [x] **4.6** Manual test: two users, send request, accept, verify friends list
+- [x] **4.7** Write integration tests: user search, send/accept/decline friend requests, friends list, duplicate-request and self-request rejection
 
 ---
 

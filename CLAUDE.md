@@ -6,13 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 EchoIM is a real-time 1-on-1 chat application (portfolio project). Monorepo with `/server` (Fastify/Node.js) and `/client` (React + Vite + TypeScript). PostgreSQL via Docker Compose. Real-time via WebSocket.
 
-**Current status:** Planning phase complete. Source code not yet written — see `tasks.md` for the implementation plan.
+**Current status:** Phases 1–4 complete (scaffold, schema, auth API, friends API). See `tasks.md` for remaining work.
 
-## Repository Structure (planned)
+## Repository Structure
 
 ```
-/server       Fastify backend
-/client       React + Vite + TypeScript frontend
+/server       Fastify backend (Phases 1–4 implemented)
+/client       React + Vite + TypeScript frontend (not yet started)
 docker-compose.yml
 prd.md        Full Product Requirements Document
 tasks.md      12-phase task breakdown with dependency map
@@ -36,7 +36,19 @@ npm run dev
 npm run lint
 ```
 
-No test runner is configured; testing is manual (curl / Postman / browser). See phase tasks for what to test after each phase.
+Vitest integration tests are configured for the server. Run from `/server`:
+
+```bash
+npm test
+```
+
+Tests use a real PostgreSQL database (`TEST_DATABASE_URL`). Each suite calls `truncateAll()` in `beforeEach`. The client has no test runner yet.
+
+After modifying any server source file, always run lint before considering the task done:
+
+```bash
+npm run lint --prefix server
+```
 
 ## Architecture
 
