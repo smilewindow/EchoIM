@@ -6,6 +6,8 @@ import authRoutes from './routes/auth.js'
 import userRoutes from './routes/users.js'
 import friendRequestRoutes from './routes/friend-requests.js'
 import friendRoutes from './routes/friends.js'
+import messageRoutes from './routes/messages.js'
+import conversationRoutes from './routes/conversations.js'
 
 export async function buildApp(opts: FastifyServerOptions = {}) {
   const app = Fastify({
@@ -32,6 +34,8 @@ export async function buildApp(opts: FastifyServerOptions = {}) {
   await app.register(userRoutes, { prefix: '/api/users' })
   await app.register(friendRequestRoutes, { prefix: '/api/friend-requests' })
   await app.register(friendRoutes, { prefix: '/api/friends' })
+  await app.register(messageRoutes, { prefix: '/api/messages' })
+  await app.register(conversationRoutes, { prefix: '/api/conversations' })
 
   return app
 }

@@ -53,12 +53,12 @@ Each task is small enough to complete in one session. Tasks within a phase are o
 
 ## Phase 5 — Conversations & Messages REST API
 
-- [ ] **5.1** `POST /api/messages` — accept `{ recipient_id, body }`; verify friendship; auto-create conversation if none exists; insert message; return message object
-- [ ] **5.2** `GET /api/conversations` — list conversations for current user, sorted by latest message, include unread count (`messages after last_read_at`)
-- [ ] **5.3** `GET /api/conversations/:id/messages?before=<cursor>` — paginated history (50 per page, cursor = `created_at` of oldest loaded message)
-- [ ] **5.4** `PUT /api/conversations/:id/read` — set `last_read_at = NOW()` for current user
-- [ ] **5.5** Manual test: send messages, check pagination, check unread count decrements on read
-- [ ] **5.6** Write integration tests: send message (auto-create conversation), conversation list with unread counts, cursor pagination, read receipts, friendship guard
+- [x] **5.1** `POST /api/messages` — accept `{ recipient_id, body }`; verify friendship; auto-create conversation if none exists; insert message; return message object
+- [x] **5.2** `GET /api/conversations` — list conversations for current user, sorted by latest message, include unread count (`messages after last_read_at`)
+- [x] **5.3** `GET /api/conversations/:id/messages?before=<cursor>` — paginated history (50 per page, cursor = message `id` of oldest loaded message)
+- [x] **5.4** `PUT /api/conversations/:id/read` — set `last_read_at = NOW()` for current user
+- [x] **5.5** Manual test: send messages, check pagination, check unread count decrements on read
+- [x] **5.6** Write integration tests: send message (auto-create conversation), conversation list with unread counts, cursor pagination, read receipts, friendship guard
 
 ---
 
