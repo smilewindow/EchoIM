@@ -97,6 +97,11 @@ const conversationRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(404).send({ error: 'Not a member of this conversation' })
     }
 
+    fastify.broadcast(userId, {
+      type: 'conversation.updated',
+      payload: { conversation_id: convId, last_read_at: result.rows[0].last_read_at },
+    })
+
     return reply.status(200).send({ last_read_at: result.rows[0].last_read_at })
   })
 }

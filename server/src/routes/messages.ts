@@ -76,6 +76,9 @@ const messageRoutes: FastifyPluginAsync = async (fastify) => {
       client.release()
     }
 
+    fastify.broadcast(recipient_id, { type: 'message.new', payload: msgRow })
+    fastify.broadcast(sender_id, { type: 'message.new', payload: msgRow })
+
     return reply.status(201).send(msgRow)
   })
 }

@@ -64,15 +64,15 @@ Each task is small enough to complete in one session. Tasks within a phase are o
 
 ## Phase 6 — WebSocket Server
 
-- [ ] **6.1** Set up `WS /ws?token=<jwt>` endpoint in Fastify; authenticate on upgrade; store connection in `Map<userId, Set<WebSocket>>`
-- [ ] **6.2** Implement `broadcast(userId, event)` helper — sends to all active sessions for that user
-- [ ] **6.3** On `POST /api/messages` success: call `broadcast(recipientId, { type: 'message.new', data: message })` and `broadcast(senderId, ...)` for sender's other tabs
-- [ ] **6.4** On `PUT /api/conversations/:id/read` success: broadcast `conversation.updated` to sender's other tabs
-- [ ] **6.5** Handle WS client message `typing.start` / `typing.stop` — forward to recipient's active sessions
-- [ ] **6.6** On WS connect: if user now has ≥ 1 connection, broadcast `presence.online` to all online friends
-- [ ] **6.7** On WS disconnect: if user now has 0 connections, broadcast `presence.offline` to all online friends
-- [ ] **6.8** Manual test with two browser tabs: confirm real-time delivery and presence events
-- [ ] **6.9** Write integration tests: WS auth (valid/invalid token), message broadcast, typing events forwarded, presence online/offline
+- [x] **6.1** Set up `WS /ws?token=<jwt>` endpoint in Fastify; authenticate on upgrade; store connection in `Map<userId, Set<WebSocket>>`
+- [x] **6.2** Implement `broadcast(userId, event)` helper — sends to all active sessions for that user
+- [x] **6.3** On `POST /api/messages` success: call `broadcast(recipientId, { type: 'message.new', data: message })` and `broadcast(senderId, ...)` for sender's other tabs
+- [x] **6.4** On `PUT /api/conversations/:id/read` success: broadcast `conversation.updated` to sender's other tabs
+- [x] **6.5** Handle WS client message `typing.start` / `typing.stop` — forward to recipient's active sessions
+- [x] **6.6** On WS connect: if user now has ≥ 1 connection, broadcast `presence.online` to all online friends; also send snapshot of already-online friends back to the newcomer
+- [x] **6.7** On WS disconnect: if user now has 0 connections, broadcast `presence.offline` to all online friends; guard against stale async results on quick reconnect
+- [-] **6.8** Manual test with two browser tabs: confirm real-time delivery and presence events
+- [x] **6.9** Write integration tests: WS auth (valid/invalid token), message broadcast, typing events forwarded, presence online/offline, presence snapshot
 
 ---
 

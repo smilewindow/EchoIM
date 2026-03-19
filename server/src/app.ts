@@ -1,6 +1,7 @@
 import Fastify from 'fastify'
 import type { FastifyError, FastifyServerOptions } from 'fastify'
 import dbPlugin from './plugins/db.js'
+import wsPlugin from './plugins/ws.js'
 import { registerAuthDecorator } from './hooks/authenticate.js'
 import authRoutes from './routes/auth.js'
 import userRoutes from './routes/users.js'
@@ -30,6 +31,7 @@ export async function buildApp(opts: FastifyServerOptions = {}) {
   app.get('/healthz', async () => ({ status: 'ok' }))
 
   await app.register(dbPlugin)
+  await app.register(wsPlugin)
   await app.register(authRoutes, { prefix: '/api/auth' })
   await app.register(userRoutes, { prefix: '/api/users' })
   await app.register(friendRequestRoutes, { prefix: '/api/friend-requests' })

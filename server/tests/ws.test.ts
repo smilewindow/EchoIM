@@ -1,0 +1,367 @@
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
+import WebSocket from 'ws'
+import type { AddressInfo } from 'net'
+import { getApp, truncateAll, registerUser } from './helpers.js'
+import type { App } from './helpers.js'
+
+type UserInfo = { token: string; user: { id: number; username: string; email: string } }
+
+async function setupFriends(app: App): Promise<{ alice: UserInfo; bob: UserInfo }> {
+  const alice = await registerUser(app)
+  const bob = await registerUser(app, { username: 'bob', email: 'bob@test.com', password: 'password123' })
+  const reqRes = await app.inject({
+    method: 'POST',
+    url: '/api/friend-requests',
+    headers: { authorization: `Bearer ${alice.token}` },
+    payload: { recipient_id: bob.user.id },
+  })
+  await app.inject({
+    method: 'PUT',
+    url: `/api/friend-requests/${reqRes.json<{ id: number }>().id}`,
+    headers: { authorization: `Bearer ${bob.token}` },
+    payload: { status: 'accepted' },
+  })
+  return { alice, bob }
+}
+
+function connectWs(port: number, token: string): Promise<WebSocket> {
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws?token=${token}`)
+    ws.once('open', () => resolve(ws))
+    ws.once('unexpected-response', () => reject(new Error('Connection rejected')))
+    ws.once('error', reject)
+  })
+}
+
+function waitForEvent(ws: WebSocket, type: string, timeout = 2000): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Timeout waiting for event: ${type}`)), timeout)
+    const handler = (data: WebSocket.RawData) => {
+      const msg = JSON.parse(data.toString()) as { type: string; payload: unknown }
+      if (msg.type === type) {
+        clearTimeout(timer)
+        ws.off('message', handler)
+        resolve(msg.payload)
+      }
+    }
+    ws.on('message', handler)
+  })
+}
+
+function cleanConnections(app: App) {
+  for (const sockets of app.wsConnections.values()) {
+    for (const s of sockets) s.terminate()
+  }
+  app.wsConnections.clear()
+}
+
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+
+describe('WebSocket auth', () => {
+  let app: App
+  let port: number
+
+  beforeAll(async () => {
+    app = await getApp()
+    await app.listen({ port: 0, host: '127.0.0.1' })
+    port = (app.server.address() as AddressInfo).port
+  })
+  afterAll(async () => { await app.close() })
+  beforeEach(async () => { cleanConnections(app); await truncateAll(app) })
+
+  it('accepts a valid token', async () => {
+    const alice = await registerUser(app)
+    const ws = await connectWs(port, alice.token)
+    expect(ws.readyState).toBe(WebSocket.OPEN)
+    ws.close()
+  })
+
+  it('rejects a missing token', async () => {
+    const rejected = await new Promise<boolean>((resolve) => {
+      const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`)
+      ws.once('open', () => { ws.close(); resolve(false) })
+      ws.once('unexpected-response', () => resolve(true))
+      ws.once('error', () => resolve(true))
+    })
+    expect(rejected).toBe(true)
+  })
+
+  it('rejects an invalid token', async () => {
+    const rejected = await new Promise<boolean>((resolve) => {
+      const ws = new WebSocket(`ws://127.0.0.1:${port}/ws?token=invalid.jwt.token`)
+      ws.once('open', () => { ws.close(); resolve(false) })
+      ws.once('unexpected-response', () => resolve(true))
+      ws.once('error', () => resolve(true))
+    })
+    expect(rejected).toBe(true)
+  })
+})
+
+// ─── message.new ──────────────────────────────────────────────────────────────
+
+describe('WebSocket message.new', () => {
+  let app: App
+  let port: number
+
+  beforeAll(async () => {
+    app = await getApp()
+    await app.listen({ port: 0, host: '127.0.0.1' })
+    port = (app.server.address() as AddressInfo).port
+  })
+  afterAll(async () => { await app.close() })
+  beforeEach(async () => { cleanConnections(app); await truncateAll(app) })
+
+  it('delivers message.new to recipient', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const bobWs = await connectWs(port, bob.token)
+
+    const eventPromise = waitForEvent(bobWs, 'message.new')
+    await app.inject({
+      method: 'POST',
+      url: '/api/messages',
+      headers: { authorization: `Bearer ${alice.token}` },
+      payload: { recipient_id: bob.user.id, body: 'Hello Bob' },
+    })
+
+    const payload = await eventPromise as Record<string, unknown>
+    expect(payload.body).toBe('Hello Bob')
+    expect(payload.sender_id).toBe(alice.user.id)
+    bobWs.close()
+  })
+
+  it('delivers message.new to sender too', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const aliceWs = await connectWs(port, alice.token)
+
+    const eventPromise = waitForEvent(aliceWs, 'message.new')
+    await app.inject({
+      method: 'POST',
+      url: '/api/messages',
+      headers: { authorization: `Bearer ${alice.token}` },
+      payload: { recipient_id: bob.user.id, body: 'Hello Bob' },
+    })
+
+    const payload = await eventPromise as Record<string, unknown>
+    expect(payload.body).toBe('Hello Bob')
+    aliceWs.close()
+  })
+})
+
+// ─── conversation.updated ─────────────────────────────────────────────────────
+
+describe('WebSocket conversation.updated', () => {
+  let app: App
+  let port: number
+
+  beforeAll(async () => {
+    app = await getApp()
+    await app.listen({ port: 0, host: '127.0.0.1' })
+    port = (app.server.address() as AddressInfo).port
+  })
+  afterAll(async () => { await app.close() })
+  beforeEach(async () => { cleanConnections(app); await truncateAll(app) })
+
+  it('delivers conversation.updated when user marks read', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const msgRes = await app.inject({
+      method: 'POST',
+      url: '/api/messages',
+      headers: { authorization: `Bearer ${alice.token}` },
+      payload: { recipient_id: bob.user.id, body: 'Hi' },
+    })
+    const convId = msgRes.json<{ conversation_id: number }>().conversation_id
+
+    const bobWs = await connectWs(port, bob.token)
+    const eventPromise = waitForEvent(bobWs, 'conversation.updated')
+
+    await app.inject({
+      method: 'PUT',
+      url: `/api/conversations/${convId}/read`,
+      headers: { authorization: `Bearer ${bob.token}` },
+    })
+
+    const payload = await eventPromise as Record<string, unknown>
+    expect(payload.conversation_id).toBe(convId)
+    expect(payload.last_read_at).toBeTruthy()
+    bobWs.close()
+  })
+})
+
+// ─── Typing ───────────────────────────────────────────────────────────────────
+
+describe('WebSocket typing indicators', () => {
+  let app: App
+  let port: number
+
+  beforeAll(async () => {
+    app = await getApp()
+    await app.listen({ port: 0, host: '127.0.0.1' })
+    port = (app.server.address() as AddressInfo).port
+  })
+  afterAll(async () => { await app.close() })
+  beforeEach(async () => { cleanConnections(app); await truncateAll(app) })
+
+  it('forwards typing.start to recipient', async () => {
+    const { alice, bob } = await setupFriends(app)
+    // Create a conversation first
+    const msgRes = await app.inject({
+      method: 'POST',
+      url: '/api/messages',
+      headers: { authorization: `Bearer ${alice.token}` },
+      payload: { recipient_id: bob.user.id, body: 'Hi' },
+    })
+    const convId = msgRes.json<{ conversation_id: number }>().conversation_id
+
+    const aliceWs = await connectWs(port, alice.token)
+    const bobWs = await connectWs(port, bob.token)
+
+    const eventPromise = waitForEvent(bobWs, 'typing.start')
+    aliceWs.send(JSON.stringify({ type: 'typing.start', conversation_id: convId }))
+
+    const payload = await eventPromise as Record<string, unknown>
+    expect(payload.conversation_id).toBe(convId)
+    expect(payload.user_id).toBe(alice.user.id)
+
+    aliceWs.close()
+    bobWs.close()
+  })
+
+  it('forwards typing.stop to recipient', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const msgRes = await app.inject({
+      method: 'POST',
+      url: '/api/messages',
+      headers: { authorization: `Bearer ${alice.token}` },
+      payload: { recipient_id: bob.user.id, body: 'Hi' },
+    })
+    const convId = msgRes.json<{ conversation_id: number }>().conversation_id
+
+    const aliceWs = await connectWs(port, alice.token)
+    const bobWs = await connectWs(port, bob.token)
+
+    const eventPromise = waitForEvent(bobWs, 'typing.stop')
+    aliceWs.send(JSON.stringify({ type: 'typing.stop', conversation_id: convId }))
+
+    const payload = await eventPromise as Record<string, unknown>
+    expect(payload.user_id).toBe(alice.user.id)
+
+    aliceWs.close()
+    bobWs.close()
+  })
+
+  it('ignores typing from non-member', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const carol = await registerUser(app, { username: 'carol', email: 'carol@test.com', password: 'password123' })
+    const msgRes = await app.inject({
+      method: 'POST',
+      url: '/api/messages',
+      headers: { authorization: `Bearer ${alice.token}` },
+      payload: { recipient_id: bob.user.id, body: 'Hi' },
+    })
+    const convId = msgRes.json<{ conversation_id: number }>().conversation_id
+
+    // Carol is not a member of alice+bob's conversation
+    const carolWs = await connectWs(port, carol.token)
+    const bobWs = await connectWs(port, bob.token)
+
+    // Carol sends typing — bob should NOT receive it
+    carolWs.send(JSON.stringify({ type: 'typing.start', conversation_id: convId }))
+
+    await expect(waitForEvent(bobWs, 'typing.start', 500)).rejects.toThrow('Timeout')
+
+    carolWs.close()
+    bobWs.close()
+  })
+})
+
+// ─── Presence ─────────────────────────────────────────────────────────────────
+
+describe('WebSocket presence', () => {
+  let app: App
+  let port: number
+
+  beforeAll(async () => {
+    app = await getApp()
+    await app.listen({ port: 0, host: '127.0.0.1' })
+    port = (app.server.address() as AddressInfo).port
+  })
+  afterAll(async () => { await app.close() })
+  beforeEach(async () => { cleanConnections(app); await truncateAll(app) })
+
+  it('sends snapshot of already-online friends to newcomer', async () => {
+    const { alice, bob } = await setupFriends(app)
+    // Bob connects first
+    const bobWs = await connectWs(port, bob.token)
+
+    // Alice connects second and should immediately receive presence.online for Bob
+    const aliceWs = await connectWs(port, alice.token)
+    const payload = await waitForEvent(aliceWs, 'presence.online') as Record<string, unknown>
+    expect(payload.user_id).toBe(bob.user.id)
+
+    aliceWs.close()
+    bobWs.close()
+  })
+
+  it('sends presence.online to friends when user connects', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const bobWs = await connectWs(port, bob.token)
+
+    const eventPromise = waitForEvent(bobWs, 'presence.online')
+    const aliceWs = await connectWs(port, alice.token)
+
+    const payload = await eventPromise as Record<string, unknown>
+    expect(payload.user_id).toBe(alice.user.id)
+
+    aliceWs.close()
+    bobWs.close()
+  })
+
+  it('sends presence.offline to friends when user disconnects', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const bobWs = await connectWs(port, bob.token)
+
+    // Wait for alice's online event before disconnecting
+    const onlinePromise = waitForEvent(bobWs, 'presence.online')
+    const aliceWs = await connectWs(port, alice.token)
+    await onlinePromise
+
+    const offlinePromise = waitForEvent(bobWs, 'presence.offline')
+    aliceWs.close()
+
+    const payload = await offlinePromise as Record<string, unknown>
+    expect(payload.user_id).toBe(alice.user.id)
+
+    bobWs.close()
+  })
+
+  it('does not send presence.offline if user still has another open connection', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const bobWs = await connectWs(port, bob.token)
+
+    // Alice opens two connections
+    const aliceWs1 = await connectWs(port, alice.token)
+    const aliceWs2 = await connectWs(port, alice.token)
+
+    // Close one of alice's connections
+    aliceWs1.close()
+
+    // Bob should NOT receive presence.offline since alice still has aliceWs2
+    await expect(waitForEvent(bobWs, 'presence.offline', 500)).rejects.toThrow('Timeout')
+
+    aliceWs2.close()
+    bobWs.close()
+  })
+
+  it('does not send presence events to non-friends', async () => {
+    const alice = await registerUser(app)
+    const carol = await registerUser(app, { username: 'carol', email: 'carol@test.com', password: 'password123' })
+    // alice and carol are NOT friends
+    const carolWs = await connectWs(port, carol.token)
+    const aliceWs = await connectWs(port, alice.token)
+
+    await expect(waitForEvent(carolWs, 'presence.online', 500)).rejects.toThrow('Timeout')
+
+    carolWs.close()
+    aliceWs.close()
+  })
+})
