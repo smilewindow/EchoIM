@@ -1,164 +1,164 @@
-# EchoIM — Task Breakdown
+# EchoIM — 任务分解
 
-Each task is small enough to complete in one session. Tasks within a phase are ordered by dependency — complete them top-to-bottom. Check off `[x]` as you go.
+每个任务足够小，可在单次会话中完成。同一阶段内的任务按依赖顺序排列——从上到下依次完成。完成后标记 `[x]`。
 
-**Status legend:** `[ ]` todo · `[x]` done · `[-]` skipped
-
----
-
-## Phase 1 — Project Scaffolding
-
-- [x] **1.1** Initialize monorepo structure: `/server` (Fastify) and `/client` (React + Vite + TS)
-- [x] **1.2** Set up `server`: install Fastify, `pg`, `bcrypt`, `jsonwebtoken`, `ws`, `dotenv`
-- [x] **1.3** Set up `client`: install TailwindCSS, shadcn/ui, React Router
-- [x] **1.4** Write `docker-compose.yml` with `postgres` service and env vars; confirm `pg` connects
-- [x] **1.5** Add `eslint` + `prettier` configs to both packages; confirm lint passes
+**状态说明：** `[ ]` 待完成 · `[x]` 已完成 · `[-]` 已跳过
 
 ---
 
-## Phase 2 — Database Schema
+## 第 1 阶段 — 项目脚手架
 
-- [x] **2.1** Write migration: `users` table (`id`, `username`, `email`, `password_hash`, `display_name`, `avatar_url`, `created_at`)
-- [x] **2.2** Write migration: `friend_requests` table (`id`, `sender_id`, `recipient_id`, `status`, `created_at`, `updated_at`)
-- [x] **2.3** Write migration: `conversations` + `conversation_members` tables (`last_read_at` included)
-- [x] **2.4** Write migration: `messages` table
-- [x] **2.5** Add DB indexes: `messages(conversation_id, created_at)`, `friend_requests(recipient_id, status)`
-
----
-
-## Phase 3 — Auth API
-
-- [x] **3.1** `POST /api/auth/register` — validate input, hash password (bcrypt cost 12), insert user, return JWT
-- [x] **3.2** `POST /api/auth/login` — verify credentials, return JWT
-- [x] **3.3** Write `authenticate` Fastify hook that verifies JWT and attaches `req.user`
-- [x] **3.4** `GET /api/users/me` — return current user profile (protected)
-- [x] **3.5** `PUT /api/users/me` — update `display_name` and `avatar_url` (protected)
-- [x] **3.6** Vitest integration tests (22 cases): register, login, auth errors, profile get/update — replaced manual-only approach; curl smoke tests were done during development
-
-> **Testing infrastructure introduced here.** Vitest + real test DB (`TEST_DATABASE_URL`). Key helpers in `server/tests/helpers/`: `buildApp()` (spins up Fastify instance), `truncateAll()` (resets DB between tests), `registerUser()` (seed shortcut). Run with `npm test` from `/server`. All subsequent backend phases follow this same pattern.
+- [x] **1.1** 初始化 Monorepo 结构：`/server`（Fastify）和 `/client`（React + Vite + TS）
+- [x] **1.2** 配置 `server`：安装 Fastify、`pg`、`bcrypt`、`jsonwebtoken`、`ws`、`dotenv`
+- [x] **1.3** 配置 `client`：安装 TailwindCSS、shadcn/ui、React Router
+- [x] **1.4** 编写 `docker-compose.yml`，包含 `postgres` 服务和环境变量；确认 `pg` 连接正常
+- [x] **1.5** 为两个包添加 `eslint` + `prettier` 配置；确认 lint 通过
 
 ---
 
-## Phase 4 — User Search & Friend Requests API
+## 第 2 阶段 — 数据库 Schema
 
-- [x] **4.1** `GET /api/users/search?q=` — case-insensitive partial match on `username`, exclude self
-- [x] **4.2** `POST /api/friend-requests` — create pending request; reject duplicate or reversed existing request
-- [x] **4.3** `GET /api/friend-requests` — return pending incoming requests for current user
-- [x] **4.4** `PUT /api/friend-requests/:id` — accept or decline; on accept, do nothing extra (friendship is queried from `friend_requests` where status = accepted)
-- [x] **4.5** `GET /api/friends` — return all users where a mutual accepted request exists
-- [x] **4.6** Manual test: two users, send request, accept, verify friends list
-- [x] **4.7** Write integration tests: user search, send/accept/decline friend requests, friends list, duplicate-request and self-request rejection
+- [x] **2.1** 编写迁移：`users` 表（`id`、`username`、`email`、`password_hash`、`display_name`、`avatar_url`、`created_at`）
+- [x] **2.2** 编写迁移：`friend_requests` 表（`id`、`sender_id`、`recipient_id`、`status`、`created_at`、`updated_at`）
+- [x] **2.3** 编写迁移：`conversations` + `conversation_members` 表（含 `last_read_at`）
+- [x] **2.4** 编写迁移：`messages` 表
+- [x] **2.5** 添加数据库索引：`messages(conversation_id, created_at)`、`friend_requests(recipient_id, status)`
 
 ---
 
-## Phase 5 — Conversations & Messages REST API
+## 第 3 阶段 — 认证 API
 
-- [x] **5.1** `POST /api/messages` — accept `{ recipient_id, body }`; verify friendship; auto-create conversation if none exists; insert message; return message object
-- [x] **5.2** `GET /api/conversations` — list conversations for current user, sorted by latest message, include unread count (`messages after last_read_at`)
-- [x] **5.3** `GET /api/conversations/:id/messages?before=<cursor>` — paginated history (50 per page, cursor = message `id` of oldest loaded message)
-- [x] **5.4** `PUT /api/conversations/:id/read` — set `last_read_at = NOW()` for current user
-- [x] **5.5** Manual test: send messages, check pagination, check unread count decrements on read
-- [x] **5.6** Write integration tests: send message (auto-create conversation), conversation list with unread counts, cursor pagination, read receipts, friendship guard
+- [x] **3.1** `POST /api/auth/register` — 验证输入，哈希密码（bcrypt cost 12），插入用户，返回 JWT
+- [x] **3.2** `POST /api/auth/login` — 验证凭据，返回 JWT
+- [x] **3.3** 编写 `authenticate` Fastify 钩子，验证 JWT 并附加 `req.user`
+- [x] **3.4** `GET /api/users/me` — 返回当前用户资料（受保护）
+- [x] **3.5** `PUT /api/users/me` — 更新 `display_name` 和 `avatar_url`（受保护）
+- [x] **3.6** Vitest 集成测试（22 个用例）：注册、登录、认证错误、资料获取/更新 — 替代纯手工方式；开发期间已完成 curl 冒烟测试
 
----
-
-## Phase 6 — WebSocket Server
-
-- [x] **6.1** Set up `WS /ws?token=<jwt>` endpoint in Fastify; authenticate on upgrade; store connection in `Map<userId, Set<WebSocket>>`
-- [x] **6.2** Implement `broadcast(userId, event)` helper — sends to all active sessions for that user
-- [x] **6.3** On `POST /api/messages` success: call `broadcast(recipientId, { type: 'message.new', data: message })` and `broadcast(senderId, ...)` for sender's other tabs
-- [x] **6.4** On `PUT /api/conversations/:id/read` success: broadcast `conversation.updated` to sender's other tabs
-- [x] **6.5** Handle WS client message `typing.start` / `typing.stop` — forward to recipient's active sessions
-- [x] **6.6** On WS connect: if user now has ≥ 1 connection, broadcast `presence.online` to all online friends; also send snapshot of already-online friends back to the newcomer
-- [x] **6.7** On WS disconnect: if user now has 0 connections, broadcast `presence.offline` to all online friends; guard against stale async results on quick reconnect
-- [-] **6.8** Manual test with two browser tabs: confirm real-time delivery and presence events
-- [x] **6.9** Write integration tests: WS auth (valid/invalid token), message broadcast, typing events forwarded, presence online/offline, presence snapshot
+> **测试基础设施在此引入。** Vitest + 真实测试数据库（`TEST_DATABASE_URL`）。关键辅助函数在 `server/tests/helpers/` 中：`buildApp()`（启动 Fastify 实例）、`truncateAll()`（测试间重置数据库）、`registerUser()`（快速注册种子数据）。在 `/server` 目录下运行 `npm test`。后续所有后端阶段遵循相同模式。
 
 ---
 
-## Phase 7 — Frontend: Auth Screens
+## 第 4 阶段 — 用户搜索与好友请求 API
 
-- [x] **7.1** Set up React Router: routes for `/login`, `/register`, `/` (protected), redirect logic
-- [x] **7.2** Create `authStore` (Zustand or React context): stores JWT in `localStorage`, exposes `login()`, `logout()`, `user`
-- [x] **7.3** Build `RegisterPage` — form with username, email, password; calls `POST /api/auth/register`; redirects to `/` on success
-- [x] **7.4** Build `LoginPage` — form with email, password; calls `POST /api/auth/login`; redirects to `/` on success
-- [x] **7.5** Add protected route wrapper — redirects unauthenticated users to `/login`
-
----
-
-## Phase 8 — Frontend: Friends Flow
-
-- [x] **8.1** Build `UserSearchPanel` — input debounced to `GET /api/users/search`; shows results with "Send Request" button
-- [x] **8.2** Build `FriendRequestsPanel` — lists pending incoming requests; Accept / Decline buttons calling `PUT /api/friend-requests/:id`
-- [x] **8.3** Build `FriendsList` component — calls `GET /api/friends`; shows display name + online dot (placeholder for now)
-- [x] **8.4** Wire up friend request badge: poll `GET /api/friend-requests` on mount, show count indicator if > 0
+- [x] **4.1** `GET /api/users/search?q=` — 对 `username` 做大小写不敏感的模糊匹配，排除自身
+- [x] **4.2** `POST /api/friend-requests` — 创建待处理请求；拒绝重复请求或已有反向请求
+- [x] **4.3** `GET /api/friend-requests` — 返回当前用户收到的待处理请求
+- [x] **4.4** `PUT /api/friend-requests/:id` — 接受或拒绝；接受时无需额外操作（好友关系通过查询 `friend_requests` 中 status=accepted 的记录获取）
+- [x] **4.5** `GET /api/friends` — 返回所有存在双向已接受请求的用户
+- [x] **4.6** 手工测试：两个用户，发送请求，接受，验证好友列表
+- [x] **4.7** 编写集成测试：用户搜索、发送/接受/拒绝好友请求、好友列表、重复请求和自我请求的拒绝
 
 ---
 
-## Phase 9 — Frontend: Chat View (REST only)
+## 第 5 阶段 — 对话与消息 REST API
 
-- [ ] **9.1** Build 2-panel shell layout: left sidebar (`FriendsList` + `ConversationList`), right panel (`ChatView`)
-- [ ] **9.2** Build `ConversationList` — calls `GET /api/conversations`; shows latest message preview + unread badge; sorted by recency
-- [ ] **9.3** Build `ChatView` — loads `GET /api/conversations/:id/messages`; renders message bubbles (self right, other left)
-- [ ] **9.4** Implement infinite scroll / "load older messages" button using cursor pagination
-- [ ] **9.5** Build `MessageInput` — textarea, Enter=send, Shift+Enter=newline; calls `POST /api/messages`
-- [ ] **9.6** Optimistic message add: append message to local list immediately on send, mark as `pending`
-- [ ] **9.7** On send failure: mark message as `failed`, show retry button that re-calls `POST /api/messages`
-- [ ] **9.8** Call `PUT /api/conversations/:id/read` when user opens or focuses a conversation; update unread count locally
+- [x] **5.1** `POST /api/messages` — 接受 `{ recipient_id, body }`；验证好友关系；若无对话则自动创建；插入消息；返回消息对象
+- [x] **5.2** `GET /api/conversations` — 列出当前用户的对话，按最新消息排序，含未读数（`last_read_at` 之后的消息）
+- [x] **5.3** `GET /api/conversations/:id/messages?before=<cursor>` — 分页历史记录（每页 50 条，游标 = 最旧消息的 `id`）
+- [x] **5.4** `PUT /api/conversations/:id/read` — 将当前用户的 `last_read_at` 设为 `NOW()`
+- [x] **5.5** 手工测试：发送消息，检查分页，验证已读后未读数减少
+- [x] **5.6** 编写集成测试：发送消息（自动创建对话）、含未读数的对话列表、游标分页、已读回执、好友关系校验
 
 ---
 
-## Phase 10 — Frontend: WebSocket & Real-Time
+## 第 6 阶段 — WebSocket 服务端
 
-- [ ] **10.1** Create `useWebSocket` hook — connects to `WS /ws?token=<jwt>` on mount, reconnects on disconnect, exposes `onMessage` callback
-- [ ] **10.2** Handle `message.new` event — append message to the active conversation if open; update conversation list preview + unread count
-- [ ] **10.3** Handle `conversation.updated` event — refresh conversation list order/preview
-- [ ] **10.4** Handle `typing.start` / `typing.stop` — show/hide "Alice is typing..." indicator in `ChatView`
-- [ ] **10.5** Send `typing.start` from `MessageInput` on keydown (debounced); send `typing.stop` on blur or after 3 s of inactivity
-- [ ] **10.6** Handle `presence.online` / `presence.offline` — update online status dots in `FriendsList` and `ChatView` header
-- [ ] **10.7** On reconnect: fetch messages since last known `created_at` to backfill any missed messages
-
----
-
-## Phase 11 — Polish & Theme
-
-- [ ] **11.1** Apply shadcn/ui theme variables; add `dark:` Tailwind classes throughout; confirm auto-switch with OS setting
-- [ ] **11.2** Add loading skeletons for conversation list and message history
-- [ ] **11.3** Add empty states: no conversations, no friends, no search results
-- [ ] **11.4** Scroll chat panel to bottom on new message (unless user has scrolled up)
-- [ ] **11.5** Add toast notifications for errors (failed login, network error, etc.) using shadcn/ui `Toast`
-- [ ] **11.6** Build `ProfileEditPage` — display name + avatar URL form; calls `PUT /api/users/me`
+- [x] **6.1** 在 Fastify 中配置 `WS /ws?token=<jwt>` 端点；升级时进行认证；将连接存入 `Map<userId, Set<WebSocket>>`
+- [x] **6.2** 实现 `broadcast(userId, event)` 辅助函数 — 发送给该用户所有活跃会话
+- [x] **6.3** `POST /api/messages` 成功后：调用 `broadcast(recipientId, { type: 'message.new', data: message })` 以及发送方其他标签页的广播
+- [x] **6.4** `PUT /api/conversations/:id/read` 成功后：向发送方的其他标签页广播 `conversation.updated`
+- [x] **6.5** 处理客户端 WS 消息 `typing.start` / `typing.stop` — 转发给接收方的活跃会话
+- [x] **6.6** WS 连接时：若用户连接数 ≥ 1，向所有在线好友广播 `presence.online`；同时向新连接者回传已在线好友的快照
+- [x] **6.7** WS 断开时：若用户连接数降为 0，向所有在线好友广播 `presence.offline`；防止快速重连时的过期异步结果
+- [-] **6.8** 手工测试：两个浏览器标签页，确认实时投递和在线状态事件
+- [x] **6.9** 编写集成测试：WS 认证（有效/无效 token）、消息广播、输入事件转发、在线/离线状态、在线状态快照
 
 ---
 
-## Phase 12 — Deployment
+## 第 7 阶段 — 前端：认证页面
 
-- [ ] **12.1** Add `Dockerfile` for the backend (Node.js); multi-stage build
-- [ ] **12.2** Add `Dockerfile` for the frontend (Vite build → nginx static serve)
-- [ ] **12.3** Update `docker-compose.yml` to include all three services: `postgres`, `server`, `client`
-- [ ] **12.4** Externalize all secrets to `.env` file; add `.env.example`; confirm nothing is hardcoded
-- [ ] **12.5** Provision cloud VM (AWS EC2 / GCP Compute Engine / Azure VM); install Docker + Compose
-- [ ] **12.6** Deploy: `git pull` + `docker compose up -d` on VM; confirm app is reachable via public IP
-- [ ] **12.7** Smoke test end-to-end on the live server: register two accounts, add friend, chat in real time
+- [x] **7.1** 配置 React Router：`/login`、`/register`、`/`（受保护）路由及跳转逻辑
+- [x] **7.2** 创建 `authStore`（Zustand 或 React context）：将 JWT 存于 `localStorage`，暴露 `login()`、`logout()`、`user`
+- [x] **7.3** 构建 `RegisterPage` — 含用户名、邮箱、密码的表单；调用 `POST /api/auth/register`；成功后跳转至 `/`
+- [x] **7.4** 构建 `LoginPage` — 含邮箱、密码的表单；调用 `POST /api/auth/login`；成功后跳转至 `/`
+- [x] **7.5** 添加受保护路由包装器 — 未认证用户重定向至 `/login`
 
 ---
 
-## Dependency Map
+## 第 8 阶段 — 前端：好友流程
+
+- [x] **8.1** 构建 `UserSearchPanel` — 输入框防抖调用 `GET /api/users/search`；显示结果及"发送请求"按钮
+- [x] **8.2** 构建 `FriendRequestsPanel` — 列出待处理的收到请求；接受/拒绝按钮调用 `PUT /api/friend-requests/:id`
+- [x] **8.3** 构建 `FriendsList` 组件 — 调用 `GET /api/friends`；显示显示名称 + 在线绿点（暂为占位符）
+- [x] **8.4** 接入好友请求角标：挂载时轮询 `GET /api/friend-requests`，若数量 > 0 则显示计数标识
+
+---
+
+## 第 9 阶段 — 前端：聊天视图（仅 REST）
+
+- [x] **9.1** 构建双栏外壳布局：左侧边栏（`FriendsList` + `ConversationList`），右侧面板（`ChatView`）
+- [x] **9.2** 构建 `ConversationList` — 调用 `GET /api/conversations`；显示最新消息预览 + 未读角标；按时间倒序排列
+- [x] **9.3** 构建 `ChatView` — 加载 `GET /api/conversations/:id/messages`；渲染消息气泡（自己靠右，对方靠左）
+- [x] **9.4** 实现无限滚动 / "加载更多消息"按钮，使用游标分页
+- [x] **9.5** 构建 `MessageInput` — 文本框，Enter=发送，Shift+Enter=换行；调用 `POST /api/messages`
+- [x] **9.6** 乐观消息追加：发送后立即将消息添加到本地列表，标记为 `pending`
+- [x] **9.7** 发送失败时：将消息标记为 `failed`，显示重试按钮，重新调用 `POST /api/messages`
+- [x] **9.8** 用户打开或聚焦对话时调用 `PUT /api/conversations/:id/read`；本地更新未读数
+
+---
+
+## 第 10 阶段 — 前端：WebSocket 与实时功能
+
+- [ ] **10.1** 创建 `useWebSocket` 钩子 — 挂载时连接 `WS /ws?token=<jwt>`，断开后重连，暴露 `onMessage` 回调
+- [ ] **10.2** 处理 `message.new` 事件 — 若当前对话打开则追加消息；更新对话列表预览 + 未读数
+- [ ] **10.3** 处理 `conversation.updated` 事件 — 刷新对话列表顺序/预览
+- [ ] **10.4** 处理 `typing.start` / `typing.stop` — 在 `ChatView` 中显示/隐藏"Alice 正在输入..."提示
+- [ ] **10.5** 在 `MessageInput` 按键时发送 `typing.start`（防抖）；失焦或 3 秒无活动后发送 `typing.stop`
+- [ ] **10.6** 处理 `presence.online` / `presence.offline` — 更新 `FriendsList` 和 `ChatView` 头部的在线状态点
+- [ ] **10.7** 重连时：拉取自上次已知 `created_at` 之后的消息，补全断线期间遗漏的消息
+
+---
+
+## 第 11 阶段 — 完善与主题
+
+- [ ] **11.1** 应用 shadcn/ui 主题变量；全局添加 `dark:` Tailwind 类；确认随系统设置自动切换
+- [ ] **11.2** 为对话列表和消息历史添加加载骨架屏
+- [ ] **11.3** 添加空状态：无对话、无好友、无搜索结果
+- [ ] **11.4** 收到新消息时将聊天面板滚动到底部（用户上翻时除外）
+- [ ] **11.5** 使用 shadcn/ui `Toast` 为错误添加 toast 通知（登录失败、网络错误等）
+- [ ] **11.6** 构建 `ProfileEditPage` — 显示名称 + 头像 URL 表单；调用 `PUT /api/users/me`
+
+---
+
+## 第 12 阶段 — 部署
+
+- [ ] **12.1** 为后端添加 `Dockerfile`（Node.js）；多阶段构建
+- [ ] **12.2** 为前端添加 `Dockerfile`（Vite 构建 → nginx 静态服务）
+- [ ] **12.3** 更新 `docker-compose.yml`，包含三个服务：`postgres`、`server`、`client`
+- [ ] **12.4** 将所有密钥外置到 `.env` 文件；添加 `.env.example`；确认无硬编码内容
+- [ ] **12.5** 准备云虚拟机（AWS EC2 / GCP Compute Engine / Azure VM）；安装 Docker + Compose
+- [ ] **12.6** 部署：在虚拟机上执行 `git pull` + `docker compose up -d`；确认应用可通过公网 IP 访问
+- [ ] **12.7** 在线上服务器进行端到端冒烟测试：注册两个账号，添加好友，实时聊天
+
+---
+
+## 依赖关系图
 
 ```
-Phase 1 (scaffold)
-  └─ Phase 2 (schema)
-       └─ Phase 3 (auth API)
-            ├─ Phase 4 (friends API)
-            │    └─ Phase 5 (messages API)
-            │         └─ Phase 6 (WebSocket)
-            └─ Phase 7 (frontend auth)
-                 └─ Phase 8 (frontend friends)
-                      └─ Phase 9 (frontend chat — REST)
-                           └─ Phase 10 (frontend — real-time)
-                                └─ Phase 11 (polish)
-                                     └─ Phase 12 (deploy)
+第 1 阶段（脚手架）
+  └─ 第 2 阶段（数据库 Schema）
+       └─ 第 3 阶段（认证 API）
+            ├─ 第 4 阶段（好友 API）
+            │    └─ 第 5 阶段（消息 API）
+            │         └─ 第 6 阶段（WebSocket）
+            └─ 第 7 阶段（前端认证）
+                 └─ 第 8 阶段（前端好友）
+                      └─ 第 9 阶段（前端聊天 — REST）
+                           └─ 第 10 阶段（前端 — 实时）
+                                └─ 第 11 阶段（完善）
+                                     └─ 第 12 阶段（部署）
 ```
 
-> Phases 6 and 9 can be developed in parallel once Phase 5 is done.
-> Phase 11 can be interleaved with Phases 9–10.
+> 第 5 阶段完成后，第 6 和第 9 阶段可并行开发。
+> 第 11 阶段可与第 9–10 阶段交叉进行。
