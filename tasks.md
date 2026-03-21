@@ -78,11 +78,11 @@ Each task is small enough to complete in one session. Tasks within a phase are o
 
 ## Phase 7 — Frontend: Auth Screens
 
-- [ ] **7.1** Set up React Router: routes for `/login`, `/register`, `/` (protected), redirect logic
-- [ ] **7.2** Create `authStore` (Zustand or React context): stores JWT in `localStorage`, exposes `login()`, `logout()`, `user`
-- [ ] **7.3** Build `RegisterPage` — form with username, email, password; calls `POST /api/auth/register`; redirects to `/` on success
-- [ ] **7.4** Build `LoginPage` — form with email, password; calls `POST /api/auth/login`; redirects to `/` on success
-- [ ] **7.5** Add protected route wrapper — redirects unauthenticated users to `/login`
+- [x] **7.1** Set up React Router: routes for `/login`, `/register`, `/` (protected), redirect logic
+- [x] **7.2** Create `authStore` (Zustand or React context): stores JWT in `localStorage`, exposes `login()`, `logout()`, `user`
+- [x] **7.3** Build `RegisterPage` — form with username, email, password; calls `POST /api/auth/register`; redirects to `/` on success
+- [x] **7.4** Build `LoginPage` — form with email, password; calls `POST /api/auth/login`; redirects to `/` on success
+- [x] **7.5** Add protected route wrapper — redirects unauthenticated users to `/login`
 
 ---
 

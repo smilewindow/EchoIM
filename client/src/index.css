@@ -127,3 +127,29 @@
     @apply font-sans;
     }
 }
+
+/* ── Auth page animations ── */
+@keyframes echo-ring-large {
+  0%   { transform: scale(1);  opacity: 0.65; }
+  100% { transform: scale(22); opacity: 0;    }
+}
+
+@keyframes auth-fade-up {
+  0%   { opacity: 0; transform: translateY(22px); }
+  100% { opacity: 1; transform: translateY(0);    }
+}
+
+@keyframes home-beacon-pulse {
+  0%, 100% { box-shadow: 0 0 14px #E8943A80, 0 0 40px #E8943A30; }
+  50%       { box-shadow: 0 0 28px #E8943ABA, 0 0 80px #E8943A55; }
+}
+
+/* ── Auth field – bottom-border style with focus highlight ── */
+.auth-field {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 8px;
+  transition: border-color 0.2s ease;
+}
+.auth-field:focus-within {
+  border-color: rgba(232, 148, 58, 0.65);
+}
