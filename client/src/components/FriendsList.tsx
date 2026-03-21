@@ -10,9 +10,10 @@ interface Friend {
 
 interface Props {
   onCountChange?: (count: number) => void
+  onSelectFriend?: (friend: Friend) => void
 }
 
-export function FriendsList({ onCountChange }: Props) {
+export function FriendsList({ onCountChange, onSelectFriend }: Props) {
   const [friends, setFriends] = useState<Friend[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -75,6 +76,7 @@ export function FriendsList({ onCountChange }: Props) {
           key={friend.id}
           className="echo-friend-row"
           style={{ animationDelay: `${i * 30}ms` }}
+          onClick={() => onSelectFriend?.(friend)}
         >
           <div className="echo-avatar-wrap">
             <div

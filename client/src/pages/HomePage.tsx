@@ -1,18 +1,33 @@
 import { useEffect, useState } from 'react'
+import { MessageSquare } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth'
+import { useChatStore } from '@/stores/chat'
 import { apiFetch } from '@/lib/api'
 import { FriendsList } from '@/components/FriendsList'
 import { FriendRequestsPanel } from '@/components/FriendRequestsPanel'
 import { UserSearchPanel } from '@/components/UserSearchPanel'
+import { ConversationList } from '@/components/ConversationList'
+import { ChatView } from '@/components/ChatView'
 
-type Tab = 'friends' | 'requests' | 'search'
+type Tab = 'chats' | 'friends' | 'requests' | 'search'
 
 export function HomePage() {
   const { user, logout } = useAuthStore()
   const displayName = user?.display_name || user?.username || ''
-  const [activeTab, setActiveTab] = useState<Tab>('friends')
+
+  const { activeConversationId, activePeer, fetchConversations, selectPeer, clearChat } =
+    useChatStore()
+
+  const [activeTab, setActiveTab] = useState<Tab>('chats')
   const [requestCount, setRequestCount] = useState(0)
   const [friendCount, setFriendCount] = useState(0)
+
+  const chatActive = activeConversationId !== null || activePeer !== null
+
+  // Fetch conversations on mount
+  useEffect(() => {
+    fetchConversations()
+  }, [fetchConversations])
 
   // Poll for friend request count
   useEffect(() => {
@@ -37,12 +52,30 @@ export function HomePage() {
     setRequestCount(count)
   }
 
+  const handleBack = () => {
+    clearChat()
+  }
+
   const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
+    {
+      key: 'chats',
+      label: 'Chats',
+      icon: <MessageSquare size={16} />,
+    },
     {
       key: 'friends',
       label: 'Friends',
       icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
           <circle cx="9" cy="7" r="4" />
           <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
@@ -54,7 +87,16 @@ export function HomePage() {
       key: 'requests',
       label: 'Requests',
       icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
           <circle cx="9" cy="7" r="4" />
           <line x1="19" x2="19" y1="8" y2="14" />
@@ -66,7 +108,16 @@ export function HomePage() {
       key: 'search',
       label: 'Search',
       icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <circle cx="11" cy="11" r="8" />
           <path d="m21 21-4.3-4.3" />
         </svg>
@@ -75,7 +126,7 @@ export function HomePage() {
   ]
 
   return (
-    <div className="echo-shell">
+    <div className={`echo-shell${chatActive ? ' echo-shell--chat-active' : ''}`}>
       {/* ─── Sidebar ─── */}
       <aside className="echo-sidebar">
         {/* User header */}
@@ -89,7 +140,16 @@ export function HomePage() {
               <p className="echo-sidebar-status">Online</p>
             </div>
             <button onClick={logout} className="echo-logout-btn" title="Sign out">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
                 <polyline points="16 17 21 12 16 7" />
                 <line x1="21" x2="9" y1="12" y2="12" />
@@ -120,7 +180,21 @@ export function HomePage() {
 
         {/* Tab content */}
         <div className="echo-sidebar-content">
-          {activeTab === 'friends' && <FriendsList onCountChange={setFriendCount} />}
+          {activeTab === 'chats' && <ConversationList />}
+          {activeTab === 'friends' && (
+            <FriendsList
+              onCountChange={setFriendCount}
+              onSelectFriend={(friend) => {
+                selectPeer({
+                  id: friend.id,
+                  username: friend.username,
+                  display_name: friend.display_name,
+                  avatar_url: friend.avatar_url,
+                })
+                setActiveTab('chats')
+              }}
+            />
+          )}
           {activeTab === 'requests' && (
             <FriendRequestsPanel onCountChange={handleRequestCountChange} />
           )}
@@ -130,23 +204,26 @@ export function HomePage() {
 
       {/* ─── Main content area ─── */}
       <main className="echo-main">
-        <div className="echo-main-placeholder">
-          {/* Echo beacon */}
-          <div className="echo-main-beacon-wrap">
-            <div className="echo-main-beacon" />
-            {[0, 1, 2].map((i) => (
-              <div
-                key={i}
-                className="echo-main-ring"
-                style={{ animationDelay: `${i * 1.6}s` }}
-              />
-            ))}
+        {chatActive ? (
+          <ChatView onBack={handleBack} />
+        ) : (
+          <div className="echo-main-placeholder">
+            <div className="echo-main-beacon-wrap">
+              <div className="echo-main-beacon" />
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="echo-main-ring"
+                  style={{ animationDelay: `${i * 1.6}s` }}
+                />
+              ))}
+            </div>
+            <h2 className="echo-main-title">
+              Echo<span className="echo-main-accent">IM</span>
+            </h2>
+            <p className="echo-main-sub">Select a friend to start a conversation</p>
           </div>
-          <h2 className="echo-main-title">
-            Echo<span className="echo-main-accent">IM</span>
-          </h2>
-          <p className="echo-main-sub">Select a friend to start a conversation</p>
-        </div>
+        )}
       </main>
     </div>
   )
