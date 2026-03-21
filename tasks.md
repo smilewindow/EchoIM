@@ -88,10 +88,10 @@ Each task is small enough to complete in one session. Tasks within a phase are o
 
 ## Phase 8 — Frontend: Friends Flow
 
-- [ ] **8.1** Build `UserSearchPanel` — input debounced to `GET /api/users/search`; shows results with "Send Request" button
-- [ ] **8.2** Build `FriendRequestsPanel` — lists pending incoming requests; Accept / Decline buttons calling `PUT /api/friend-requests/:id`
-- [ ] **8.3** Build `FriendsList` component — calls `GET /api/friends`; shows display name + online dot (placeholder for now)
-- [ ] **8.4** Wire up friend request badge: poll `GET /api/friend-requests` on mount, show count indicator if > 0
+- [x] **8.1** Build `UserSearchPanel` — input debounced to `GET /api/users/search`; shows results with "Send Request" button
+- [x] **8.2** Build `FriendRequestsPanel` — lists pending incoming requests; Accept / Decline buttons calling `PUT /api/friend-requests/:id`
+- [x] **8.3** Build `FriendsList` component — calls `GET /api/friends`; shows display name + online dot (placeholder for now)
+- [x] **8.4** Wire up friend request badge: poll `GET /api/friend-requests` on mount, show count indicator if > 0
 
 ---
 

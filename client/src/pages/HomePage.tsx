@@ -1,151 +1,153 @@
+import { useEffect, useState } from 'react'
 import { useAuthStore } from '@/stores/auth'
+import { apiFetch } from '@/lib/api'
+import { FriendsList } from '@/components/FriendsList'
+import { FriendRequestsPanel } from '@/components/FriendRequestsPanel'
+import { UserSearchPanel } from '@/components/UserSearchPanel'
 
-const ACCENT = '#E8943A'
-const BG = '#08090F'
-const TEXT = '#F0EDE6'
+type Tab = 'friends' | 'requests' | 'search'
 
 export function HomePage() {
   const { user, logout } = useAuthStore()
   const displayName = user?.display_name || user?.username || ''
+  const [activeTab, setActiveTab] = useState<Tab>('friends')
+  const [requestCount, setRequestCount] = useState(0)
+  const [friendCount, setFriendCount] = useState(0)
+
+  // Poll for friend request count
+  useEffect(() => {
+    let cancelled = false
+    const poll = async () => {
+      try {
+        const data = await apiFetch<{ id: number }[]>('/friend-requests')
+        if (!cancelled) setRequestCount(data.length)
+      } catch {
+        // ignore
+      }
+    }
+    poll()
+    const interval = setInterval(poll, 30000)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [])
+
+  const handleRequestCountChange = (count: number) => {
+    setRequestCount(count)
+  }
+
+  const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
+    {
+      key: 'friends',
+      label: 'Friends',
+      icon: (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      ),
+    },
+    {
+      key: 'requests',
+      label: 'Requests',
+      icon: (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <line x1="19" x2="19" y1="8" y2="14" />
+          <line x1="22" x2="16" y1="11" y2="11" />
+        </svg>
+      ),
+    },
+    {
+      key: 'search',
+      label: 'Search',
+      icon: (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.3-4.3" />
+        </svg>
+      ),
+    },
+  ]
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: BG,
-        color: TEXT,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        position: 'relative',
-        overflow: 'hidden',
-      }}
-    >
-      {/* Echo rings backdrop */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          pointerEvents: 'none',
-        }}
-      >
-        <div
-          style={{
-            position: 'absolute',
-            width: '12px',
-            height: '12px',
-            borderRadius: '50%',
-            background: ACCENT,
-            animation: 'home-beacon-pulse 2.8s ease-in-out infinite',
-          }}
-        />
-        {[0, 1, 2, 3, 4].map(i => (
-          <div
-            key={i}
-            style={{
-              position: 'absolute',
-              width: '12px',
-              height: '12px',
-              borderRadius: '50%',
-              border: `1px solid ${ACCENT}20`,
-              animation: 'echo-ring-large 5s cubic-bezier(0.2, 0.5, 0.4, 0.9) infinite',
-              animationDelay: `${i * 1.0}s`,
-            }}
-          />
-        ))}
-      </div>
+    <div className="echo-shell">
+      {/* ─── Sidebar ─── */}
+      <aside className="echo-sidebar">
+        {/* User header */}
+        <div className="echo-sidebar-header">
+          <div className="echo-sidebar-user">
+            <div className="echo-sidebar-avatar">
+              {displayName.slice(0, 2).toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="echo-sidebar-name">{displayName}</p>
+              <p className="echo-sidebar-status">Online</p>
+            </div>
+            <button onClick={logout} className="echo-logout-btn" title="Sign out">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" x2="9" y1="12" y2="12" />
+              </svg>
+            </button>
+          </div>
+        </div>
 
-      {/* Content */}
-      <div
-        style={{
-          position: 'relative',
-          zIndex: 1,
-          textAlign: 'center',
-          animation: 'auth-fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both',
-        }}
-      >
-        <p
-          style={{
-            fontSize: '12px',
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            color: 'rgba(240,237,230,0.3)',
-            marginBottom: '20px',
-          }}
-        >
-          Signed in as
-        </p>
-        <h1
-          style={{
-            fontFamily: "'Syne', sans-serif",
-            fontWeight: 800,
-            fontSize: 'clamp(36px, 6vw, 64px)',
-            letterSpacing: '-0.02em',
-            lineHeight: 1.1,
-            marginBottom: '12px',
-          }}
-        >
-          {displayName}
-        </h1>
-        <p
-          style={{
-            fontSize: '14px',
-            color: 'rgba(240,237,230,0.35)',
-            marginBottom: '48px',
-            letterSpacing: '0.02em',
-          }}
-        >
-          Chat UI arriving in Phase 9
-        </p>
+        {/* Tab bar */}
+        <nav className="echo-tab-bar">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`echo-tab ${activeTab === tab.key ? 'echo-tab--active' : ''}`}
+            >
+              {tab.icon}
+              <span>{tab.label}</span>
+              {tab.key === 'friends' && friendCount > 0 && (
+                <span className="echo-count">{friendCount}</span>
+              )}
+              {tab.key === 'requests' && requestCount > 0 && (
+                <span className="echo-badge">{requestCount}</span>
+              )}
+            </button>
+          ))}
+        </nav>
 
-        <button
-          onClick={logout}
-          style={{
-            padding: '10px 28px',
-            background: 'transparent',
-            border: '1px solid rgba(255,255,255,0.12)',
-            borderRadius: '4px',
-            color: 'rgba(240,237,230,0.55)',
-            fontSize: '13px',
-            letterSpacing: '0.04em',
-            cursor: 'pointer',
-            fontFamily: 'inherit',
-            transition: 'border-color 0.15s ease, color 0.15s ease',
-          }}
-          onMouseEnter={e => {
-            const btn = e.currentTarget as HTMLButtonElement
-            btn.style.borderColor = `${ACCENT}60`
-            btn.style.color = ACCENT
-          }}
-          onMouseLeave={e => {
-            const btn = e.currentTarget as HTMLButtonElement
-            btn.style.borderColor = 'rgba(255,255,255,0.12)'
-            btn.style.color = 'rgba(240,237,230,0.55)'
-          }}
-        >
-          Sign out
-        </button>
-      </div>
+        {/* Tab content */}
+        <div className="echo-sidebar-content">
+          {activeTab === 'friends' && <FriendsList onCountChange={setFriendCount} />}
+          {activeTab === 'requests' && (
+            <FriendRequestsPanel onCountChange={handleRequestCountChange} />
+          )}
+          {activeTab === 'search' && <UserSearchPanel />}
+        </div>
+      </aside>
 
-      {/* Wordmark bottom-right */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: '28px',
-          right: '32px',
-          fontFamily: "'Syne', sans-serif",
-          fontWeight: 800,
-          fontSize: '16px',
-          color: 'rgba(240,237,230,0.15)',
-          letterSpacing: '-0.01em',
-        }}
-      >
-        Echo<span style={{ color: `${ACCENT}40` }}>IM</span>
-      </div>
+      {/* ─── Main content area ─── */}
+      <main className="echo-main">
+        <div className="echo-main-placeholder">
+          {/* Echo beacon */}
+          <div className="echo-main-beacon-wrap">
+            <div className="echo-main-beacon" />
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="echo-main-ring"
+                style={{ animationDelay: `${i * 1.6}s` }}
+              />
+            ))}
+          </div>
+          <h2 className="echo-main-title">
+            Echo<span className="echo-main-accent">IM</span>
+          </h2>
+          <p className="echo-main-sub">Select a friend to start a conversation</p>
+        </div>
+      </main>
     </div>
   )
 }

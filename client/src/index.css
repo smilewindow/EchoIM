@@ -153,3 +153,600 @@
 .auth-field:focus-within {
   border-color: rgba(232, 148, 58, 0.65);
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Phase 8 — Friends Flow
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── App shell — sidebar + main ── */
+.echo-shell {
+  display: flex;
+  min-height: 100vh;
+  background: #08090F;
+  color: #F0EDE6;
+}
+
+/* ── Sidebar ── */
+.echo-sidebar {
+  width: 320px;
+  min-width: 320px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  background: #0B0C14;
+}
+
+.echo-sidebar-header {
+  padding: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.echo-sidebar-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.echo-sidebar-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #E8943A 0%, #D47A20 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #08090F;
+  flex-shrink: 0;
+}
+
+.echo-sidebar-name {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.echo-sidebar-status {
+  font-size: 11px;
+  color: #5AE07A;
+  letter-spacing: 0.02em;
+}
+
+.echo-logout-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: rgba(240, 237, 230, 0.3);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+.echo-logout-btn:hover {
+  color: #E8943A;
+  background: rgba(232, 148, 58, 0.08);
+}
+
+/* ── Tab bar ── */
+.echo-tab-bar {
+  display: flex;
+  padding: 8px 8px 0;
+  gap: 2px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.echo-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 8px;
+  border: none;
+  background: transparent;
+  color: rgba(240, 237, 230, 0.35);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s ease;
+  position: relative;
+  font-family: inherit;
+}
+.echo-tab:hover {
+  color: rgba(240, 237, 230, 0.6);
+}
+.echo-tab--active {
+  color: #E8943A;
+  border-bottom-color: #E8943A;
+}
+
+/* ── Friend count (subtle) ── */
+.echo-count {
+  font-size: 10px;
+  color: rgba(240, 237, 230, 0.3);
+  font-weight: 500;
+}
+.echo-tab--active .echo-count {
+  color: rgba(232, 148, 58, 0.5);
+}
+
+/* ── Badge ── */
+.echo-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #E8943A;
+  color: #08090F;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  animation: echo-badge-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes echo-badge-pop {
+  0%   { transform: scale(0); }
+  100% { transform: scale(1); }
+}
+
+/* ── Sidebar content ── */
+.echo-sidebar-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Scrollbar ── */
+.echo-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.echo-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.echo-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+}
+.echo-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* ── Search input ── */
+.echo-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.echo-search-icon {
+  position: absolute;
+  left: 10px;
+  color: rgba(240, 237, 230, 0.25);
+  pointer-events: none;
+}
+
+.echo-search-input {
+  width: 100%;
+  padding: 10px 32px 10px 34px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  color: #F0EDE6;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: all 0.2s ease;
+}
+.echo-search-input::placeholder {
+  color: rgba(240, 237, 230, 0.25);
+}
+.echo-search-input:focus {
+  border-color: rgba(232, 148, 58, 0.4);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 0 3px rgba(232, 148, 58, 0.08);
+}
+
+.echo-search-clear {
+  position: absolute;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  color: rgba(240, 237, 230, 0.4);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+.echo-search-clear:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(240, 237, 230, 0.7);
+}
+
+/* ── Avatar ── */
+.echo-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(232, 148, 58, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.echo-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.echo-avatar-initials {
+  font-size: 12px;
+  font-weight: 700;
+  color: #E8943A;
+  letter-spacing: 0.03em;
+}
+
+/* ── Avatar with presence ── */
+.echo-avatar-wrap {
+  position: relative;
+}
+
+.echo-presence-dot {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid #0B0C14;
+}
+.echo-presence-dot--online {
+  background: #5AE07A;
+  box-shadow: 0 0 6px rgba(90, 224, 122, 0.4);
+}
+.echo-presence-dot--offline {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* ── User row (search results) ── */
+.echo-user-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  transition: background 0.15s ease;
+  animation: echo-row-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.echo-user-row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* ── Friend request row ── */
+.echo-request-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  transition: background 0.15s ease;
+  animation: echo-row-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.echo-request-row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* ── Friend row ── */
+.echo-friend-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  animation: echo-row-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.echo-friend-row:hover {
+  background: rgba(232, 148, 58, 0.06);
+}
+
+@keyframes echo-row-in {
+  0%   { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* ── User name & handle ── */
+.echo-user-name {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.echo-user-handle {
+  font-size: 11px;
+  color: rgba(240, 237, 230, 0.3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+/* ── Action buttons ── */
+.echo-action-btn {
+  padding: 6px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(240, 237, 230, 0.6);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  font-family: inherit;
+}
+.echo-action-btn:hover:not(:disabled) {
+  border-color: rgba(232, 148, 58, 0.4);
+  color: #E8943A;
+  background: rgba(232, 148, 58, 0.06);
+}
+.echo-action-btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+.echo-action-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.echo-action-btn--sent {
+  border-color: rgba(90, 224, 122, 0.2);
+  color: rgba(90, 224, 122, 0.5);
+}
+
+.echo-action-btn--accept {
+  border-color: rgba(232, 148, 58, 0.3);
+  color: #E8943A;
+}
+.echo-action-btn--accept:hover:not(:disabled) {
+  background: rgba(232, 148, 58, 0.12);
+  border-color: #E8943A;
+}
+
+.echo-action-btn--decline {
+  color: rgba(240, 237, 230, 0.3);
+}
+.echo-action-btn--decline:hover:not(:disabled) {
+  border-color: rgba(255, 80, 80, 0.3);
+  color: rgba(255, 80, 80, 0.6);
+  background: rgba(255, 80, 80, 0.06);
+}
+
+/* ── Empty state ── */
+.echo-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  gap: 12px;
+  flex: 1;
+}
+
+.echo-empty-icon {
+  color: rgba(240, 237, 230, 0.12);
+}
+
+.echo-empty-text {
+  font-size: 13px;
+  color: rgba(240, 237, 230, 0.3);
+  letter-spacing: 0.02em;
+}
+
+.echo-empty-hint {
+  font-size: 11px;
+  color: rgba(240, 237, 230, 0.18);
+}
+
+/* ── Spinner ── */
+.echo-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(232, 148, 58, 0.15);
+  border-top-color: #E8943A;
+  border-radius: 50%;
+  animation: echo-spin 0.7s linear infinite;
+}
+
+@keyframes echo-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Main content area ── */
+.echo-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.echo-main-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  animation: auth-fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.echo-main-beacon-wrap {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  margin-bottom: 8px;
+}
+
+.echo-main-beacon {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #E8943A;
+  animation: home-beacon-pulse 2.8s ease-in-out infinite;
+}
+
+.echo-main-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(232, 148, 58, 0.12);
+  animation: echo-ring-large 5s cubic-bezier(0.2, 0.5, 0.4, 0.9) infinite;
+}
+
+.echo-main-title {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 28px;
+  letter-spacing: -0.02em;
+  color: rgba(240, 237, 230, 0.12);
+}
+
+.echo-main-accent {
+  color: rgba(232, 148, 58, 0.25);
+}
+
+.echo-main-sub {
+  font-size: 13px;
+  color: rgba(240, 237, 230, 0.2);
+  letter-spacing: 0.02em;
+}
+
+/* ── Section label ── */
+.echo-section-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(240, 237, 230, 0.25);
+}
+
+.echo-section-count {
+  font-size: 10px;
+  font-weight: 500;
+  color: rgba(240, 237, 230, 0.2);
+}
+
+/* ── History toggle ── */
+.echo-history-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 12px 6px;
+  border: none;
+  background: transparent;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(240, 237, 230, 0.25);
+  cursor: pointer;
+  transition: color 0.15s ease;
+  font-family: inherit;
+}
+.echo-history-toggle:hover {
+  color: rgba(240, 237, 230, 0.4);
+}
+
+.echo-chevron {
+  transition: transform 0.2s ease;
+}
+.echo-chevron--open {
+  transform: rotate(180deg);
+}
+
+/* ── History row (muted) ── */
+.echo-request-row--history {
+  opacity: 0.65;
+}
+
+.echo-avatar--muted {
+  opacity: 0.6;
+}
+
+.echo-user-name--muted {
+  font-weight: 500;
+}
+
+/* ── Status pill ── */
+.echo-status-pill {
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.echo-status-pill--accepted {
+  background: rgba(90, 224, 122, 0.1);
+  color: rgba(90, 224, 122, 0.7);
+}
+
+.echo-status-pill--declined {
+  background: rgba(255, 80, 80, 0.08);
+  color: rgba(255, 80, 80, 0.5);
+}
+
+.echo-status-pill--pending {
+  background: rgba(232, 148, 58, 0.1);
+  color: rgba(232, 148, 58, 0.6);
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .echo-shell {
+    flex-direction: column;
+  }
+  .echo-sidebar {
+    width: 100%;
+    min-width: unset;
+    max-height: 60vh;
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  .echo-main {
+    min-height: 40vh;
+  }
+}

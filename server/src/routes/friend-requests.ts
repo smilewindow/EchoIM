@@ -60,6 +60,35 @@ const friendRequestRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.status(200).send(result.rows)
   })
 
+  fastify.get('/sent', async (request, reply) => {
+    const result = await fastify.pool.query(
+      `SELECT fr.id, fr.sender_id, fr.recipient_id, fr.status, fr.created_at, fr.updated_at,
+              u.username, u.display_name, u.avatar_url
+       FROM friend_requests fr
+       JOIN users u ON u.id = fr.recipient_id
+       WHERE fr.sender_id = $1 AND fr.status = 'pending'
+       ORDER BY fr.created_at DESC`,
+      [request.user.id]
+    )
+    return reply.status(200).send(result.rows)
+  })
+
+  fastify.get('/history', async (request, reply) => {
+    const userId = request.user.id
+    const result = await fastify.pool.query(
+      `SELECT fr.id, fr.sender_id, fr.recipient_id, fr.status, fr.created_at, fr.updated_at,
+              CASE WHEN fr.sender_id = $1 THEN 'sent' ELSE 'received' END AS direction,
+              u.username, u.display_name, u.avatar_url
+       FROM friend_requests fr
+       JOIN users u ON u.id = CASE WHEN fr.sender_id = $1 THEN fr.recipient_id ELSE fr.sender_id END
+       WHERE (fr.sender_id = $1 OR fr.recipient_id = $1)
+         AND fr.status IN ('accepted', 'declined')
+       ORDER BY fr.updated_at DESC`,
+      [userId]
+    )
+    return reply.status(200).send(result.rows)
+  })
+
   fastify.put('/:id', {
     schema: {
       body: {
