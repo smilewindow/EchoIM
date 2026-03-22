@@ -117,6 +117,9 @@
 - [x] **10.5** 在 `MessageInput` 按键时发送 `typing.start`（防抖）；失焦或 3 秒无活动后发送 `typing.stop`
 - [x] **10.6** 处理 `presence.online` / `presence.offline` — 更新 `FriendsList` 和 `ChatView` 头部的在线状态点
 - [x] **10.7** 重连时：拉取自上次已知 `created_at` 之后的消息，补全断线期间遗漏的消息
+- [x] **10.8** Playwright e2e 测试：认证流程（注册/登录/受保护路由）、聊天冒烟测试（发送消息/对话列表）、实时消息测试（WebSocket 投递/输入提示/在线状态）
+
+> **端到端测试基础设施在此引入。** Playwright + Chromium，配置见 `playwright.config.ts`。测试文件在 `e2e/` 目录下：`auth.spec.ts`（认证流程）、`chat-smoke.spec.ts`（聊天冒烟）、`chat-realtime.spec.ts`（实时功能）。辅助函数在 `e2e/helpers.ts` 中。Playwright 自动启动前后端开发服务器（`webServer` 配置）。在项目根目录下运行 `npx playwright test`。
 
 ---
 
