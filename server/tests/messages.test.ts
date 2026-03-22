@@ -30,12 +30,18 @@ async function setupFriends(app: App): Promise<{ alice: UserInfo; bob: UserInfo 
   return { alice, bob }
 }
 
-async function sendMessage(app: App, token: string, recipient_id: number, body: string) {
+async function sendMessage(
+  app: App,
+  token: string,
+  recipient_id: number,
+  body: string,
+  client_temp_id?: string,
+) {
   return app.inject({
     method: 'POST',
     url: '/api/messages',
     headers: { authorization: `Bearer ${token}` },
-    payload: { recipient_id, body },
+    payload: client_temp_id ? { recipient_id, body, client_temp_id } : { recipient_id, body },
   })
 }
 
@@ -56,6 +62,13 @@ describe('POST /api/messages', () => {
     expect(body.sender_id).toBe(alice.user.id)
     expect(body.body).toBe('Hello Bob!')
     expect(body.conversation_id).toBeTypeOf('number')
+  })
+
+  it('echoes client_temp_id back to the sender response when provided', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const res = await sendMessage(app, alice.token, bob.user.id, 'Hello Bob!', 'temp-123')
+    expect(res.statusCode).toBe(201)
+    expect(res.json().client_temp_id).toBe('temp-123')
   })
 
   it('auto-creates conversation on first message', async () => {
@@ -270,6 +283,40 @@ describe('GET /api/conversations/:id/messages', () => {
     const msgs = res.json()
     expect(msgs).toHaveLength(1)
     expect(msgs[0].body).toBe('First')
+  })
+
+  it('supports forward pagination via after param (ASC order)', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const r1 = await sendMessage(app, alice.token, bob.user.id, 'First')
+    const convId = r1.json().conversation_id
+    const firstId = r1.json().id
+    await sendMessage(app, alice.token, bob.user.id, 'Second')
+    await sendMessage(app, alice.token, bob.user.id, 'Third')
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/conversations/${convId}/messages?after=${firstId}`,
+      headers: { authorization: `Bearer ${alice.token}` },
+    })
+    expect(res.statusCode).toBe(200)
+    const msgs = res.json()
+    expect(msgs).toHaveLength(2)
+    expect(msgs[0].body).toBe('Second') // ASC: older first
+    expect(msgs[1].body).toBe('Third')
+  })
+
+  it('returns 400 when both before and after are provided', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const r1 = await sendMessage(app, alice.token, bob.user.id, 'First')
+    const convId = r1.json().conversation_id
+    const id = r1.json().id
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/conversations/${convId}/messages?before=${id}&after=${id}`,
+      headers: { authorization: `Bearer ${alice.token}` },
+    })
+    expect(res.statusCode).toBe(400)
   })
 
   it('rejects malformed conversation id', async () => {

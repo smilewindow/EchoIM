@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api'
+import { usePresenceStore } from '@/stores/presence'
 
 interface Friend {
   id: number
@@ -16,6 +17,7 @@ interface Props {
 export function FriendsList({ onCountChange, onSelectFriend }: Props) {
   const [friends, setFriends] = useState<Friend[]>([])
   const [loading, setLoading] = useState(true)
+  const onlineUsers = usePresenceStore((s) => s.onlineUsers)
 
   const fetchFriends = useCallback(async () => {
     try {
@@ -95,8 +97,7 @@ export function FriendsList({ onCountChange, onSelectFriend }: Props) {
                 </span>
               )}
             </div>
-            {/* Online dot — placeholder, will be wired in Phase 10 */}
-            <span className="echo-presence-dot echo-presence-dot--offline" />
+            <span className={`echo-presence-dot ${onlineUsers.has(friend.id) ? 'echo-presence-dot--online' : 'echo-presence-dot--offline'}`} />
           </div>
           <div className="flex-1 min-w-0">
             <p className="echo-user-name">

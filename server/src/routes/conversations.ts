@@ -37,17 +37,21 @@ const conversationRoutes: FastifyPluginAsync = async (fastify) => {
         type: 'object',
         properties: {
           before: { type: 'integer', minimum: 1 },
+          after: { type: 'integer', minimum: 1 },
         },
         additionalProperties: false,
       },
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string }
-    const { before } = request.query as { before?: number }
+    const { before, after } = request.query as { before?: number; after?: number }
     const userId = request.user.id
 
     if (!/^\d+$/.test(id)) {
       return reply.status(400).send({ error: 'Invalid id' })
+    }
+    if (before !== undefined && after !== undefined) {
+      return reply.status(400).send({ error: 'Cannot use both before and after' })
     }
     const convId = Number(id)
 
@@ -65,6 +69,11 @@ const conversationRoutes: FastifyPluginAsync = async (fastify) => {
       result = await fastify.pool.query(
         'SELECT * FROM messages WHERE conversation_id = $1 AND id < $2 ORDER BY id DESC LIMIT 50',
         [convId, before]
+      )
+    } else if (after) {
+      result = await fastify.pool.query(
+        'SELECT * FROM messages WHERE conversation_id = $1 AND id > $2 ORDER BY id ASC LIMIT 50',
+        [convId, after]
       )
     } else {
       result = await fastify.pool.query(

@@ -3,6 +3,7 @@ import { MessageSquare } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth'
 import { useChatStore } from '@/stores/chat'
 import { apiFetch } from '@/lib/api'
+import { useWebSocket } from '@/hooks/useWebSocket'
 import { FriendsList } from '@/components/FriendsList'
 import { FriendRequestsPanel } from '@/components/FriendRequestsPanel'
 import { UserSearchPanel } from '@/components/UserSearchPanel'
@@ -17,6 +18,8 @@ export function HomePage() {
 
   const { activeConversationId, activePeer, fetchConversations, selectPeer, clearChat } =
     useChatStore()
+
+  useWebSocket()
 
   const [activeTab, setActiveTab] = useState<Tab>('chats')
   const [requestCount, setRequestCount] = useState(0)

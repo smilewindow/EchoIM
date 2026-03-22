@@ -13,11 +13,16 @@ const messageRoutes: FastifyPluginAsync = async (fastify) => {
         properties: {
           recipient_id: { type: 'integer' },
           body: { type: 'string', minLength: 1 },
+          client_temp_id: { type: 'string', minLength: 1 },
         },
       },
     },
   }, async (request, reply) => {
-    const { recipient_id, body } = request.body as { recipient_id: number; body: string }
+    const { recipient_id, body, client_temp_id } = request.body as {
+      recipient_id: number
+      body: string
+      client_temp_id?: string
+    }
     const sender_id = request.user.id
 
     // Verify friendship
@@ -76,10 +81,12 @@ const messageRoutes: FastifyPluginAsync = async (fastify) => {
       client.release()
     }
 
+    // client_temp_id 只回给发送方，用来精确替换本地 optimistic message，不落库也不广播给对端。
+    const senderMessage = client_temp_id ? { ...msgRow, client_temp_id } : msgRow
     fastify.broadcast(recipient_id, { type: 'message.new', payload: msgRow })
-    fastify.broadcast(sender_id, { type: 'message.new', payload: msgRow })
+    fastify.broadcast(sender_id, { type: 'message.new', payload: senderMessage })
 
-    return reply.status(201).send(msgRow)
+    return reply.status(201).send(senderMessage)
   })
 }
 

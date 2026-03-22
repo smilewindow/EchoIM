@@ -110,13 +110,13 @@
 
 ## 第 10 阶段 — 前端：WebSocket 与实时功能
 
-- [ ] **10.1** 创建 `useWebSocket` 钩子 — 挂载时连接 `WS /ws?token=<jwt>`，断开后重连，暴露 `onMessage` 回调
-- [ ] **10.2** 处理 `message.new` 事件 — 若当前对话打开则追加消息；更新对话列表预览 + 未读数
-- [ ] **10.3** 处理 `conversation.updated` 事件 — 刷新对话列表顺序/预览
-- [ ] **10.4** 处理 `typing.start` / `typing.stop` — 在 `ChatView` 中显示/隐藏"Alice 正在输入..."提示
-- [ ] **10.5** 在 `MessageInput` 按键时发送 `typing.start`（防抖）；失焦或 3 秒无活动后发送 `typing.stop`
-- [ ] **10.6** 处理 `presence.online` / `presence.offline` — 更新 `FriendsList` 和 `ChatView` 头部的在线状态点
-- [ ] **10.7** 重连时：拉取自上次已知 `created_at` 之后的消息，补全断线期间遗漏的消息
+- [x] **10.1** 创建 `useWebSocket` 钩子 — 挂载时连接 `WS /ws?token=<jwt>`，断开后重连，暴露 `onMessage` 回调
+- [x] **10.2** 处理 `message.new` 事件 — 若当前对话打开则追加消息；更新对话列表预览 + 未读数
+- [x] **10.3** 处理 `conversation.updated` 事件 — 刷新对话列表顺序/预览
+- [x] **10.4** 处理 `typing.start` / `typing.stop` — 在 `ChatView` 中显示/隐藏"Alice 正在输入..."提示
+- [x] **10.5** 在 `MessageInput` 按键时发送 `typing.start`（防抖）；失焦或 3 秒无活动后发送 `typing.stop`
+- [x] **10.6** 处理 `presence.online` / `presence.offline` — 更新 `FriendsList` 和 `ChatView` 头部的在线状态点
+- [x] **10.7** 重连时：拉取自上次已知 `created_at` 之后的消息，补全断线期间遗漏的消息
 
 ---
 

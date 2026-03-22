@@ -2,8 +2,12 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 import { Send, ArrowLeft, AlertCircle, RefreshCw, MessageSquare } from 'lucide-react'
 import { useChatStore, type Message } from '@/stores/chat'
 import { useAuthStore } from '@/stores/auth'
+import { usePresenceStore } from '@/stores/presence'
+import { sendWsMessage } from '@/hooks/useWebSocket'
 
 /* ── Helpers ── */
+
+const NEAR_BOTTOM_THRESHOLD_PX = 120
 
 function formatTime(dateStr: string): string {
   const d = new Date(dateStr)
@@ -33,6 +37,10 @@ function initials(displayName: string | null | undefined, username: string): str
   return name.slice(0, 2).toUpperCase()
 }
 
+function isNearBottom(container: HTMLDivElement): boolean {
+  return container.scrollTop + container.clientHeight >= container.scrollHeight - NEAR_BOTTOM_THRESHOLD_PX
+}
+
 /* ── Types ── */
 
 interface Props {
@@ -49,6 +57,7 @@ export function ChatView({ onBack }: Props) {
     messages,
     messagesLoading,
     hasMore,
+    typingConversationIds,
     sendMessage,
     retryMessage,
     loadOlderMessages,
@@ -56,6 +65,7 @@ export function ChatView({ onBack }: Props) {
   } = useChatStore()
 
   const { user } = useAuthStore()
+  const onlineUsers = usePresenceStore((s) => s.onlineUsers)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
@@ -63,6 +73,10 @@ export function ChatView({ onBack }: Props) {
   const [body, setBody] = useState('')
   const [loadingOlder, setLoadingOlder] = useState(false)
   const prevMessagesLengthRef = useRef(0)
+
+  // Typing send state
+  const typingActiveRef = useRef(false)
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Resolve peer info
   const conv = activeConversationId
@@ -79,20 +93,34 @@ export function ChatView({ onBack }: Props) {
     : activePeer
 
   const recipientId = peer?.id ?? 0
+  const activeUnreadCount = conv?.unread_count ?? 0
+
+  const markReadIfVisible = useCallback(() => {
+    if (!activeConversationId || activeUnreadCount === 0 || messagesLoading || messages.length === 0) {
+      return
+    }
+
+    if (document.visibilityState !== 'visible' || !document.hasFocus()) {
+      return
+    }
+
+    const container = messagesContainerRef.current
+    if (!container || !isNearBottom(container)) return
+
+    markRead(activeConversationId)
+  }, [activeConversationId, activeUnreadCount, messagesLoading, messages.length, markRead])
 
   // Scroll to bottom when new messages arrive (only if near bottom)
   useEffect(() => {
     const container = messagesContainerRef.current
     if (!container || messagesLoading) return
 
-    const isNearBottom =
-      container.scrollTop + container.clientHeight >= container.scrollHeight - 120
     const isInitialLoad = prevMessagesLengthRef.current === 0 && messages.length > 0
 
     if (isInitialLoad) {
       // Instant scroll on initial load
       messagesEndRef.current?.scrollIntoView()
-    } else if (isNearBottom) {
+    } else if (isNearBottom(container)) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
 
@@ -104,23 +132,82 @@ export function ChatView({ onBack }: Props) {
     prevMessagesLengthRef.current = 0
   }, [activeConversationId, activePeer])
 
-  // Mark read after messages finish loading (covers initial open + Phase 10 new messages via WS)
+  // 只有消息真正滚到可见底部时才标记已读，避免用户上翻历史时误清未读。
   useEffect(() => {
-    if (activeConversationId && !messagesLoading && messages.length > 0) {
-      markRead(activeConversationId)
-    }
-  }, [activeConversationId, messagesLoading, messages.length, markRead])
+    const frame = requestAnimationFrame(() => {
+      markReadIfVisible()
+    })
 
-  // Mark read again when tab regains focus
+    return () => cancelAnimationFrame(frame)
+  }, [markReadIfVisible])
+
+  // 切回前台或重新聚焦后，再次检查最新消息是否真的已经进入可视区域。
   useEffect(() => {
     const handleVisibility = () => {
-      if (document.visibilityState === 'visible' && activeConversationId) {
-        markRead(activeConversationId)
-      }
+      requestAnimationFrame(() => {
+        markReadIfVisible()
+      })
     }
+
+    const handleFocus = () => {
+      requestAnimationFrame(() => {
+        markReadIfVisible()
+      })
+    }
+
     document.addEventListener('visibilitychange', handleVisibility)
-    return () => document.removeEventListener('visibilitychange', handleVisibility)
-  }, [activeConversationId, markRead])
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [markReadIfVisible])
+
+  useEffect(() => {
+    const container = messagesContainerRef.current
+    if (!container) return
+
+    const handleScroll = () => {
+      markReadIfVisible()
+    }
+
+    container.addEventListener('scroll', handleScroll, { passive: true })
+    return () => container.removeEventListener('scroll', handleScroll)
+  }, [activeConversationId, markReadIfVisible])
+
+  const stopTyping = useCallback(() => {
+    if (typingTimerRef.current) {
+      clearTimeout(typingTimerRef.current)
+      typingTimerRef.current = null
+    }
+
+    const shouldSendStop = typingActiveRef.current && activeConversationId
+    typingActiveRef.current = false
+
+    if (shouldSendStop) {
+      sendWsMessage({ type: 'typing.stop', conversation_id: activeConversationId })
+    }
+  }, [activeConversationId])
+
+  // Stop typing when switching conversations (cleanup captures old conv ID via closure)
+  useEffect(() => {
+    return () => stopTyping()
+  }, [stopTyping])
+
+  const handleTypingInput = useCallback(() => {
+    if (!activeConversationId) return
+
+    if (!typingActiveRef.current) {
+      typingActiveRef.current = true
+      sendWsMessage({ type: 'typing.start', conversation_id: activeConversationId })
+    }
+
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
+    typingTimerRef.current = setTimeout(() => {
+      stopTyping()
+    }, 3000)
+  }, [activeConversationId, stopTyping])
 
   // Auto-grow textarea
   const handleInput = useCallback(() => {
@@ -133,12 +220,14 @@ export function ChatView({ onBack }: Props) {
   const handleSend = useCallback(() => {
     const trimmed = body.trim()
     if (!trimmed || !recipientId) return
+
+    stopTyping()
     sendMessage(recipientId, trimmed)
     setBody('')
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
     }
-  }, [body, recipientId, sendMessage])
+  }, [body, recipientId, sendMessage, stopTyping])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -248,6 +337,7 @@ export function ChatView({ onBack }: Props) {
               </span>
             )}
           </div>
+          <span className={`echo-presence-dot ${onlineUsers.has(peer.id) ? 'echo-presence-dot--online' : 'echo-presence-dot--offline'}`} />
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -277,6 +367,16 @@ export function ChatView({ onBack }: Props) {
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Typing indicator */}
+      {activeConversationId !== null && typingConversationIds.has(activeConversationId) && (
+        <div className="echo-typing-indicator">
+          <span className="echo-typing-dots">
+            <span /><span /><span />
+          </span>
+          <span>{peer.display_name || peer.username} is typing...</span>
+        </div>
+      )}
+
       {/* Input */}
       <div className="echo-message-input-wrap">
         <div className="echo-message-textarea-wrap">
@@ -286,9 +386,13 @@ export function ChatView({ onBack }: Props) {
             placeholder="Message…"
             rows={1}
             value={body}
-            onChange={(e) => setBody(e.target.value)}
+            onChange={(e) => {
+              setBody(e.target.value)
+              handleTypingInput()
+            }}
             onInput={handleInput}
             onKeyDown={handleKeyDown}
+            onBlur={stopTyping}
           />
         </div>
         <button

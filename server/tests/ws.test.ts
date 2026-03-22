@@ -145,6 +145,28 @@ describe('WebSocket message.new', () => {
     expect(payload.body).toBe('Hello Bob')
     aliceWs.close()
   })
+
+  it('echoes client_temp_id only to the sender websocket payload', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const aliceWs = await connectWs(port, alice.token)
+    const bobWs = await connectWs(port, bob.token)
+
+    const senderEventPromise = waitForEvent(aliceWs, 'message.new')
+    const recipientEventPromise = waitForEvent(bobWs, 'message.new')
+    await app.inject({
+      method: 'POST',
+      url: '/api/messages',
+      headers: { authorization: `Bearer ${alice.token}` },
+      payload: { recipient_id: bob.user.id, body: 'Hello Bob', client_temp_id: 'temp-123' },
+    })
+
+    const senderPayload = await senderEventPromise as Record<string, unknown>
+    const recipientPayload = await recipientEventPromise as Record<string, unknown>
+    expect(senderPayload.client_temp_id).toBe('temp-123')
+    expect(recipientPayload.client_temp_id).toBeUndefined()
+    aliceWs.close()
+    bobWs.close()
+  })
 })
 
 // ─── conversation.updated ─────────────────────────────────────────────────────
