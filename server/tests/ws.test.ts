@@ -387,3 +387,181 @@ describe('WebSocket presence', () => {
     aliceWs.close()
   })
 })
+
+// ─── Friend request events ──────────────────────────────────────────────────
+
+describe('WebSocket friend_request events', () => {
+  let app: App
+  let port: number
+
+  beforeAll(async () => {
+    app = await getApp()
+    await app.listen({ port: 0, host: '127.0.0.1' })
+    port = (app.server.address() as AddressInfo).port
+  })
+  afterAll(async () => { await app.close() })
+  beforeEach(async () => { cleanConnections(app); await truncateAll(app) })
+
+  it('delivers friend_request.new to recipient with sender info', async () => {
+    const alice = await registerUser(app)
+    const bob = await registerUser(app, { username: 'bob', email: 'bob@test.com', password: 'password123' })
+    const bobWs = await connectWs(port, bob.token)
+
+    const eventPromise = waitForEvent(bobWs, 'friend_request.new')
+    await app.inject({
+      method: 'POST',
+      url: '/api/friend-requests',
+      headers: { authorization: `Bearer ${alice.token}` },
+      payload: { recipient_id: bob.user.id },
+    })
+
+    const payload = await eventPromise as Record<string, unknown>
+    expect(payload.sender_id).toBe(alice.user.id)
+    expect(payload.recipient_id).toBe(bob.user.id)
+    expect(payload.status).toBe('pending')
+    // 接收方看到的是发送者（alice）的用户信息
+    expect(payload.username).toBe('alice')
+    bobWs.close()
+  })
+
+  it('delivers friend_request.new to sender with recipient info (multi-tab)', async () => {
+    const alice = await registerUser(app)
+    const bob = await registerUser(app, { username: 'bob', email: 'bob@test.com', password: 'password123' })
+    const aliceWs = await connectWs(port, alice.token)
+
+    const eventPromise = waitForEvent(aliceWs, 'friend_request.new')
+    await app.inject({
+      method: 'POST',
+      url: '/api/friend-requests',
+      headers: { authorization: `Bearer ${alice.token}` },
+      payload: { recipient_id: bob.user.id },
+    })
+
+    const payload = await eventPromise as Record<string, unknown>
+    expect(payload.sender_id).toBe(alice.user.id)
+    expect(payload.recipient_id).toBe(bob.user.id)
+    // 发送方看到的是接收者（bob）的用户信息，与 /friend-requests/sent 一致
+    expect(payload.username).toBe('bob')
+    aliceWs.close()
+  })
+
+  it('delivers friend_request.accepted to sender with responder info', async () => {
+    const alice = await registerUser(app)
+    const bob = await registerUser(app, { username: 'bob', email: 'bob@test.com', password: 'password123' })
+
+    const reqRes = await app.inject({
+      method: 'POST',
+      url: '/api/friend-requests',
+      headers: { authorization: `Bearer ${alice.token}` },
+      payload: { recipient_id: bob.user.id },
+    })
+    const requestId = reqRes.json<{ id: number }>().id
+
+    const aliceWs = await connectWs(port, alice.token)
+    const eventPromise = waitForEvent(aliceWs, 'friend_request.accepted')
+
+    await app.inject({
+      method: 'PUT',
+      url: `/api/friend-requests/${requestId}`,
+      headers: { authorization: `Bearer ${bob.token}` },
+      payload: { status: 'accepted' },
+    })
+
+    const payload = await eventPromise as Record<string, unknown>
+    expect(payload.id).toBe(requestId)
+    expect(payload.status).toBe('accepted')
+    // 原始发送方（alice）看到的是操作方（bob）的用户信息
+    expect(payload.username).toBe('bob')
+    aliceWs.close()
+  })
+
+  it('delivers friend_request.accepted to acceptor with sender info (multi-tab)', async () => {
+    const alice = await registerUser(app)
+    const bob = await registerUser(app, { username: 'bob', email: 'bob@test.com', password: 'password123' })
+
+    const reqRes = await app.inject({
+      method: 'POST',
+      url: '/api/friend-requests',
+      headers: { authorization: `Bearer ${alice.token}` },
+      payload: { recipient_id: bob.user.id },
+    })
+    const requestId = reqRes.json<{ id: number }>().id
+
+    const bobWs = await connectWs(port, bob.token)
+    const eventPromise = waitForEvent(bobWs, 'friend_request.accepted')
+
+    await app.inject({
+      method: 'PUT',
+      url: `/api/friend-requests/${requestId}`,
+      headers: { authorization: `Bearer ${bob.token}` },
+      payload: { status: 'accepted' },
+    })
+
+    const payload = await eventPromise as Record<string, unknown>
+    expect(payload.id).toBe(requestId)
+    expect(payload.status).toBe('accepted')
+    // 操作方（bob）看到的是原始发送方（alice）的用户信息
+    expect(payload.username).toBe('alice')
+    bobWs.close()
+  })
+
+  it('delivers friend_request.declined to sender with responder info', async () => {
+    const alice = await registerUser(app)
+    const bob = await registerUser(app, { username: 'bob', email: 'bob@test.com', password: 'password123' })
+
+    const reqRes = await app.inject({
+      method: 'POST',
+      url: '/api/friend-requests',
+      headers: { authorization: `Bearer ${alice.token}` },
+      payload: { recipient_id: bob.user.id },
+    })
+    const requestId = reqRes.json<{ id: number }>().id
+
+    const aliceWs = await connectWs(port, alice.token)
+    const eventPromise = waitForEvent(aliceWs, 'friend_request.declined')
+
+    await app.inject({
+      method: 'PUT',
+      url: `/api/friend-requests/${requestId}`,
+      headers: { authorization: `Bearer ${bob.token}` },
+      payload: { status: 'declined' },
+    })
+
+    const payload = await eventPromise as Record<string, unknown>
+    expect(payload.id).toBe(requestId)
+    expect(payload.status).toBe('declined')
+    // 原始发送方（alice）看到的是操作方（bob）的用户信息
+    expect(payload.username).toBe('bob')
+    aliceWs.close()
+  })
+
+  it('delivers friend_request.declined to decliner with sender info (multi-tab)', async () => {
+    const alice = await registerUser(app)
+    const bob = await registerUser(app, { username: 'bob', email: 'bob@test.com', password: 'password123' })
+
+    const reqRes = await app.inject({
+      method: 'POST',
+      url: '/api/friend-requests',
+      headers: { authorization: `Bearer ${alice.token}` },
+      payload: { recipient_id: bob.user.id },
+    })
+    const requestId = reqRes.json<{ id: number }>().id
+
+    const bobWs = await connectWs(port, bob.token)
+    const eventPromise = waitForEvent(bobWs, 'friend_request.declined')
+
+    await app.inject({
+      method: 'PUT',
+      url: `/api/friend-requests/${requestId}`,
+      headers: { authorization: `Bearer ${bob.token}` },
+      payload: { status: 'declined' },
+    })
+
+    const payload = await eventPromise as Record<string, unknown>
+    expect(payload.id).toBe(requestId)
+    expect(payload.status).toBe('declined')
+    // 操作方（bob）看到的是原始发送方（alice）的用户信息
+    expect(payload.username).toBe('alice')
+    bobWs.close()
+  })
+})

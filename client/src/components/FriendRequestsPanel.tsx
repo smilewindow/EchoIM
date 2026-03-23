@@ -1,61 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/api'
+import { useFriendRequestStore } from '@/stores/friendRequests'
 
-interface FriendRequest {
-  id: number
-  sender_id: number
-  recipient_id: number
-  status: 'pending' | 'accepted' | 'declined'
-  created_at: string
-  updated_at: string
-  username: string
-  display_name: string
-  avatar_url: string
-}
+export function FriendRequestsPanel() {
+  const incoming = useFriendRequestStore((s) => s.incoming)
+  const sent = useFriendRequestStore((s) => s.sent)
+  const history = useFriendRequestStore((s) => s.history)
+  const initialized = useFriendRequestStore((s) => s.initialized)
 
-interface HistoryRequest extends FriendRequest {
-  direction: 'sent' | 'received'
-}
-
-interface Props {
-  onCountChange?: (count: number) => void
-}
-
-export function FriendRequestsPanel({ onCountChange }: Props) {
-  const [pending, setPending] = useState<FriendRequest[]>([])
-  const [sent, setSent] = useState<FriendRequest[]>([])
-  const [history, setHistory] = useState<HistoryRequest[]>([])
-  const [loading, setLoading] = useState(true)
   const [respondingId, setRespondingId] = useState<number | null>(null)
   const [showHistory, setShowHistory] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    const fetchAll = async () => {
-      try {
-        const [pendingData, sentData, historyData] = await Promise.all([
-          apiFetch<FriendRequest[]>('/friend-requests'),
-          apiFetch<FriendRequest[]>('/friend-requests/sent'),
-          apiFetch<HistoryRequest[]>('/friend-requests/history'),
-        ])
-        if (!cancelled) {
-          setPending(pendingData)
-          setSent(sentData)
-          setHistory(historyData)
-          onCountChange?.(pendingData.length)
-        }
-      } catch {
-        toast.error('Failed to load friend requests')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-    fetchAll()
-    return () => {
-      cancelled = true
-    }
-  }, [onCountChange])
 
   const respond = async (id: number, status: 'accepted' | 'declined') => {
     setRespondingId(id)
@@ -64,21 +19,7 @@ export function FriendRequestsPanel({ onCountChange }: Props) {
         method: 'PUT',
         body: JSON.stringify({ status }),
       })
-      const resolved = pending.find((r) => r.id === id)
-      setPending((prev) => prev.filter((r) => r.id !== id))
-      onCountChange?.(pending.length - 1)
-      // Add to history
-      if (resolved) {
-        setHistory((prev) => [
-          {
-            ...resolved,
-            status,
-            direction: 'received',
-            updated_at: new Date().toISOString(),
-          },
-          ...prev,
-        ])
-      }
+      // 不做乐观更新——服务端会广播 WS 事件给操作方，由 store 统一处理
     } catch {
       toast.error('Failed to respond to request')
     } finally {
@@ -99,7 +40,7 @@ export function FriendRequestsPanel({ onCountChange }: Props) {
     return `${days}d ago`
   }
 
-  if (loading) {
+  if (!initialized) {
     return (
       <div className="echo-empty-state">
         <div className="echo-spinner" />
@@ -107,7 +48,7 @@ export function FriendRequestsPanel({ onCountChange }: Props) {
     )
   }
 
-  const hasContent = pending.length > 0 || sent.length > 0 || history.length > 0
+  const hasContent = incoming.length > 0 || sent.length > 0 || history.length > 0
 
   if (!hasContent) {
     return (
@@ -134,13 +75,13 @@ export function FriendRequestsPanel({ onCountChange }: Props) {
   return (
     <div className="flex-1 overflow-y-auto echo-scroll px-2 py-2">
       {/* Pending requests */}
-      {pending.length > 0 && (
+      {incoming.length > 0 && (
         <>
           <p className="echo-section-label">
             Pending
-            <span className="echo-section-count">{pending.length}</span>
+            <span className="echo-section-count">{incoming.length}</span>
           </p>
-          {pending.map((req, i) => (
+          {incoming.map((req, i) => (
             <div
               key={req.id}
               className="echo-request-row"

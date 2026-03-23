@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api'
 import { usePresenceStore } from '@/stores/presence'
+import { useFriendRequestStore } from '@/stores/friendRequests'
 
 interface Friend {
   id: number
@@ -18,6 +19,7 @@ export function FriendsList({ onCountChange, onSelectFriend }: Props) {
   const [friends, setFriends] = useState<Friend[]>([])
   const [loading, setLoading] = useState(true)
   const onlineUsers = usePresenceStore((s) => s.onlineUsers)
+  const friendsVersion = useFriendRequestStore((s) => s.friendsVersion)
 
   const fetchFriends = useCallback(async () => {
     try {
@@ -33,7 +35,7 @@ export function FriendsList({ onCountChange, onSelectFriend }: Props) {
 
   useEffect(() => {
     fetchFriends()
-  }, [fetchFriends])
+  }, [fetchFriends, friendsVersion])
 
   const initials = (friend: Friend) => {
     const name = friend.display_name || friend.username

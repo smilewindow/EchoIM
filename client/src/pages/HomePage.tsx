@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { MessageSquare } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth'
 import { useChatStore } from '@/stores/chat'
+import { useFriendRequestStore } from '@/stores/friendRequests'
 import { apiFetch } from '@/lib/api'
 import { FriendsList } from '@/components/FriendsList'
 import { FriendRequestsPanel } from '@/components/FriendRequestsPanel'
@@ -22,38 +23,27 @@ export function HomePage() {
     useChatStore()
 
   const [activeTab, setActiveTab] = useState<Tab>('chats')
-  const [requestCount, setRequestCount] = useState(0)
   const [friendCount, setFriendCount] = useState(0)
+  const requestCount = useFriendRequestStore((s) => s.incoming.length)
+  const friendsVersion = useFriendRequestStore((s) => s.friendsVersion)
 
   const chatActive = activeConversationId !== null || activePeer !== null
 
-  // Fetch conversations on mount
+  // Fetch conversations and friend requests on mount
   useEffect(() => {
     fetchConversations()
+    useFriendRequestStore.getState().fetchAll()
   }, [fetchConversations])
 
-  // Poll for friend request count
+  // Re-fetch friend count whenever a friend request is accepted (from any tab)
   useEffect(() => {
+    if (friendsVersion === 0) return
     let cancelled = false
-    const poll = async () => {
-      try {
-        const data = await apiFetch<{ id: number }[]>('/friend-requests')
-        if (!cancelled) setRequestCount(data.length)
-      } catch {
-        // ignore
-      }
-    }
-    poll()
-    const interval = setInterval(poll, 30000)
-    return () => {
-      cancelled = true
-      clearInterval(interval)
-    }
-  }, [])
-
-  const handleRequestCountChange = (count: number) => {
-    setRequestCount(count)
-  }
+    apiFetch<{ id: number }[]>('/friends')
+      .then((data) => { if (!cancelled) setFriendCount(data.length) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [friendsVersion])
 
   const handleBack = () => {
     clearChat()
@@ -209,7 +199,7 @@ export function HomePage() {
             />
           )}
           {activeTab === 'requests' && (
-            <FriendRequestsPanel onCountChange={handleRequestCountChange} />
+            <FriendRequestsPanel />
           )}
           {activeTab === 'search' && <UserSearchPanel />}
         </div>

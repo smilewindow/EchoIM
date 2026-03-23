@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { apiFetch, ApiError } from '@/lib/api'
+import { useFriendRequestStore } from '@/stores/friendRequests'
 
 interface SearchUser {
   id: number
@@ -13,8 +14,8 @@ export function UserSearchPanel() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchUser[]>([])
   const [loading, setLoading] = useState(false)
-  const [sentIds, setSentIds] = useState<Set<number>>(new Set())
   const [sendingId, setSendingId] = useState<number | null>(null)
+  const sent = useFriendRequestStore((s) => s.sent)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const requestIdRef = useRef(0)
@@ -64,11 +65,11 @@ export function UserSearchPanel() {
         method: 'POST',
         body: JSON.stringify({ recipient_id: userId }),
       })
-      setSentIds((prev) => new Set(prev).add(userId))
+      // 不做乐观更新——服务端会广播 friend_request.new 给发送方，由 store 统一处理
     } catch (err) {
-      // 409 means a request already exists — treat as sent
       if (err instanceof ApiError && err.status === 409) {
-        setSentIds((prev) => new Set(prev).add(userId))
+        // 409 说明申请已存在，重新拉取 store 使按钮状态正确
+        void useFriendRequestStore.getState().fetchAll()
       } else {
         toast.error('Failed to send friend request')
       }
@@ -155,44 +156,43 @@ export function UserSearchPanel() {
           </div>
         )}
 
-        {results.map((user, i) => (
-          <div
-            key={user.id}
-            className="echo-user-row"
-            style={{ animationDelay: `${i * 40}ms` }}
-          >
-            <div className="echo-avatar" title={user.display_name || user.username}>
-              {user.avatar_url ? (
-                <img
-                  src={user.avatar_url}
-                  alt=""
-                  className="echo-avatar-img"
-                />
-              ) : (
-                <span className="echo-avatar-initials">{initials(user)}</span>
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="echo-user-name">
-                {user.display_name || user.username}
-              </p>
-              {user.display_name && (
-                <p className="echo-user-handle">@{user.username}</p>
-              )}
-            </div>
-            <button
-              onClick={() => sendRequest(user.id)}
-              disabled={sentIds.has(user.id) || sendingId === user.id}
-              className={`echo-action-btn ${sentIds.has(user.id) ? 'echo-action-btn--sent' : ''}`}
+        {results.map((user, i) => {
+          const isSent = sent.some((r) => r.recipient_id === user.id)
+          return (
+            <div
+              key={user.id}
+              className="echo-user-row"
+              style={{ animationDelay: `${i * 40}ms` }}
             >
-              {sentIds.has(user.id)
-                ? 'Sent'
-                : sendingId === user.id
-                  ? '…'
-                  : 'Add'}
-            </button>
-          </div>
-        ))}
+              <div className="echo-avatar" title={user.display_name || user.username}>
+                {user.avatar_url ? (
+                  <img
+                    src={user.avatar_url}
+                    alt=""
+                    className="echo-avatar-img"
+                  />
+                ) : (
+                  <span className="echo-avatar-initials">{initials(user)}</span>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="echo-user-name">
+                  {user.display_name || user.username}
+                </p>
+                {user.display_name && (
+                  <p className="echo-user-handle">@{user.username}</p>
+                )}
+              </div>
+              <button
+                onClick={() => sendRequest(user.id)}
+                disabled={isSent || sendingId === user.id}
+                className={`echo-action-btn ${isSent ? 'echo-action-btn--sent' : ''}`}
+              >
+                {isSent ? 'Sent' : sendingId === user.id ? '…' : 'Add'}
+              </button>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

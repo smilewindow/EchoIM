@@ -24,7 +24,7 @@ const friendRequestRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const recipientCheck = await fastify.pool.query(
-      'SELECT id FROM users WHERE id = $1',
+      'SELECT id, username, display_name, avatar_url FROM users WHERE id = $1',
       [recipient_id]
     )
     if (recipientCheck.rowCount === 0) {
@@ -38,7 +38,16 @@ const friendRequestRoutes: FastifyPluginAsync = async (fastify) => {
          RETURNING *`,
         [senderId, recipient_id]
       )
-      return reply.status(201).send(result.rows[0])
+      const row = result.rows[0]
+      const senderInfo = await fastify.pool.query(
+        'SELECT username, display_name, avatar_url FROM users WHERE id = $1',
+        [senderId]
+      )
+      const recipientInfo = recipientCheck.rows[0]
+      // 接收方看到发送者信息；发送方看到接收者信息（与 /friend-requests/sent 结构一致）
+      fastify.broadcast(recipient_id, { type: 'friend_request.new', payload: { ...row, ...senderInfo.rows[0] } })
+      fastify.broadcast(senderId, { type: 'friend_request.new', payload: { ...row, ...recipientInfo } })
+      return reply.status(201).send(row)
     } catch (err: unknown) {
       if (typeof err === 'object' && err !== null && (err as { code?: string }).code === '23505') {
         return reply.status(409).send({ error: 'Friend request already exists' })
@@ -121,7 +130,17 @@ const friendRequestRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(404).send({ error: 'Not found or already resolved' })
     }
 
-    return reply.status(200).send(result.rows[0])
+    const row = result.rows[0]
+    const [responderInfo, senderInfo] = await Promise.all([
+      fastify.pool.query('SELECT username, display_name, avatar_url FROM users WHERE id = $1', [request.user.id]),
+      fastify.pool.query('SELECT username, display_name, avatar_url FROM users WHERE id = $1', [row.sender_id]),
+    ])
+    const eventType = row.status === 'accepted' ? 'friend_request.accepted' : 'friend_request.declined'
+    // 原始发送方看到操作方（responder）的信息；操作方看到原始发送方的信息
+    fastify.broadcast(row.sender_id, { type: eventType, payload: { ...row, ...responderInfo.rows[0] } })
+    fastify.broadcast(request.user.id, { type: eventType, payload: { ...row, ...senderInfo.rows[0] } })
+
+    return reply.status(200).send(row)
   })
 }
 

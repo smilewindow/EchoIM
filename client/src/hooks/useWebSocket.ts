@@ -1,6 +1,9 @@
 import { useEffect, useRef } from 'react'
+import { toast } from 'sonner'
 import { useChatStore, type Message } from '@/stores/chat'
 import { usePresenceStore } from '@/stores/presence'
+import { useFriendRequestStore, type FriendRequest } from '@/stores/friendRequests'
+import { useAuthStore } from '@/stores/auth'
 
 // Module-level socket reference so sendWsMessage can be called from anywhere
 let globalWs: WebSocket | null = null
@@ -18,10 +21,15 @@ type WsEvent =
   | { type: 'typing.stop'; payload: { conversation_id: number; user_id: number } }
   | { type: 'presence.online'; payload: { user_id: number } }
   | { type: 'presence.offline'; payload: { user_id: number } }
+  | { type: 'friend_request.new'; payload: FriendRequest }
+  | { type: 'friend_request.accepted'; payload: FriendRequest }
+  | { type: 'friend_request.declined'; payload: FriendRequest }
 
 function handleWsEvent(event: WsEvent) {
   const chat = useChatStore.getState()
   const presence = usePresenceStore.getState()
+  const friendReqs = useFriendRequestStore.getState()
+  const currentUserId = useAuthStore.getState().user?.id
 
   switch (event.type) {
     case 'message.new':
@@ -41,6 +49,31 @@ function handleWsEvent(event: WsEvent) {
       break
     case 'presence.offline':
       presence.setOffline(event.payload.user_id)
+      break
+    case 'friend_request.new':
+      if (event.payload.sender_id === currentUserId) {
+        friendReqs.addSent(event.payload)
+      } else {
+        friendReqs.addIncoming(event.payload)
+        const name = event.payload.display_name || event.payload.username
+        toast.info(`${name} 向你发送了好友申请`)
+      }
+      break
+    case 'friend_request.accepted': {
+      const direction = event.payload.sender_id === currentUserId ? 'sent' : 'received'
+      friendReqs.handleAccepted(event.payload, direction)
+      // 只给非操作方（收到对方接受通知的一侧）显示 toast
+      if (direction === 'sent') {
+        const name = event.payload.display_name || event.payload.username
+        toast.success(`${name} 接受了你的好友申请`)
+      }
+      break
+    }
+    case 'friend_request.declined':
+      friendReqs.handleDeclined(
+        event.payload,
+        event.payload.sender_id === currentUserId ? 'sent' : 'received',
+      )
       break
   }
 }
@@ -83,6 +116,8 @@ export function useWebSocket() {
                 await useChatStore.getState().refetchMissedMessages()
               }
             })
+          // 补回离线期间漏掉的好友申请事件
+          void useFriendRequestStore.getState().fetchAll()
         }
         isFirstConnectionRef.current = false
       }
