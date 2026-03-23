@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { MessageSquare } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth'
 import { useChatStore } from '@/stores/chat'
 import { apiFetch } from '@/lib/api'
-import { useWebSocket } from '@/hooks/useWebSocket'
 import { FriendsList } from '@/components/FriendsList'
 import { FriendRequestsPanel } from '@/components/FriendRequestsPanel'
 import { UserSearchPanel } from '@/components/UserSearchPanel'
@@ -14,12 +14,12 @@ type Tab = 'chats' | 'friends' | 'requests' | 'search'
 
 export function HomePage() {
   const { user, logout } = useAuthStore()
+  const navigate = useNavigate()
   const displayName = user?.display_name || user?.username || ''
+  const avatarUrl = user?.avatar_url
 
   const { activeConversationId, activePeer, fetchConversations, selectPeer, clearChat } =
     useChatStore()
-
-  useWebSocket()
 
   const [activeTab, setActiveTab] = useState<Tab>('chats')
   const [requestCount, setRequestCount] = useState(0)
@@ -135,13 +135,23 @@ export function HomePage() {
         {/* User header */}
         <div className="echo-sidebar-header">
           <div className="echo-sidebar-user">
-            <div className="echo-sidebar-avatar">
-              {displayName.slice(0, 2).toUpperCase()}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="echo-sidebar-name">{displayName}</p>
-              <p className="echo-sidebar-status">Online</p>
-            </div>
+            <button
+              onClick={() => navigate('/profile')}
+              className="echo-sidebar-profile-link"
+              title="Edit profile"
+            >
+              <div className="echo-sidebar-avatar">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="" className="echo-avatar-img" />
+                ) : (
+                  displayName.slice(0, 2).toUpperCase()
+                )}
+              </div>
+              <div className="flex-1 min-w-0" style={{ textAlign: 'left' }}>
+                <p className="echo-sidebar-name">{displayName}</p>
+                <p className="echo-sidebar-status">Online</p>
+              </div>
+            </button>
             <button onClick={logout} className="echo-logout-btn" title="Sign out">
               <svg
                 width="16"

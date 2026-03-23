@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { toast } from 'sonner'
 import { apiFetch } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 
@@ -147,6 +148,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       set({ conversations: data, conversationsLoading: false })
     } catch {
       set({ conversationsLoading: false })
+      toast.error('Failed to load conversations')
     }
   },
 
@@ -283,6 +285,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           message._tempId === tempId ? { ...message, _status: 'failed' } : message,
         ),
       })
+      toast.error('Failed to send message')
     }
   },
 

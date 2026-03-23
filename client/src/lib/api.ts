@@ -15,7 +15,17 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   if (token) headers['Authorization'] = `Bearer ${token}`
 
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers })
-  const data = await res.json()
-  if (!res.ok) throw new ApiError((data as { error?: string }).error ?? 'Request failed', res.status)
-  return data as T
+
+  if (!res.ok) {
+    let message = 'Request failed'
+    try {
+      const data = await res.json() as { error?: string }
+      if (data.error) message = data.error
+    } catch {
+      // non-JSON error body — use default message
+    }
+    throw new ApiError(message, res.status)
+  }
+
+  return await res.json() as T
 }

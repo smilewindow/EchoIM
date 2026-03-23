@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { apiFetch } from '@/lib/api'
 
 interface FriendRequest {
   id: number
   sender_id: number
   recipient_id: number
-  status: string
+  status: 'pending' | 'accepted' | 'declined'
   created_at: string
   updated_at: string
   username: string
@@ -45,7 +46,7 @@ export function FriendRequestsPanel({ onCountChange }: Props) {
           onCountChange?.(pendingData.length)
         }
       } catch {
-        // ignore
+        toast.error('Failed to load friend requests')
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -79,7 +80,7 @@ export function FriendRequestsPanel({ onCountChange }: Props) {
         ])
       }
     } catch {
-      // ignore
+      toast.error('Failed to respond to request')
     } finally {
       setRespondingId(null)
     }

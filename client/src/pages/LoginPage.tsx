@@ -35,9 +35,9 @@ export function LoginPage() {
             <p
               style={{
                 fontSize: '13px',
-                color: '#F08070',
+                color: 'rgba(var(--echo-error-rgb), 0.85)',
                 padding: '10px 14px',
-                background: 'rgba(240,128,112,0.08)',
+                background: 'rgba(var(--echo-error-rgb), 0.08)',
                 borderRadius: '4px',
                 margin: 0,
               }}
@@ -67,11 +67,11 @@ export function LoginPage() {
 
         <AuthSubmitButton loading={loading} label="Sign in" loadingLabel="Signing in…" />
 
-        <p style={{ marginTop: '24px', fontSize: '13px', color: 'rgba(240,237,230,0.38)', textAlign: 'center' }}>
+        <p style={{ marginTop: '24px', fontSize: '13px', color: 'rgba(var(--echo-text-rgb), 0.38)', textAlign: 'center' }}>
           No account?{' '}
           <Link
             to="/register"
-            style={{ color: '#E8943A', textDecoration: 'none', fontWeight: 500 }}
+            style={{ color: 'var(--echo-accent)', textDecoration: 'none', fontWeight: 500 }}
             onMouseEnter={e => ((e.target as HTMLElement).style.textDecoration = 'underline')}
             onMouseLeave={e => ((e.target as HTMLElement).style.textDecoration = 'none')}
           >

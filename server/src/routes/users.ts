@@ -10,6 +10,10 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
        FROM users WHERE id = $1`,
       [request.user.id]
     )
+    if (result.rowCount === 0) {
+      // JWT 仍然合法但用户已被删库/清库时，明确返回 401，避免前端拿到 200 空响应体。
+      return reply.status(401).send({ error: 'User no longer exists' })
+    }
     return reply.status(200).send(result.rows[0])
   })
 
@@ -44,6 +48,10 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
        RETURNING id, username, email, display_name, avatar_url, created_at`,
       [trimmedDisplayName ?? null, avatar_url ?? null, request.user.id]
     )
+    if (result.rowCount === 0) {
+      // 资料编辑也统一按失效登录处理，避免出现 200 空 body。
+      return reply.status(401).send({ error: 'User no longer exists' })
+    }
 
     return reply.status(200).send(result.rows[0])
   })

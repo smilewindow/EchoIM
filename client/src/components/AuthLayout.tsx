@@ -1,11 +1,5 @@
 import { type ChangeEvent, type ReactNode } from 'react'
 
-const ACCENT = '#E8943A'
-const BG_DARK = '#08090F'
-const BG_FORM = '#0D0E17'
-const TEXT = '#F0EDE6'
-const TEXT_DIM = 'rgba(240,237,230,0.42)'
-
 function Wordmark() {
   return (
     <span
@@ -14,10 +8,10 @@ function Wordmark() {
         fontWeight: 800,
         fontSize: '22px',
         letterSpacing: '-0.01em',
-        color: TEXT,
+        color: 'var(--echo-text)',
       }}
     >
-      Echo<span style={{ color: ACCENT }}>IM</span>
+      Echo<span style={{ color: 'var(--echo-accent)' }}>IM</span>
     </span>
   )
 }
@@ -32,7 +26,7 @@ export function AuthLayout({
   subheading: string
 }) {
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: BG_DARK, color: TEXT }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--echo-bg)', color: 'var(--echo-text)' }}>
       {/* ── Brand panel (desktop only) ── */}
       <div
         style={{
@@ -43,7 +37,7 @@ export function AuthLayout({
           position: 'relative',
           overflow: 'hidden',
           padding: '56px',
-          borderRight: '1px solid rgba(255,255,255,0.05)',
+          borderRight: '1px solid var(--echo-border)',
         }}
         className="lg:flex!"
       >
@@ -65,7 +59,7 @@ export function AuthLayout({
               width: '12px',
               height: '12px',
               borderRadius: '50%',
-              background: ACCENT,
+              background: 'var(--echo-accent)',
               zIndex: 1,
               animation: 'home-beacon-pulse 2.8s ease-in-out infinite',
             }}
@@ -79,7 +73,7 @@ export function AuthLayout({
                 width: '12px',
                 height: '12px',
                 borderRadius: '50%',
-                border: `1px solid ${ACCENT}28`,
+                border: '1px solid rgba(var(--echo-accent-rgb), 0.16)',
                 animation: 'echo-ring-large 4.8s cubic-bezier(0.2, 0.5, 0.4, 0.9) infinite',
                 animationDelay: `${i * 0.96}s`,
               }}
@@ -101,20 +95,20 @@ export function AuthLayout({
               fontSize: 'clamp(30px, 3.2vw, 46px)',
               lineHeight: 1.15,
               letterSpacing: '-0.02em',
-              color: TEXT,
+              color: 'var(--echo-text)',
               marginBottom: '16px',
             }}
           >
             Every message
             <br />
-            <span style={{ color: ACCENT }}>finds its echo.</span>
+            <span style={{ color: 'var(--echo-accent)' }}>finds its echo.</span>
           </p>
           <p
             style={{
               fontSize: '12px',
               letterSpacing: '0.08em',
               textTransform: 'uppercase',
-              color: 'rgba(240,237,230,0.28)',
+              color: 'rgba(var(--echo-text-rgb), 0.28)',
             }}
           >
             Real-time 1-on-1 messaging
@@ -130,7 +124,7 @@ export function AuthLayout({
           flexDirection: 'column',
           justifyContent: 'center',
           padding: '48px 32px',
-          background: BG_FORM,
+          background: 'var(--echo-bg-alt)',
           animation: 'auth-fade-up 0.55s cubic-bezier(0.16, 1, 0.3, 1) both',
         }}
         className="lg:px-16!"
@@ -148,12 +142,12 @@ export function AuthLayout({
               fontSize: '26px',
               letterSpacing: '-0.01em',
               marginBottom: '8px',
-              color: TEXT,
+              color: 'var(--echo-text)',
             }}
           >
             {heading}
           </h1>
-          <p style={{ fontSize: '14px', color: TEXT_DIM, marginBottom: '40px' }}>{subheading}</p>
+          <p style={{ fontSize: '14px', color: 'rgba(var(--echo-text-rgb), 0.42)', marginBottom: '40px' }}>{subheading}</p>
           {children}
         </div>
       </div>
@@ -189,7 +183,7 @@ export function AuthField({
           fontSize: '10px',
           letterSpacing: '0.1em',
           textTransform: 'uppercase',
-          color: 'rgba(240,237,230,0.36)',
+          color: 'rgba(var(--echo-text-rgb), 0.36)',
           marginBottom: '8px',
           fontWeight: 500,
         }}
@@ -209,11 +203,11 @@ export function AuthField({
           background: 'transparent',
           border: 'none',
           outline: 'none',
-          color: TEXT,
+          color: 'var(--echo-text)',
           fontSize: '15px',
           lineHeight: 1.5,
           padding: '2px 0',
-          caretColor: ACCENT,
+          caretColor: 'var(--echo-accent)',
         }}
       />
     </div>
@@ -236,8 +230,8 @@ export function AuthSubmitButton({
       style={{
         width: '100%',
         padding: '13px 24px',
-        background: loading ? `${ACCENT}55` : ACCENT,
-        color: '#08090F',
+        background: loading ? 'rgba(var(--echo-accent-rgb), 0.33)' : 'var(--echo-accent)',
+        color: 'var(--echo-accent-text)',
         border: 'none',
         borderRadius: '4px',
         fontSize: '14px',
@@ -248,10 +242,10 @@ export function AuthSubmitButton({
         fontFamily: 'inherit',
       }}
       onMouseEnter={e => {
-        if (!loading) (e.currentTarget as HTMLButtonElement).style.background = '#F0A050'
+        if (!loading) (e.currentTarget as HTMLButtonElement).style.background = 'var(--echo-accent-hover)'
       }}
       onMouseLeave={e => {
-        if (!loading) (e.currentTarget as HTMLButtonElement).style.background = ACCENT
+        if (!loading) (e.currentTarget as HTMLButtonElement).style.background = 'var(--echo-accent)'
       }}
       onMouseDown={e => {
         if (!loading) (e.currentTarget as HTMLButtonElement).style.transform = 'scale(0.98)'

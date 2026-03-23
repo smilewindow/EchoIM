@@ -2,6 +2,9 @@ import { useCallback } from 'react'
 import { MessageSquare } from 'lucide-react'
 import { useChatStore } from '@/stores/chat'
 
+const SKELETON_NAME_WIDTHS = [75, 60, 90, 55, 80, 65]
+const SKELETON_PREVIEW_WIDTHS = [50, 40, 65, 35, 55, 45]
+
 function formatRelativeTime(dateStr: string | null): string {
   if (!dateStr) return ''
   const date = new Date(dateStr)
@@ -46,8 +49,19 @@ export function ConversationList() {
 
   if (conversationsLoading) {
     return (
-      <div className="echo-empty-state">
-        <div className="echo-spinner" />
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+        <div className="echo-section-label">Chats</div>
+        <div className="px-2 py-1">
+          {SKELETON_NAME_WIDTHS.map((w, i) => (
+            <div key={i} className="echo-skeleton-row" style={{ animationDelay: `${i * 100}ms` }}>
+              <div className="echo-skeleton echo-skeleton-circle" style={{ width: 36, height: 36, flexShrink: 0 }} />
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div className="echo-skeleton" style={{ width: `${w}%`, height: 12 }} />
+                <div className="echo-skeleton" style={{ width: `${SKELETON_PREVIEW_WIDTHS[i]}%`, height: 10 }} />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     )
   }

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
 import { apiFetch, ApiError } from '@/lib/api'
 
 interface SearchUser {
@@ -68,8 +69,9 @@ export function UserSearchPanel() {
       // 409 means a request already exists — treat as sent
       if (err instanceof ApiError && err.status === 409) {
         setSentIds((prev) => new Set(prev).add(userId))
+      } else {
+        toast.error('Failed to send friend request')
       }
-      // other errors (500, network, etc.) leave the button enabled for retry
     } finally {
       setSendingId(null)
     }

@@ -8,6 +8,7 @@ import { sendWsMessage } from '@/hooks/useWebSocket'
 /* ── Helpers ── */
 
 const NEAR_BOTTOM_THRESHOLD_PX = 120
+const SKELETON_BUBBLE_WIDTHS = [40, 55, 30, 60, 35, 50, 45, 65]
 
 function formatTime(dateStr: string): string {
   const d = new Date(dateStr)
@@ -263,8 +264,30 @@ export function ChatView({ onBack }: Props) {
   const renderMessages = () => {
     if (messagesLoading) {
       return (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
-          <div className="echo-spinner" />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '24px 16px' }}>
+          {SKELETON_BUBBLE_WIDTHS.map((w, i) => {
+            const isSelf = i % 3 === 0
+            return (
+              <div
+                key={i}
+                style={{
+                  display: 'flex',
+                  justifyContent: isSelf ? 'flex-end' : 'flex-start',
+                }}
+              >
+                <div
+                  className="echo-skeleton"
+                  style={{
+                    width: `${w}%`,
+                    height: 36,
+                    borderRadius: 14,
+                    maxWidth: '70%',
+                    animationDelay: `${i * 80}ms`,
+                  }}
+                />
+              </div>
+            )
+          })}
         </div>
       )
     }
@@ -453,7 +476,7 @@ function MessageBubble({ msg, isSelf, isGroupStart, recipientId, retryMessage }:
             )}
             {isFailed && (
               <span className="echo-bubble-status">
-                <AlertCircle size={12} style={{ color: 'rgba(255, 80, 80, 0.7)' }} />
+                <AlertCircle size={12} style={{ color: 'rgba(var(--echo-error-rgb), 0.7)' }} />
               </span>
             )}
           </div>
