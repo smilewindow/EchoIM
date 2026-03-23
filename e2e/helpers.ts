@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test'
+import { E2E_DATABASE_URL, E2E_SERVER_ORIGIN } from './config.js'
 
-const API = 'http://localhost:3000/api'
+const API = `${E2E_SERVER_ORIGIN}/api`
 
 export interface SeedUser {
   id: number
@@ -110,8 +111,7 @@ export async function markConversationRead(token: string, conversationId: number
 export async function cleanDatabase() {
   const { Client } = await import('pg')
   const client = new Client({
-    connectionString:
-      process.env.DATABASE_URL ?? 'postgresql://echoim:changeme@localhost:5432/echoim',
+    connectionString: E2E_DATABASE_URL,
   })
   await client.connect()
   await client.query(
