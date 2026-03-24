@@ -907,6 +907,7 @@
 
 /* ── Chat main panel ── */
 .echo-chat {
+  position: relative;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -997,6 +998,32 @@
 .echo-load-more-btn:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+/* ── New message alert ── */
+.echo-new-message-alert {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  padding: 6px 16px;
+  border-radius: 20px;
+  border: none;
+  background: var(--echo-accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  transition: opacity 0.15s, transform 0.15s;
+}
+.echo-new-message-alert:hover {
+  opacity: 0.9;
 }
 
 /* ── Chat empty state ── */
@@ -1179,6 +1206,12 @@
 @keyframes echo-typing-bounce {
   0%, 60%, 100% { transform: translateY(0); opacity: 0.35; }
   30% { transform: translateY(-4px); opacity: 0.8; }
+}
+
+/* ── Chat footer ── */
+.echo-chat-footer {
+  flex-shrink: 0;
+  background: var(--echo-bg);
 }
 
 /* ── Message input ── */

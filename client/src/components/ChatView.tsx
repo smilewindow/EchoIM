@@ -1,5 +1,5 @@
-import { useEffect, useRef, useCallback, useState } from 'react'
-import { Send, ArrowLeft, AlertCircle, RefreshCw, MessageSquare } from 'lucide-react'
+import { useEffect, useLayoutEffect, useRef, useCallback, useState } from 'react'
+import { Send, ArrowLeft, AlertCircle, RefreshCw, MessageSquare, ChevronDown } from 'lucide-react'
 import { useChatStore, type Message } from '@/stores/chat'
 import { useAuthStore } from '@/stores/auth'
 import { usePresenceStore } from '@/stores/presence'
@@ -8,6 +8,8 @@ import { sendWsMessage } from '@/hooks/useWebSocket'
 /* ── Helpers ── */
 
 const NEAR_BOTTOM_THRESHOLD_PX = 120
+const NEW_MESSAGE_ALERT_GAP_PX = 12
+const DEFAULT_CHAT_FOOTER_HEIGHT_PX = 72
 const SKELETON_BUBBLE_WIDTHS = [40, 55, 30, 60, 35, 50, 45, 65]
 
 function formatTime(dateStr: string): string {
@@ -70,9 +72,12 @@ export function ChatView({ onBack }: Props) {
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
+  const footerRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [body, setBody] = useState('')
   const [loadingOlder, setLoadingOlder] = useState(false)
+  const [newMessageAlert, setNewMessageAlert] = useState(false)
+  const [footerHeight, setFooterHeight] = useState(DEFAULT_CHAT_FOOTER_HEIGHT_PX)
   const prevMessagesLengthRef = useRef(0)
   const markReadIfVisibleRef = useRef<() => void>(() => {})
   const wasNearBottomRef = useRef(true)
@@ -133,6 +138,39 @@ export function ChatView({ onBack }: Props) {
     markReadIfVisibleRef.current = markReadIfVisible
   }, [markReadIfVisible])
 
+  // 底部区域高度会随着 typing indicator 和输入框行数变化，alert 需要实时避让。
+  useLayoutEffect(() => {
+    const footer = footerRef.current
+    if (!footer) return
+
+    const updateFooterHeight = () => {
+      const h = footer.offsetHeight
+      setFooterHeight(prev => prev === h ? prev : h)
+    }
+
+    updateFooterHeight()
+
+    const observer = new ResizeObserver(() => {
+      updateFooterHeight()
+    })
+
+    observer.observe(footer)
+    return () => observer.disconnect()
+  }, [])
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    wasNearBottomRef.current = true
+
+    requestAnimationFrame(() => {
+      setNewMessageAlert(false)
+      messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' })
+
+      requestAnimationFrame(() => {
+        markReadIfVisibleRef.current()
+      })
+    })
+  }, [])
+
   // Scroll to bottom when new messages arrive (only if near bottom)
   useEffect(() => {
     const container = messagesContainerRef.current
@@ -142,28 +180,36 @@ export function ChatView({ onBack }: Props) {
     const shouldStickToBottom = isInitialLoad || wasNearBottomRef.current
 
     if (shouldStickToBottom) {
-      requestAnimationFrame(() => {
-        messagesEndRef.current?.scrollIntoView({
-          behavior: isInitialLoad ? 'auto' : 'smooth',
-          block: 'end',
-        })
-
-        requestAnimationFrame(() => {
-          // 这里记录的是“消息到来前用户就在底部”，供后续滚动/已读判断复用。
-          wasNearBottomRef.current = true
-          markReadIfVisibleRef.current()
-        })
-      })
+      scrollToBottom(isInitialLoad ? 'auto' : 'smooth')
     }
 
     prevMessagesLengthRef.current = messages.length
-  }, [messages.length, messagesLoading])
+  }, [messages.length, messagesLoading, scrollToBottom])
 
   // Reset scroll ref when conversation changes
   useEffect(() => {
     prevMessagesLengthRef.current = 0
     wasNearBottomRef.current = true
+
+    const frame = requestAnimationFrame(() => {
+      setNewMessageAlert(false)
+    })
+
+    return () => cancelAnimationFrame(frame)
   }, [activeConversationId, activePeer])
+
+  // 只要当前不在底部且仍有未读，就保留回到底部入口；分页和自发消息不会污染 unread_count。
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      setNewMessageAlert(
+        Boolean(activeConversationId) &&
+          activeUnreadCount > 0 &&
+          !wasNearBottomRef.current,
+      )
+    })
+
+    return () => cancelAnimationFrame(frame)
+  }, [activeConversationId, activeUnreadCount])
 
   // 只有消息真正滚到可见底部时才标记已读，避免用户上翻历史时误清未读。
   useEffect(() => {
@@ -202,13 +248,16 @@ export function ChatView({ onBack }: Props) {
     if (!container) return
 
     const handleScroll = () => {
-      wasNearBottomRef.current = isNearBottom(container)
+      const nearBottom = isNearBottom(container)
+      wasNearBottomRef.current = nearBottom
+      const shouldAlert = !nearBottom && activeUnreadCount > 0
+      setNewMessageAlert(prev => prev === shouldAlert ? prev : shouldAlert)
       markReadIfVisible()
     }
 
     container.addEventListener('scroll', handleScroll, { passive: true })
     return () => container.removeEventListener('scroll', handleScroll)
-  }, [activeConversationId, markReadIfVisible])
+  }, [activeConversationId, activeUnreadCount, markReadIfVisible])
 
   const stopTyping = useCallback(() => {
     if (typingTimerRef.current) {
@@ -256,12 +305,15 @@ export function ChatView({ onBack }: Props) {
     if (!trimmed || !recipientId) return
 
     stopTyping()
+    wasNearBottomRef.current = true
+    setNewMessageAlert(false)
     sendMessage(recipientId, trimmed)
+    scrollToBottom()
     setBody('')
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
     }
-  }, [body, recipientId, sendMessage, stopTyping])
+  }, [body, recipientId, scrollToBottom, sendMessage, stopTyping])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -423,42 +475,56 @@ export function ChatView({ onBack }: Props) {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Typing indicator */}
-      {activeConversationId !== null && typingConversationIds.has(activeConversationId) && (
-        <div className="echo-typing-indicator">
-          <span className="echo-typing-dots">
-            <span /><span /><span />
-          </span>
-          <span>{peer.display_name || peer.username} is typing...</span>
-        </div>
+      {/* New message alert */}
+      {newMessageAlert && (
+        <button
+          className="echo-new-message-alert"
+          style={{ bottom: footerHeight + NEW_MESSAGE_ALERT_GAP_PX }}
+          onClick={() => scrollToBottom()}
+        >
+          <ChevronDown size={14} />
+          New messages
+        </button>
       )}
 
-      {/* Input */}
-      <div className="echo-message-input-wrap">
-        <div className="echo-message-textarea-wrap">
-          <textarea
-            ref={textareaRef}
-            className="echo-message-textarea"
-            placeholder="Message…"
-            rows={1}
-            value={body}
-            onChange={(e) => {
-              setBody(e.target.value)
-              handleTypingInput()
-            }}
-            onInput={handleInput}
-            onKeyDown={handleKeyDown}
-            onBlur={stopTyping}
-          />
+      <div ref={footerRef} className="echo-chat-footer">
+        {/* Typing indicator */}
+        {activeConversationId !== null && typingConversationIds.has(activeConversationId) && (
+          <div className="echo-typing-indicator">
+            <span className="echo-typing-dots">
+              <span /><span /><span />
+            </span>
+            <span>{peer.display_name || peer.username} is typing...</span>
+          </div>
+        )}
+
+        {/* Input */}
+        <div className="echo-message-input-wrap">
+          <div className="echo-message-textarea-wrap">
+            <textarea
+              ref={textareaRef}
+              className="echo-message-textarea"
+              placeholder="Message…"
+              rows={1}
+              value={body}
+              onChange={(e) => {
+                setBody(e.target.value)
+                handleTypingInput()
+              }}
+              onInput={handleInput}
+              onKeyDown={handleKeyDown}
+              onBlur={stopTyping}
+            />
+          </div>
+          <button
+            className="echo-message-send-btn"
+            onClick={handleSend}
+            disabled={!body.trim()}
+            aria-label="Send message"
+          >
+            <Send size={18} />
+          </button>
         </div>
-        <button
-          className="echo-message-send-btn"
-          onClick={handleSend}
-          disabled={!body.trim()}
-          aria-label="Send message"
-        >
-          <Send size={18} />
-        </button>
       </div>
     </div>
   )
