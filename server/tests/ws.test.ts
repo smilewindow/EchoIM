@@ -192,6 +192,7 @@ describe('WebSocket conversation.updated', () => {
       payload: { recipient_id: bob.user.id, body: 'Hi' },
     })
     const convId = msgRes.json<{ conversation_id: number }>().conversation_id
+    const messageId = msgRes.json<{ id: number }>().id
 
     const bobWs = await connectWs(port, bob.token)
     const eventPromise = waitForEvent(bobWs, 'conversation.updated')
@@ -200,11 +201,12 @@ describe('WebSocket conversation.updated', () => {
       method: 'PUT',
       url: `/api/conversations/${convId}/read`,
       headers: { authorization: `Bearer ${bob.token}` },
+      payload: { last_read_message_id: messageId },
     })
 
     const payload = await eventPromise as Record<string, unknown>
     expect(payload.conversation_id).toBe(convId)
-    expect(payload.last_read_at).toBeTruthy()
+    expect(payload.last_read_message_id).toBe(messageId)
     bobWs.close()
   })
 })

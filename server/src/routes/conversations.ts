@@ -10,7 +10,8 @@ const conversationRoutes: FastifyPluginAsync = async (fastify) => {
 
     const result = await fastify.pool.query(
       `SELECT c.id, c.created_at,
-        (SELECT COUNT(*)::int FROM messages m WHERE m.conversation_id = c.id AND m.sender_id != $1 AND m.created_at > COALESCE(cm.last_read_at, '1970-01-01')) AS unread_count,
+        cm.last_read_message_id,
+        (SELECT COUNT(*)::int FROM messages m WHERE m.conversation_id = c.id AND m.sender_id != $1 AND m.id > COALESCE(cm.last_read_message_id, 0)) AS unread_count,
         last_msg.body AS last_message_body,
         last_msg.sender_id AS last_message_sender_id,
         last_msg.created_at AS last_message_at,
@@ -86,8 +87,20 @@ const conversationRoutes: FastifyPluginAsync = async (fastify) => {
   })
 
   // PUT /api/conversations/:id/read
-  fastify.put('/:id/read', async (request, reply) => {
+  fastify.put('/:id/read', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['last_read_message_id'],
+        additionalProperties: false,
+        properties: {
+          last_read_message_id: { type: 'integer', minimum: 1 },
+        },
+      },
+    },
+  }, async (request, reply) => {
     const { id } = request.params as { id: string }
+    const { last_read_message_id } = request.body as { last_read_message_id: number }
     const userId = request.user.id
 
     if (!/^\d+$/.test(id)) {
@@ -95,23 +108,37 @@ const conversationRoutes: FastifyPluginAsync = async (fastify) => {
     }
     const convId = Number(id)
 
-    const result = await fastify.pool.query(
-      `UPDATE conversation_members SET last_read_at = NOW()
-       WHERE conversation_id = $1 AND user_id = $2
-       RETURNING last_read_at`,
-      [convId, userId]
+    const checkResult = await fastify.pool.query(
+      `SELECT
+        EXISTS(SELECT 1 FROM conversation_members WHERE conversation_id = $1 AND user_id = $2) AS is_member,
+        EXISTS(SELECT 1 FROM messages WHERE id = $3 AND conversation_id = $1) AS is_valid_message`,
+      [convId, userId, last_read_message_id]
     )
-
-    if (result.rowCount === 0) {
+    const { is_member, is_valid_message } = checkResult.rows[0]
+    if (!is_member) {
       return reply.status(404).send({ error: 'Not a member of this conversation' })
     }
+    if (!is_valid_message) {
+      return reply.status(400).send({ error: 'Invalid last_read_message_id' })
+    }
+
+    const result = await fastify.pool.query(
+      `UPDATE conversation_members
+       -- 已读游标只能前进，不能被旧请求/旧事件回退。
+       SET last_read_message_id = GREATEST(COALESCE(last_read_message_id, 0), $3)
+       WHERE conversation_id = $1 AND user_id = $2
+       RETURNING last_read_message_id`,
+      [convId, userId, last_read_message_id]
+    )
+
+    const confirmedLastReadMessageId = Number(result.rows[0].last_read_message_id)
 
     fastify.broadcast(userId, {
       type: 'conversation.updated',
-      payload: { conversation_id: convId, last_read_at: result.rows[0].last_read_at },
+      payload: { conversation_id: convId, last_read_message_id: confirmedLastReadMessageId },
     })
 
-    return reply.status(200).send({ last_read_at: result.rows[0].last_read_at })
+    return reply.status(200).send({ last_read_message_id: confirmedLastReadMessageId })
   })
 }
 

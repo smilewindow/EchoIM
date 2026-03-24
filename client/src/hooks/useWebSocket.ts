@@ -4,6 +4,7 @@ import { useChatStore, type Message } from '@/stores/chat'
 import { usePresenceStore } from '@/stores/presence'
 import { useFriendRequestStore, type FriendRequest } from '@/stores/friendRequests'
 import { useAuthStore } from '@/stores/auth'
+import { setWsConnected } from '@/lib/wsConnection'
 
 // Module-level socket reference so sendWsMessage can be called from anywhere
 let globalWs: WebSocket | null = null
@@ -16,7 +17,7 @@ export function sendWsMessage(data: object) {
 
 type WsEvent =
   | { type: 'message.new'; payload: Message }
-  | { type: 'conversation.updated'; payload: { conversation_id: number; last_read_at: string } }
+  | { type: 'conversation.updated'; payload: { conversation_id: number; last_read_message_id: number } }
   | { type: 'typing.start'; payload: { conversation_id: number; user_id: number } }
   | { type: 'typing.stop'; payload: { conversation_id: number; user_id: number } }
   | { type: 'presence.online'; payload: { user_id: number } }
@@ -101,6 +102,7 @@ export function useWebSocket() {
       globalWs = ws
 
       ws.onopen = () => {
+        setWsConnected(true)
         reconnectDelayRef.current = 1000
 
         if (!isFirstConnectionRef.current) {
@@ -132,6 +134,7 @@ export function useWebSocket() {
       }
 
       ws.onclose = () => {
+        setWsConnected(false)
         if (globalWs === ws) globalWs = null
         if (destroyed) return
 
@@ -175,6 +178,7 @@ export function useWebSocket() {
 
     return () => {
       destroyed = true
+      setWsConnected(false)
       window.removeEventListener('online', reconnectImmediately)
       window.removeEventListener('offline', closeSocketWhenOffline)
       if (reconnectTimer) clearTimeout(reconnectTimer)

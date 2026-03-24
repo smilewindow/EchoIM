@@ -74,6 +74,8 @@ export function ChatView({ onBack }: Props) {
   const [body, setBody] = useState('')
   const [loadingOlder, setLoadingOlder] = useState(false)
   const prevMessagesLengthRef = useRef(0)
+  const markReadIfVisibleRef = useRef<() => void>(() => {})
+  const wasNearBottomRef = useRef(true)
 
   // Typing send state
   const typingActiveRef = useRef(false)
@@ -95,6 +97,7 @@ export function ChatView({ onBack }: Props) {
 
   const recipientId = peer?.id ?? 0
   const activeUnreadCount = conv?.unread_count ?? 0
+  const activeLastReadMessageId = conv?.last_read_message_id ?? 0
 
   const markReadIfVisible = useCallback(() => {
     if (!activeConversationId || activeUnreadCount === 0 || messagesLoading || messages.length === 0) {
@@ -108,8 +111,27 @@ export function ChatView({ onBack }: Props) {
     const container = messagesContainerRef.current
     if (!container || !isNearBottom(container)) return
 
-    markRead(activeConversationId)
-  }, [activeConversationId, activeUnreadCount, messagesLoading, messages.length, markRead])
+    const latestConfirmedMessage = [...messages]
+      .reverse()
+      .find((message) => typeof message.id === 'number')
+
+    if (!latestConfirmedMessage) return
+    if ((latestConfirmedMessage.id as number) <= activeLastReadMessageId) return
+
+    markRead(activeConversationId, latestConfirmedMessage.id as number)
+  }, [
+    activeConversationId,
+    activeLastReadMessageId,
+    activeUnreadCount,
+    messages,
+    messagesLoading,
+    markRead,
+  ])
+
+  // Keep markReadIfVisibleRef in sync so scroll effect can call it without stale closure
+  useEffect(() => {
+    markReadIfVisibleRef.current = markReadIfVisible
+  }, [markReadIfVisible])
 
   // Scroll to bottom when new messages arrive (only if near bottom)
   useEffect(() => {
@@ -117,12 +139,21 @@ export function ChatView({ onBack }: Props) {
     if (!container || messagesLoading) return
 
     const isInitialLoad = prevMessagesLengthRef.current === 0 && messages.length > 0
+    const shouldStickToBottom = isInitialLoad || wasNearBottomRef.current
 
-    if (isInitialLoad) {
-      // Instant scroll on initial load
-      messagesEndRef.current?.scrollIntoView()
-    } else if (isNearBottom(container)) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (shouldStickToBottom) {
+      requestAnimationFrame(() => {
+        messagesEndRef.current?.scrollIntoView({
+          behavior: isInitialLoad ? 'auto' : 'smooth',
+          block: 'end',
+        })
+
+        requestAnimationFrame(() => {
+          // 这里记录的是“消息到来前用户就在底部”，供后续滚动/已读判断复用。
+          wasNearBottomRef.current = true
+          markReadIfVisibleRef.current()
+        })
+      })
     }
 
     prevMessagesLengthRef.current = messages.length
@@ -131,6 +162,7 @@ export function ChatView({ onBack }: Props) {
   // Reset scroll ref when conversation changes
   useEffect(() => {
     prevMessagesLengthRef.current = 0
+    wasNearBottomRef.current = true
   }, [activeConversationId, activePeer])
 
   // 只有消息真正滚到可见底部时才标记已读，避免用户上翻历史时误清未读。
@@ -170,6 +202,7 @@ export function ChatView({ onBack }: Props) {
     if (!container) return
 
     const handleScroll = () => {
+      wasNearBottomRef.current = isNearBottom(container)
       markReadIfVisible()
     }
 

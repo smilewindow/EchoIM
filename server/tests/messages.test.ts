@@ -192,11 +192,13 @@ describe('GET /api/conversations', () => {
     const { alice, bob } = await setupFriends(app)
     const msgRes = await sendMessage(app, alice.token, bob.user.id, 'Hey')
     const convId = msgRes.json().conversation_id
+    const firstMessageId = msgRes.json().id
 
     await app.inject({
       method: 'PUT',
       url: `/api/conversations/${convId}/read`,
       headers: { authorization: `Bearer ${bob.token}` },
+      payload: { last_read_message_id: firstMessageId },
     })
 
     const res = await app.inject({
@@ -376,18 +378,20 @@ describe('PUT /api/conversations/:id/read', () => {
   afterAll(async () => { await app.close() })
   beforeEach(async () => { await truncateAll(app) })
 
-  it('updates last_read_at and returns 200', async () => {
+  it('updates last_read_message_id and returns 200', async () => {
     const { alice, bob } = await setupFriends(app)
     const msgRes = await sendMessage(app, alice.token, bob.user.id, 'Hi')
     const convId = msgRes.json().conversation_id
+    const firstMessageId = msgRes.json().id
 
     const res = await app.inject({
       method: 'PUT',
       url: `/api/conversations/${convId}/read`,
       headers: { authorization: `Bearer ${bob.token}` },
+      payload: { last_read_message_id: firstMessageId },
     })
     expect(res.statusCode).toBe(200)
-    expect(res.json().last_read_at).toBeTruthy()
+    expect(res.json().last_read_message_id).toBe(firstMessageId)
   })
 
   it('returns 404 when not a member', async () => {
@@ -395,13 +399,60 @@ describe('PUT /api/conversations/:id/read', () => {
     const carol = await registerUser(app, { username: 'carol', email: 'carol@test.com', password: 'password123' })
     const msgRes = await sendMessage(app, alice.token, bob.user.id, 'Hi')
     const convId = msgRes.json().conversation_id
+    const firstMessageId = msgRes.json().id
 
     const res = await app.inject({
       method: 'PUT',
       url: `/api/conversations/${convId}/read`,
       headers: { authorization: `Bearer ${carol.token}` },
+      payload: { last_read_message_id: firstMessageId },
     })
     expect(res.statusCode).toBe(404)
+  })
+
+  it('keeps the read cursor monotonic when an older ack arrives later', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const first = await sendMessage(app, alice.token, bob.user.id, 'First')
+    const convId = first.json().conversation_id
+    const second = await sendMessage(app, alice.token, bob.user.id, 'Second')
+
+    const newerRead = await app.inject({
+      method: 'PUT',
+      url: `/api/conversations/${convId}/read`,
+      headers: { authorization: `Bearer ${bob.token}` },
+      payload: { last_read_message_id: second.json().id },
+    })
+    expect(newerRead.statusCode).toBe(200)
+    expect(newerRead.json().last_read_message_id).toBe(second.json().id)
+
+    const olderRead = await app.inject({
+      method: 'PUT',
+      url: `/api/conversations/${convId}/read`,
+      headers: { authorization: `Bearer ${bob.token}` },
+      payload: { last_read_message_id: first.json().id },
+    })
+    expect(olderRead.statusCode).toBe(200)
+    expect(olderRead.json().last_read_message_id).toBe(second.json().id)
+  })
+
+  it('returns 400 when last_read_message_id does not belong to the conversation', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const first = await sendMessage(app, alice.token, bob.user.id, 'Hi')
+    const convId = first.json().conversation_id
+
+    const carol = await registerUser(app, { username: 'carol', email: 'carol@test.com', password: 'password123' })
+    const dave = await registerUser(app, { username: 'dave', email: 'dave@test.com', password: 'password123' })
+    const req = await sendFriendRequest(app, carol.token, dave.user.id)
+    await acceptFriendRequest(app, dave.token, req.json().id)
+    const otherConversationMessage = await sendMessage(app, carol.token, dave.user.id, 'Elsewhere')
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: `/api/conversations/${convId}/read`,
+      headers: { authorization: `Bearer ${bob.token}` },
+      payload: { last_read_message_id: otherConversationMessage.json().id },
+    })
+    expect(res.statusCode).toBe(400)
   })
 
   it('rejects malformed conversation id', async () => {
@@ -410,12 +461,31 @@ describe('PUT /api/conversations/:id/read', () => {
       method: 'PUT',
       url: '/api/conversations/1abc/read',
       headers: { authorization: `Bearer ${alice.token}` },
+      payload: { last_read_message_id: 1 },
+    })
+    expect(res.statusCode).toBe(400)
+  })
+
+  it('rejects a missing last_read_message_id', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const msgRes = await sendMessage(app, alice.token, bob.user.id, 'Hi')
+    const convId = msgRes.json().conversation_id
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: `/api/conversations/${convId}/read`,
+      headers: { authorization: `Bearer ${bob.token}` },
+      payload: {},
     })
     expect(res.statusCode).toBe(400)
   })
 
   it('returns 401 when unauthenticated', async () => {
-    const res = await app.inject({ method: 'PUT', url: '/api/conversations/1/read' })
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/conversations/1/read',
+      payload: { last_read_message_id: 1 },
+    })
     expect(res.statusCode).toBe(401)
   })
 })

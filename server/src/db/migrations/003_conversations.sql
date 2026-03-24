@@ -4,8 +4,8 @@ CREATE TABLE IF NOT EXISTS conversations (
 );
 
 CREATE TABLE IF NOT EXISTS conversation_members (
-  conversation_id INTEGER     NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-  user_id         INTEGER     NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  last_read_at    TIMESTAMPTZ,
+  conversation_id       INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  user_id               INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  last_read_message_id  INTEGER,
   PRIMARY KEY (conversation_id, user_id)
 );

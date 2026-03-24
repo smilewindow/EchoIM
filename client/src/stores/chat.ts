@@ -2,10 +2,12 @@ import { create } from 'zustand'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
+import { isWsConnected } from '@/lib/wsConnection'
 
 export interface Conversation {
   id: number
   created_at: string
+  last_read_message_id: number | null
   unread_count: number
   last_message_body: string | null
   last_message_sender_id: number | null
@@ -51,10 +53,10 @@ interface ChatState {
   loadOlderMessages: () => Promise<void>
   sendMessage: (recipientId: number, body: string) => Promise<void>
   retryMessage: (tempId: string, recipientId: number, body: string) => void
-  markRead: (convId: number) => Promise<void>
+  markRead: (convId: number, lastReadMessageId: number) => Promise<void>
   clearChat: () => void
   handleIncomingMessage: (message: Message) => void
-  handleConversationUpdated: (payload: { conversation_id: number; last_read_at: string }) => void
+  handleConversationUpdated: (payload: { conversation_id: number; last_read_message_id: number }) => void
   handleTypingStart: (conversationId: number) => void
   handleTypingStop: (conversationId: number) => void
   promoteActivePeerConversation: (conversationId?: number) => Promise<boolean>
@@ -65,6 +67,7 @@ let abortController: AbortController | null = null
 
 // Typing auto-clear timeouts keyed by conversation_id (outside Zustand to avoid serialization issues)
 const typingTimeouts = new Map<number, ReturnType<typeof setTimeout>>()
+const pendingReadMessageIds = new Map<number, number>()
 const MESSAGE_PAGE_SIZE = 50
 const GAP_FILL_MAX_PAGES = 20
 
@@ -113,6 +116,17 @@ function normalizeIncomingMessage(message: Message): Message {
   return { ...message, _tempId: message.client_temp_id }
 }
 
+function syncPendingReadAcks(conversations: Conversation[]) {
+  conversations.forEach((conversation) => {
+    const pendingMessageId = pendingReadMessageIds.get(conversation.id)
+    if (pendingMessageId === undefined) return
+
+    if ((conversation.last_read_message_id ?? 0) >= pendingMessageId) {
+      pendingReadMessageIds.delete(conversation.id)
+    }
+  })
+}
+
 function findDraftConversation(
   state: Pick<ChatState, 'activeConversationId' | 'activePeer' | 'conversations'>,
   conversationId?: number,
@@ -145,6 +159,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ conversationsLoading: true })
     try {
       const data = await apiFetch<Conversation[]>('/conversations')
+      syncPendingReadAcks(data)
       set({ conversations: data, conversationsLoading: false })
     } catch {
       set({ conversationsLoading: false })
@@ -294,14 +309,27 @@ export const useChatStore = create<ChatState>((set, get) => ({
     get().sendMessage(recipientId, body)
   },
 
-  markRead: async (convId: number) => {
+  markRead: async (convId: number, lastReadMessageId: number) => {
+    const pendingMessageId = pendingReadMessageIds.get(convId) ?? 0
+    if (pendingMessageId >= lastReadMessageId) return
+
+    pendingReadMessageIds.set(convId, lastReadMessageId)
+
     try {
-      await apiFetch(`/conversations/${convId}/read`, { method: 'PUT' })
-      set({
-        conversations: get().conversations.map((c) => (c.id === convId ? { ...c, unread_count: 0 } : c)),
+      await apiFetch(`/conversations/${convId}/read`, {
+        method: 'PUT',
+        body: JSON.stringify({ last_read_message_id: lastReadMessageId }),
       })
-    } catch {
-      // ignore
+
+      // WS 在线时等服务端广播确认；离线时主动回拉一次服务端真相，避免列表一直卡在旧未读数。
+      if (!isWsConnected()) {
+        await get().fetchConversations()
+      }
+    } catch (err) {
+      console.error('markRead failed:', err)
+      if (pendingReadMessageIds.get(convId) === lastReadMessageId) {
+        pendingReadMessageIds.delete(convId)
+      }
     }
   },
 
@@ -341,7 +369,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
                   last_message_body: incoming.body,
                   last_message_sender_id: incoming.sender_id,
                   last_message_at: incoming.created_at,
-                  unread_count: c.unread_count + (incoming.sender_id !== currentUserId ? 1 : 0),
+                  // 只把真正越过已读游标的对方消息计入未读，避免旧回执把边界冲回去。
+                  unread_count: c.unread_count + (
+                    incoming.sender_id !== currentUserId &&
+                    typeof incoming.id === 'number' &&
+                    incoming.id > (c.last_read_message_id ?? 0)
+                      ? 1
+                      : 0
+                  ),
                 }
               : c,
           ),
@@ -379,12 +414,44 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ messages: [...msgs, incoming] })
   },
 
-  handleConversationUpdated: (payload: { conversation_id: number; last_read_at: string }) => {
-    set((s) => ({
-      conversations: s.conversations.map((c) =>
-        c.id === payload.conversation_id ? { ...c, unread_count: 0 } : c,
-      ),
-    }))
+  handleConversationUpdated: (payload: { conversation_id: number; last_read_message_id: number }) => {
+    const state = get()
+    const currentUserId = useAuthStore.getState().user?.id
+    const currentConversation = state.conversations.find((conversation) => conversation.id === payload.conversation_id)
+
+    if (!currentConversation) return
+    if (payload.last_read_message_id < (currentConversation.last_read_message_id ?? 0)) return
+
+    let earliestLoadedMessageId: number | null = null
+    let unreadCount = 0
+    for (const message of state.messages) {
+      if (typeof message.id !== 'number') continue
+      const msgId = message.id as number
+      if (earliestLoadedMessageId === null || msgId < earliestLoadedMessageId) {
+        earliestLoadedMessageId = msgId
+      }
+      if (message.sender_id !== currentUserId && msgId > payload.last_read_message_id) {
+        unreadCount++
+      }
+    }
+    const canRecomputeActiveUnread =
+      state.activeConversationId === payload.conversation_id &&
+      earliestLoadedMessageId !== null &&
+      payload.last_read_message_id >= earliestLoadedMessageId
+
+    const nextConversations = state.conversations.map((conversation) => {
+      if (conversation.id !== payload.conversation_id) return conversation
+      return canRecomputeActiveUnread
+        ? { ...conversation, last_read_message_id: payload.last_read_message_id, unread_count: unreadCount }
+        : { ...conversation, last_read_message_id: payload.last_read_message_id }
+    })
+
+    syncPendingReadAcks(nextConversations)
+    set({ conversations: nextConversations })
+
+    if (!canRecomputeActiveUnread) {
+      void get().fetchConversations()
+    }
   },
 
   handleTypingStart: (conversationId: number) => {
@@ -432,10 +499,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const requestConvId = activeConversationId
 
     // Find the last confirmed (non-pending) message ID as the cursor
-    const confirmedMessages = get().messages.filter((m) => typeof m.id === 'number')
-    const lastId = confirmedMessages.length > 0
-      ? Math.max(...confirmedMessages.map((m) => m.id as number))
-      : null
+    const lastId = get().messages.reduce<number | null>((max, m) => {
+      if (typeof m.id !== 'number') return max
+      const id = m.id as number
+      return max === null ? id : Math.max(max, id)
+    }, null)
 
     try {
       if (lastId !== null) {
