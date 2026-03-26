@@ -116,7 +116,7 @@
     --echo-accent-hover: #F0A050;
     --echo-accent-text: #08090F;
     --echo-online: #5AE07A;
-    --echo-border: rgba(255, 255, 255, 0.06);
+    --echo-border: rgba(255, 255, 255, 0.10);
     --echo-surface-rgb: 255, 255, 255;
     --echo-text-rgb: 240, 237, 230;
     --echo-accent-rgb: 232, 148, 58;
@@ -124,17 +124,17 @@
     --echo-success-rgb: 90, 224, 122;
 
     /* ── Glass foundation – dark ── */
-    --echo-glass-bg: rgba(255, 255, 255, 0.06);
-    --echo-glass-bg-heavy: rgba(255, 255, 255, 0.10);
-    --echo-glass-bg-light: rgba(255, 255, 255, 0.03);
-    --echo-glass-border: rgba(255, 255, 255, 0.12);
-    --echo-glass-border-subtle: rgba(255, 255, 255, 0.06);
+    --echo-glass-bg: rgba(255, 255, 255, 0.10);
+    --echo-glass-bg-heavy: rgba(255, 255, 255, 0.16);
+    --echo-glass-bg-light: rgba(255, 255, 255, 0.06);
+    --echo-glass-border: rgba(255, 255, 255, 0.18);
+    --echo-glass-border-subtle: rgba(255, 255, 255, 0.10);
     --echo-glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.30);
     --echo-glass-shadow-elevated: 0 12px 48px rgba(0, 0, 0, 0.45), 0 4px 12px rgba(0, 0, 0, 0.25);
     --echo-bubble-gradient: linear-gradient(135deg, #E8943A 0%, #F0A050 50%, #D47A20 100%);
     --echo-avatar-ring: linear-gradient(135deg, var(--echo-accent), #F0A050, var(--echo-accent-dark));
-    --echo-input-float-bg: rgba(255, 255, 255, 0.05);
-    --echo-input-float-border: rgba(255, 255, 255, 0.08);
+    --echo-input-float-bg: rgba(255, 255, 255, 0.08);
+    --echo-input-float-border: rgba(255, 255, 255, 0.12);
     --echo-input-float-shadow: 0 -4px 24px rgba(0, 0, 0, 0.25);
 }
 
@@ -1213,13 +1213,13 @@
 }
 
 .echo-bubble--other {
-  background: var(--echo-glass-bg);
+  background: var(--echo-glass-bg-heavy);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: 1px solid var(--echo-glass-border-subtle);
+  border: 1px solid var(--echo-glass-border);
   border-bottom-left-radius: 4px;
   color: var(--echo-text);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .echo-bubble--pending {
