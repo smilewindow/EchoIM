@@ -26,20 +26,28 @@ export function AuthLayout({
   subheading: string
 }) {
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--echo-bg)', color: 'var(--echo-text)' }}>
-      {/* ── Brand panel (desktop only) ── */}
+    <div
+      style={{
+        display: 'flex',
+        minHeight: '100vh',
+        background: 'var(--echo-bg)',
+        color: 'var(--echo-text)',
+        position: 'relative',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      {/* ── Brand panel (full-screen background) ── */}
       <div
         style={{
-          display: 'none',
-          width: '54%',
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
           flexDirection: 'column',
           justifyContent: 'space-between',
-          position: 'relative',
           overflow: 'hidden',
           padding: '56px',
-          borderRight: '1px solid var(--echo-border)',
         }}
-        className="lg:flex!"
       >
         {/* Echo rings backdrop */}
         <div
@@ -116,40 +124,22 @@ export function AuthLayout({
         </div>
       </div>
 
-      {/* ── Form panel ── */}
-      <div
-        style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          padding: '48px 32px',
-          background: 'var(--echo-bg-alt)',
-          animation: 'auth-fade-up 0.55s cubic-bezier(0.16, 1, 0.3, 1) both',
-        }}
-        className="lg:px-16!"
-      >
-        {/* Mobile-only logo */}
-        <div className="lg:hidden" style={{ marginBottom: '48px' }}>
-          <Wordmark />
-        </div>
-
-        <div style={{ width: '100%', maxWidth: '340px', margin: '0 auto' }} className="lg:mx-0!">
-          <h1
-            style={{
-              fontFamily: "'Syne', sans-serif",
-              fontWeight: 700,
-              fontSize: '26px',
-              letterSpacing: '-0.01em',
-              marginBottom: '8px',
-              color: 'var(--echo-text)',
-            }}
-          >
-            {heading}
-          </h1>
-          <p style={{ fontSize: '14px', color: 'rgba(var(--echo-text-rgb), 0.42)', marginBottom: '40px' }}>{subheading}</p>
-          {children}
-        </div>
+      {/* ── Form panel (glass card) ── */}
+      <div className="echo-auth-glass-card">
+        <h1
+          style={{
+            fontFamily: "'Syne', sans-serif",
+            fontWeight: 700,
+            fontSize: '26px',
+            letterSpacing: '-0.01em',
+            marginBottom: '8px',
+            color: 'var(--echo-text)',
+          }}
+        >
+          {heading}
+        </h1>
+        <p style={{ fontSize: '14px', color: 'rgba(var(--echo-text-rgb), 0.42)', marginBottom: '40px' }}>{subheading}</p>
+        {children}
       </div>
     </div>
   )
@@ -233,7 +223,7 @@ export function AuthSubmitButton({
         background: loading ? 'rgba(var(--echo-accent-rgb), 0.33)' : 'var(--echo-accent)',
         color: 'var(--echo-accent-text)',
         border: 'none',
-        borderRadius: '4px',
+        borderRadius: '12px',
         fontSize: '14px',
         fontWeight: 700,
         letterSpacing: '0.02em',
