@@ -67,6 +67,7 @@
     --echo-glass-blur: 16px;
     --echo-glass-blur-heavy: 24px;
     --echo-bubble-gradient: linear-gradient(135deg, #D47A20 0%, #E8943A 50%, #D47A20 100%);
+    --echo-bubble-other-bg: #EAEAE6;
     --echo-avatar-ring: linear-gradient(135deg, var(--echo-accent), #F0A050, var(--echo-accent-dark));
     --echo-input-float-bg: rgba(255, 255, 255, 0.65);
     --echo-input-float-border: rgba(255, 255, 255, 0.4);
@@ -132,6 +133,7 @@
     --echo-glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.30);
     --echo-glass-shadow-elevated: 0 12px 48px rgba(0, 0, 0, 0.45), 0 4px 12px rgba(0, 0, 0, 0.25);
     --echo-bubble-gradient: linear-gradient(135deg, #E8943A 0%, #F0A050 50%, #D47A20 100%);
+    --echo-bubble-other-bg: #252630;
     --echo-avatar-ring: linear-gradient(135deg, var(--echo-accent), #F0A050, var(--echo-accent-dark));
     --echo-input-float-bg: rgba(255, 255, 255, 0.08);
     --echo-input-float-border: rgba(255, 255, 255, 0.12);
@@ -1265,10 +1267,7 @@
 .echo-bubble--self.echo-bubble--last  { border-top-right-radius: 4px; border-bottom-right-radius: 0; }
 
 .echo-bubble--other {
-  background: var(--echo-glass-bg-heavy);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid var(--echo-glass-border);
+  background: var(--echo-bubble-other-bg);
   color: var(--echo-text);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
@@ -1279,12 +1278,39 @@
 .echo-bubble--other.echo-bubble--middle { border-top-left-radius: 4px; border-bottom-left-radius: 4px; }
 .echo-bubble--other.echo-bubble--last  { border-top-left-radius: 4px; border-bottom-left-radius: 0; }
 
+/* Bubble tails via CSS pseudo-elements (clip-path) so fill/blur matches bubble exactly */
+.echo-bubble--self.echo-bubble--solo::after,
+.echo-bubble--self.echo-bubble--last::after {
+  content: '';
+  position: absolute;
+  right: -8px;
+  bottom: 0;
+  width: 9px;
+  height: 20px;
+  background: var(--echo-bubble-gradient);
+  clip-path: path('M6 17H0V0c.193 2.84.876 5.767 2.05 8.782.904 2.325 2.446 4.485 4.625 6.48A1 1 0 0 1 6 17z');
+  pointer-events: none;
+}
+
+.echo-bubble--other.echo-bubble--solo::before,
+.echo-bubble--other.echo-bubble--last::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  bottom: 0;
+  width: 9px;
+  height: 20px;
+  background: var(--echo-bubble-other-bg);
+  clip-path: path('M3 17h6V0c-.193 2.84-.876 5.767-2.05 8.782-.904 2.325-2.446 4.485-4.625 6.48A1 1 0 0 0 3 17z');
+  pointer-events: none;
+}
+
 .echo-bubble--pending {
   opacity: 0.6;
 }
 
 .echo-bubble--failed {
-  border-color: rgba(var(--echo-error-rgb), 0.3);
+  border: 1px solid rgba(var(--echo-error-rgb), 0.3);
   background: rgba(var(--echo-error-rgb), 0.06);
 }
 
