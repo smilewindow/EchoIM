@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/auth'
@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/auth'
 export function ProfileEditPage() {
   const { user, updateProfile } = useAuthStore()
   const navigate = useNavigate()
+  const location = useLocation()
   const [displayName, setDisplayName] = useState(user?.display_name ?? '')
   const [avatarUrl, setAvatarUrl] = useState(user?.avatar_url ?? '')
   const [loading, setLoading] = useState(false)
@@ -23,7 +24,10 @@ export function ProfileEditPage() {
         avatar_url: avatarUrl,
       })
       toast.success('Profile updated')
-      navigate('/')
+      navigate({
+        pathname: '/',
+        search: location.search,
+      })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to update profile')
     } finally {
@@ -36,7 +40,12 @@ export function ProfileEditPage() {
       <div className="echo-profile-card">
         {/* Back button */}
         <button
-          onClick={() => navigate('/')}
+          onClick={() =>
+            navigate({
+              pathname: '/',
+              search: location.search,
+            })
+          }
           className="echo-profile-back"
         >
           <ArrowLeft size={18} />

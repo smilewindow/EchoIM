@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Navigate, Outlet } from 'react-router-dom'
+import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { ApiError } from '@/lib/api'
+import { buildAuthRedirectSearch } from '@/lib/navigation'
 import { useAuthStore } from '@/stores/auth'
 
 function getRestoreSessionError(err: unknown) {
@@ -15,6 +16,7 @@ function getRestoreSessionError(err: unknown) {
 
 export function ProtectedRoute() {
   const { token, user, fetchMe, logout } = useAuthStore()
+  const location = useLocation()
   const [loadError, setLoadError] = useState<string | null>(null)
   const [retryKey, setRetryKey] = useState(0)
 
@@ -39,7 +41,17 @@ export function ProtectedRoute() {
     }
   }, [token, user, fetchMe, logout, retryKey])
 
-  if (!token) return <Navigate to="/login" replace />
+  if (!token) {
+    return (
+      <Navigate
+        to={{
+          pathname: '/login',
+          search: buildAuthRedirectSearch(location.pathname, location.search),
+        }}
+        replace
+      />
+    )
+  }
   if (user) return <Outlet />
 
   if (loadError) {

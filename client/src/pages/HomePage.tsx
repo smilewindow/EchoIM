@@ -1,28 +1,29 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { MessageSquare } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth'
 import { useChatStore } from '@/stores/chat'
 import { useFriendRequestStore } from '@/stores/friendRequests'
 import { apiFetch } from '@/lib/api'
+import { buildHomeTabSearch, parseHomeTab, type HomeTab } from '@/lib/navigation'
 import { FriendsList } from '@/components/FriendsList'
 import { FriendRequestsPanel } from '@/components/FriendRequestsPanel'
 import { UserSearchPanel } from '@/components/UserSearchPanel'
 import { ConversationList } from '@/components/ConversationList'
 import { ChatView } from '@/components/ChatView'
 
-type Tab = 'chats' | 'friends' | 'requests' | 'search'
-
 export function HomePage() {
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
+  const location = useLocation()
+  const [searchParams] = useSearchParams()
   const displayName = user?.display_name || user?.username || ''
   const avatarUrl = user?.avatar_url
 
   const { activeConversationId, activePeer, fetchConversations, selectPeer, clearChat } =
     useChatStore()
 
-  const [activeTab, setActiveTab] = useState<Tab>('chats')
+  const activeTab = parseHomeTab(searchParams.get('tab'))
   const [friendCount, setFriendCount] = useState(0)
   const requestCount = useFriendRequestStore((s) => s.incoming.length)
   const friendsVersion = useFriendRequestStore((s) => s.friendsVersion)
@@ -49,7 +50,30 @@ export function HomePage() {
     clearChat()
   }
 
-  const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
+  useEffect(() => {
+    const normalizedSearch = buildHomeTabSearch(new URLSearchParams(location.search), activeTab)
+
+    if (location.search === normalizedSearch) {
+      return
+    }
+
+    navigate(
+      {
+        pathname: location.pathname,
+        search: normalizedSearch,
+      },
+      { replace: true },
+    )
+  }, [activeTab, location.pathname, location.search, navigate])
+
+  const updateActiveTab = (tab: HomeTab) => {
+    navigate({
+      pathname: location.pathname,
+      search: buildHomeTabSearch(searchParams, tab),
+    })
+  }
+
+  const tabs: { key: HomeTab; label: string; icon: React.ReactNode }[] = [
     {
       key: 'chats',
       label: 'Chats',
@@ -126,7 +150,12 @@ export function HomePage() {
         <div className="echo-sidebar-header">
           <div className="echo-sidebar-user">
             <button
-              onClick={() => navigate('/profile')}
+              onClick={() =>
+                navigate({
+                  pathname: '/profile',
+                  search: location.search,
+                })
+              }
               className="echo-sidebar-profile-link"
               title="Edit profile"
             >
@@ -166,7 +195,7 @@ export function HomePage() {
           {tabs.map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => updateActiveTab(tab.key)}
               className={`echo-tab ${activeTab === tab.key ? 'echo-tab--active' : ''}`}
             >
               {tab.icon}
@@ -194,7 +223,7 @@ export function HomePage() {
                   display_name: friend.display_name,
                   avatar_url: friend.avatar_url,
                 })
-                setActiveTab('chats')
+                updateActiveTab('chats')
               }}
             />
           )}

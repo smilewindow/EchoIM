@@ -1,18 +1,21 @@
 import { useState, type FormEvent } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@/stores/auth'
+import { buildAuthPagePath, getSafeRedirectTarget } from '@/lib/navigation'
 import { AuthLayout, AuthField, AuthSubmitButton } from '@/components/AuthLayout'
 
 export function RegisterPage() {
   const { token, register } = useAuthStore()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const redirectTarget = getSafeRedirectTarget(searchParams.get('redirect'))
 
-  if (token) return <Navigate to="/" replace />
+  if (token) return <Navigate to={redirectTarget} replace />
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -20,7 +23,7 @@ export function RegisterPage() {
     setLoading(true)
     try {
       await register(username, email, password)
-      navigate('/')
+      navigate(redirectTarget, { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed')
     } finally {
@@ -82,7 +85,7 @@ export function RegisterPage() {
         <p style={{ marginTop: '24px', fontSize: '13px', color: 'rgba(var(--echo-text-rgb), 0.38)', textAlign: 'center' }}>
           Already have an account?{' '}
           <Link
-            to="/login"
+            to={buildAuthPagePath('/login', redirectTarget)}
             style={{ color: 'var(--echo-accent)', textDecoration: 'none', fontWeight: 500 }}
             onMouseEnter={e => ((e.target as HTMLElement).style.textDecoration = 'underline')}
             onMouseLeave={e => ((e.target as HTMLElement).style.textDecoration = 'none')}
