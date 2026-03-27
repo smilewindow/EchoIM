@@ -410,12 +410,19 @@ export function ChatView({ onBack }: Props) {
       const isGroupStart = lastSenderId !== msg.sender_id
       lastSenderId = msg.sender_id
 
+      const nextMsg = messages[i + 1]
+      const nextDateGroup = nextMsg ? formatDateGroup(nextMsg.created_at) : null
+      const isGroupEnd = !nextMsg || nextMsg.sender_id !== msg.sender_id || nextDateGroup !== dateGroup
+
       elements.push(
         <MessageBubble
           key={String(msg.id)}
           msg={msg}
           isSelf={isSelf}
           isGroupStart={isGroupStart}
+          isGroupEnd={isGroupEnd}
+          peer={peer}
+          currentUser={user}
           recipientId={recipientId}
           retryMessage={retryMessage}
         />,
@@ -536,18 +543,27 @@ interface BubbleProps {
   msg: Message
   isSelf: boolean
   isGroupStart: boolean
+  isGroupEnd: boolean
+  peer: { id: number; username: string; display_name: string | null; avatar_url: string | null } | null | undefined
+  currentUser: { username: string; display_name: string | null; avatar_url: string | null } | null
   recipientId: number
   retryMessage: (tempId: string, recipientId: number, body: string) => void
 }
 
-function MessageBubble({ msg, isSelf, isGroupStart, recipientId, retryMessage }: BubbleProps) {
+function MessageBubble({ msg, isSelf, isGroupStart, isGroupEnd, peer, currentUser, recipientId, retryMessage }: BubbleProps) {
   const isPending = msg._status === 'pending'
   const isFailed = msg._status === 'failed'
+
+  const groupPos =
+    isGroupStart && isGroupEnd ? 'solo'
+    : isGroupStart ? 'first'
+    : isGroupEnd ? 'last'
+    : 'middle'
 
   const rowClass = [
     'echo-bubble-row',
     isSelf ? 'echo-bubble-row--self' : 'echo-bubble-row--other',
-    isGroupStart ? 'echo-bubble-row--group-start' : '',
+    isGroupEnd ? 'echo-bubble-row--group-end' : '',
   ]
     .filter(Boolean)
     .join(' ')
@@ -555,15 +571,36 @@ function MessageBubble({ msg, isSelf, isGroupStart, recipientId, retryMessage }:
   const bubbleClass = [
     'echo-bubble',
     isSelf ? 'echo-bubble--self' : 'echo-bubble--other',
+    `echo-bubble--${groupPos}`,
     isPending ? 'echo-bubble--pending' : '',
     isFailed ? 'echo-bubble--failed' : '',
   ]
     .filter(Boolean)
     .join(' ')
 
+  const avatarInfo = isSelf ? currentUser : peer
+  const avatarContent = avatarInfo ? (
+    avatarInfo.avatar_url ? (
+      <img src={avatarInfo.avatar_url} alt="" className="echo-avatar-img" />
+    ) : (
+      <span className="echo-avatar-initials">{initials(avatarInfo.display_name, avatarInfo.username)}</span>
+    )
+  ) : null
+
   return (
     <div className={rowClass}>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: isSelf ? 'flex-end' : 'flex-start', maxWidth: '70%', minWidth: 0 }}>
+      {/* Left avatar (other's messages) */}
+      {!isSelf && (
+        <div className="echo-bubble-avatar-col echo-bubble-avatar-col--left">
+          {isGroupEnd ? (
+            <div className="echo-bubble-avatar">{avatarContent}</div>
+          ) : (
+            <div className="echo-bubble-avatar-spacer" />
+          )}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: isSelf ? 'flex-end' : 'flex-start', maxWidth: '65%', minWidth: 0 }}>
         <div className={bubbleClass}>
           <p className="echo-bubble-body">{msg.body}</p>
           <div className="echo-bubble-footer">
@@ -590,6 +627,17 @@ function MessageBubble({ msg, isSelf, isGroupStart, recipientId, retryMessage }:
           </button>
         )}
       </div>
+
+      {/* Right avatar (self messages) */}
+      {isSelf && (
+        <div className="echo-bubble-avatar-col echo-bubble-avatar-col--right">
+          {isGroupEnd ? (
+            <div className="echo-bubble-avatar">{avatarContent}</div>
+          ) : (
+            <div className="echo-bubble-avatar-spacer" />
+          )}
+        </div>
+      )}
     </div>
   )
 }

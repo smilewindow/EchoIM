@@ -1170,6 +1170,7 @@
 /* ── Message bubble rows ── */
 .echo-bubble-row {
   display: flex;
+  align-items: flex-end;
   margin-bottom: 2px;
   animation: echo-bubble-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
@@ -1182,14 +1183,60 @@
   justify-content: flex-start;
 }
 
-/* Group spacing: more gap when switching speakers */
-.echo-bubble-row--group-start {
-  margin-top: 12px;
+/* Extra gap after a group ends */
+.echo-bubble-row--group-end {
+  margin-bottom: 10px;
 }
 
 @keyframes echo-bubble-in {
   0%   { opacity: 0; transform: translateY(4px) scale(0.98); }
   100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── Bubble avatar (in message area) ── */
+.echo-bubble-avatar-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.echo-bubble-avatar-col--left {
+  margin-right: 8px;
+}
+
+.echo-bubble-avatar-col--right {
+  margin-left: 8px;
+}
+
+.echo-bubble-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(var(--echo-accent-rgb), 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  border: 1.5px solid var(--echo-glass-border);
+}
+
+.echo-bubble-avatar .echo-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.echo-bubble-avatar .echo-avatar-initials {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--echo-accent);
+}
+
+.echo-bubble-avatar-spacer {
+  width: 30px;
+  flex-shrink: 0;
 }
 
 /* ── Bubble ── */
@@ -1203,7 +1250,6 @@
 .echo-bubble--self {
   background: var(--echo-bubble-gradient);
   border: none;
-  border-bottom-right-radius: 4px;
   color: #FFFFFF;
   box-shadow: 0 2px 12px rgba(var(--echo-accent-rgb), 0.25);
 }
@@ -1212,15 +1258,26 @@
   color: rgba(255, 255, 255, 0.6);
 }
 
+/* Self: grouped corner radius — right side is the "tail" side */
+.echo-bubble--self.echo-bubble--solo  { border-bottom-right-radius: 0; }
+.echo-bubble--self.echo-bubble--first { border-bottom-right-radius: 4px; }
+.echo-bubble--self.echo-bubble--middle { border-top-right-radius: 4px; border-bottom-right-radius: 4px; }
+.echo-bubble--self.echo-bubble--last  { border-top-right-radius: 4px; border-bottom-right-radius: 0; }
+
 .echo-bubble--other {
   background: var(--echo-glass-bg-heavy);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border: 1px solid var(--echo-glass-border);
-  border-bottom-left-radius: 4px;
   color: var(--echo-text);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
+
+/* Other: grouped corner radius — left side is the "tail" side */
+.echo-bubble--other.echo-bubble--solo  { border-bottom-left-radius: 0; }
+.echo-bubble--other.echo-bubble--first { border-bottom-left-radius: 4px; }
+.echo-bubble--other.echo-bubble--middle { border-top-left-radius: 4px; border-bottom-left-radius: 4px; }
+.echo-bubble--other.echo-bubble--last  { border-top-left-radius: 4px; border-bottom-left-radius: 0; }
 
 .echo-bubble--pending {
   opacity: 0.6;
