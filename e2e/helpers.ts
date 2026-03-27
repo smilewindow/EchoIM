@@ -96,10 +96,18 @@ export async function sendMessageApi(
 }
 
 /** Mark a conversation as read via REST API. */
-export async function markConversationRead(token: string, conversationId: number): Promise<void> {
+export async function markConversationRead(
+  token: string,
+  conversationId: number,
+  lastReadMessageId: number,
+): Promise<void> {
   const res = await fetch(`${API}/conversations/${conversationId}/read`, {
     method: 'PUT',
-    headers: { Authorization: `Bearer ${token}` },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ last_read_message_id: lastReadMessageId }),
   })
   if (!res.ok) {
     const text = await res.text()

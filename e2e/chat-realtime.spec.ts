@@ -25,6 +25,11 @@ function chatMessages(page: Page) {
   return page.locator('.echo-chat-messages')
 }
 
+function activeChatPresenceDot(page: Page) {
+  // 聊天头部和好友列表都会显示状态点，这里固定断言当前打开会话的那个。
+  return page.locator('.echo-chat-header .echo-presence-dot')
+}
+
 async function openFriendDraft(page: Page, username: string) {
   await page.getByRole('button', { name: 'Friends' }).click()
   await page.locator('.echo-friend-row').filter({ hasText: username }).first().click()
@@ -133,10 +138,14 @@ test('user B goes offline and user A sees the presence dot update', async ({ bro
   await loginAs(pageB, bob.email, 'password123')
 
   await openFriendDraft(pageA, 'bob')
-  await expect(pageA.locator('.echo-presence-dot--online')).toBeVisible({ timeout: 8_000 })
+  await expect(activeChatPresenceDot(pageA)).toHaveClass(/echo-presence-dot--online/, {
+    timeout: 8_000,
+  })
 
   await ctxB.close()
-  await expect(pageA.locator('.echo-presence-dot--offline')).toBeVisible({ timeout: 10_000 })
+  await expect(activeChatPresenceDot(pageA)).toHaveClass(/echo-presence-dot--offline/, {
+    timeout: 10_000,
+  })
 
   await ctxA.close()
 })
@@ -150,11 +159,13 @@ test('active chat keeps unread when scrolled away from bottom, then clears after
 
   // 先造一段足够长的历史，确保聊天窗口可以滚动。
   let conversationId: number | null = null
+  let latestHistoryMessageId = 0
   for (let i = 1; i <= 30; i++) {
     const message = await sendMessageApi(bob.token, alice.id, `history ${i}`)
     conversationId ??= message.conversation_id
+    latestHistoryMessageId = message.id
   }
-  await markConversationRead(alice.token, conversationId!)
+  await markConversationRead(alice.token, conversationId!, latestHistoryMessageId)
 
   const ctxA = await browser.newContext()
   const pageA = await ctxA.newPage()
@@ -188,7 +199,7 @@ test('hidden tab keeps unread until the conversation becomes visible again', asy
   await makeFriends(alice.token, bob.token, bob.id)
 
   const seedMessage = await sendMessageApi(bob.token, alice.id, 'history before hiding')
-  await markConversationRead(alice.token, seedMessage.conversation_id)
+  await markConversationRead(alice.token, seedMessage.conversation_id, seedMessage.id)
 
   const ctxA = await browser.newContext()
   const pageA = await ctxA.newPage()
@@ -520,7 +531,9 @@ test('presence dot corrects to offline for friend who disconnected during WS out
   await loginAs(pageB, bob.email, 'password123')
 
   await openFriendDraft(pageA, 'bob')
-  await expect(pageA.locator('.echo-presence-dot--online')).toBeVisible({ timeout: 8_000 })
+  await expect(activeChatPresenceDot(pageA)).toHaveClass(/echo-presence-dot--online/, {
+    timeout: 8_000,
+  })
 
   await ctxA.setOffline(true)
   await pageA.waitForTimeout(800)
@@ -528,7 +541,9 @@ test('presence dot corrects to offline for friend who disconnected during WS out
   await ctxB.close()
   await ctxA.setOffline(false)
 
-  await expect(pageA.locator('.echo-presence-dot--offline')).toBeVisible({ timeout: 15_000 })
+  await expect(activeChatPresenceDot(pageA)).toHaveClass(/echo-presence-dot--offline/, {
+    timeout: 15_000,
+  })
 
   await ctxA.close()
 })
