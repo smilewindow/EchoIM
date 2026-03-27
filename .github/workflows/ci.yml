@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  # PR 阶段先把问题拦住，避免坏代码进 main。
+  pull_request:
+  # main 上也保留一次兜底校验，方便直接观察默认分支健康度。
+  push:
+    branches:
+      - main
+
+jobs:
+  ci:
+    name: Lint, Build and E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    # e2e/config.js 会基于这个基础连接串自动创建 echoim_e2e，并在启动前跑 migration。
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+      JWT_SECRET: ci-test-secret
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            client/package-lock.json
+            server/package-lock.json
+
+      # 仓库根目录、client、server 都各自有依赖，分开安装最稳妥。
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install client dependencies
+        run: npm ci --prefix client
+
+      - name: Install server dependencies
+        run: npm ci --prefix server
+
+      - name: Lint client
+        run: npm run lint --prefix client
+
+      - name: Lint server
+        run: npm run lint --prefix server
+
+      - name: Build client
+        run: npm run build --prefix client
+
+      - name: Build server
+        run: npm run build --prefix server
+
+      # Playwright 的浏览器和系统依赖在 GitHub runner 上需要显式安装。
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run end-to-end tests
+        run: npm run test:e2e
