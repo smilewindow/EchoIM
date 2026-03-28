@@ -1,4 +1,5 @@
 const HOME_TAB_QUERY_KEY = 'tab'
+const CHAT_QUERY_KEY = 'chat'
 const AUTH_REDIRECT_QUERY_KEY = 'redirect'
 const DEFAULT_HOME_TAB = 'chats'
 const HOME_TABS = ['chats', 'friends', 'requests', 'search'] as const
@@ -14,18 +15,32 @@ export function parseHomeTab(value: string | null): HomeTab {
   return DEFAULT_HOME_TAB
 }
 
-export function buildHomeTabSearch(searchParams: URLSearchParams, tab: HomeTab) {
-  // tab 是主页的 URL 状态源，默认 chats 不写进 query，避免首页链接变脏。
+export function parseChatParam(value: string | null): number | null {
+  if (!value) return null
+  const n = parseInt(value, 10)
+  return Number.isInteger(n) && n > 0 ? n : null
+}
+
+function setSearchParam(searchParams: URLSearchParams, key: string, value: string | null) {
   const next = new URLSearchParams(searchParams)
 
-  if (tab === DEFAULT_HOME_TAB) {
-    next.delete(HOME_TAB_QUERY_KEY)
+  if (value != null) {
+    next.set(key, value)
   } else {
-    next.set(HOME_TAB_QUERY_KEY, tab)
+    next.delete(key)
   }
 
   const search = next.toString()
   return search ? `?${search}` : ''
+}
+
+export function buildHomeTabSearch(searchParams: URLSearchParams, tab: HomeTab) {
+  // tab 是主页的 URL 状态源，默认 chats 不写进 query，避免首页链接变脏。
+  return setSearchParam(searchParams, HOME_TAB_QUERY_KEY, tab === DEFAULT_HOME_TAB ? null : tab)
+}
+
+export function buildChatSearch(searchParams: URLSearchParams, chatId: number | null) {
+  return setSearchParam(searchParams, CHAT_QUERY_KEY, chatId != null ? String(chatId) : null)
 }
 
 export function buildAuthRedirectSearch(pathname: string, search: string) {

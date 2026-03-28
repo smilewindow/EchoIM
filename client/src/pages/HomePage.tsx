@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { MessageSquare } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth'
 import { useChatStore } from '@/stores/chat'
 import { useFriendRequestStore } from '@/stores/friendRequests'
 import { apiFetch } from '@/lib/api'
-import { buildHomeTabSearch, parseHomeTab, type HomeTab } from '@/lib/navigation'
+import { buildHomeTabSearch, buildChatSearch, parseChatParam, parseHomeTab, type HomeTab } from '@/lib/navigation'
 import { FriendsList } from '@/components/FriendsList'
 import { FriendRequestsPanel } from '@/components/FriendRequestsPanel'
 import { UserSearchPanel } from '@/components/UserSearchPanel'
@@ -20,7 +20,7 @@ export function HomePage() {
   const displayName = user?.display_name || user?.username || ''
   const avatarUrl = user?.avatar_url
 
-  const { activeConversationId, activePeer, fetchConversations, selectPeer, clearChat } =
+  const { activeConversationId, activePeer, conversations, conversationsLoading, fetchConversations, selectConversation, selectPeer, clearChat } =
     useChatStore()
 
   const activeTab = parseHomeTab(searchParams.get('tab'))
@@ -65,6 +65,48 @@ export function HomePage() {
       { replace: true },
     )
   }, [activeTab, location.pathname, location.search, navigate])
+
+  // URL → Store: restore active chat after conversations are loaded
+  const chatRestored = useRef(false)
+
+  useEffect(() => {
+    if (conversationsLoading) return
+
+    const chatId = parseChatParam(searchParams.get('chat'))
+
+    if (chatId === null || chatId === activeConversationId) {
+      chatRestored.current = true
+      return
+    }
+
+    const exists = conversations.some((c) => c.id === chatId)
+    if (exists) {
+      selectConversation(chatId)
+    } else {
+      // Invalid/stale chatId — clean up the URL
+      navigate(
+        { pathname: location.pathname, search: buildChatSearch(searchParams, null) },
+        { replace: true },
+      )
+    }
+    chatRestored.current = true
+    // Only run when conversations finish loading, not on every activeConversationId change.
+    // Once selectConversation fires, the Store → URL effect takes over.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationsLoading])
+
+  // Store → URL: keep ?chat= in sync with activeConversationId
+  useEffect(() => {
+    if (!chatRestored.current) return
+
+    const params = new URLSearchParams(window.location.search)
+    if (parseChatParam(params.get('chat')) === activeConversationId) return
+
+    navigate(
+      { pathname: location.pathname, search: buildChatSearch(params, activeConversationId) },
+      { replace: true },
+    )
+  }, [activeConversationId, location.pathname, navigate])
 
   const updateActiveTab = (tab: HomeTab) => {
     navigate({

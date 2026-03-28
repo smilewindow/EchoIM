@@ -146,7 +146,7 @@ function findDraftConversation(
 
 export const useChatStore = create<ChatState>((set, get) => ({
   conversations: [],
-  conversationsLoading: false,
+  conversationsLoading: true,
   activeConversationId: null,
   activePeer: null,
   messages: [],
