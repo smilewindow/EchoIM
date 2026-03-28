@@ -84,3 +84,9 @@ npm run lint --prefix server
 - **基于游标的分页：** 每页 50 条消息，游标 = 最旧消息的 `created_at`
 - **对话自动创建：** 两个好友首次发消息时自动创建（`POST /api/messages`）
 - **第 6 和第 9 阶段可并行：** 第 5 阶段（消息 REST API）完成后即可同时进行
+
+# Output Language
+
+Always respond in Chinese
+
+## 
