@@ -11,9 +11,11 @@ import { FriendRequestsPanel } from '@/components/FriendRequestsPanel'
 import { UserSearchPanel } from '@/components/UserSearchPanel'
 import { ConversationList } from '@/components/ConversationList'
 import { ChatView } from '@/components/ChatView'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 
 export function HomePage() {
   const { user, logout } = useAuthStore()
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams] = useSearchParams()
@@ -213,7 +215,7 @@ export function HomePage() {
                 <p className="echo-sidebar-status">Online</p>
               </div>
             </button>
-            <button onClick={logout} className="echo-logout-btn" title="Sign out">
+            <button onClick={() => setShowLogoutConfirm(true)} className="echo-logout-btn" title="Sign out">
               <svg
                 width="16"
                 height="16"
@@ -299,6 +301,16 @@ export function HomePage() {
           </div>
         )}
       </main>
+
+      <ConfirmDialog
+        open={showLogoutConfirm}
+        title="Sign out"
+        message="Are you sure you want to sign out?"
+        confirmText="Sign out"
+        cancelText="Cancel"
+        onConfirm={logout}
+        onCancel={() => setShowLogoutConfirm(false)}
+      />
     </div>
   )
 }

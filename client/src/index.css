@@ -889,6 +889,67 @@
               box-shadow 0.2s ease;
 }
 
+/* ── Confirm dialog ── */
+.echo-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+}
+.echo-confirm-card {
+  background: var(--echo-bg);
+  border: 1px solid var(--echo-glass-border-subtle);
+  border-radius: 16px;
+  padding: 24px;
+  width: 280px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.24);
+}
+.echo-confirm-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--echo-text);
+  margin: 0 0 8px;
+}
+.echo-confirm-message {
+  font-size: 13px;
+  color: rgba(var(--echo-text-rgb), 0.6);
+  margin: 0 0 20px;
+  line-height: 1.5;
+}
+.echo-confirm-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.echo-confirm-btn-cancel,
+.echo-confirm-btn-confirm {
+  padding: 7px 16px;
+  border-radius: 8px;
+  border: none;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.echo-confirm-btn-cancel {
+  background: rgba(var(--echo-text-rgb), 0.08);
+  color: var(--echo-text);
+}
+.echo-confirm-btn-cancel:hover {
+  background: rgba(var(--echo-text-rgb), 0.14);
+}
+.echo-confirm-btn-confirm {
+  background: var(--echo-accent);
+  color: #fff;
+}
+.echo-confirm-btn-confirm:hover {
+  opacity: 0.88;
+}
+
 /* ── Focus-visible rings ── */
 .echo-action-btn:focus-visible,
 .echo-message-send-btn:focus-visible,
