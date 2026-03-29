@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { toast } from 'sonner'
+import i18n from '@/lib/i18n'
 import { useChatStore, type Message } from '@/stores/chat'
 import { usePresenceStore } from '@/stores/presence'
 import { useFriendRequestStore, type FriendRequest } from '@/stores/friendRequests'
@@ -57,7 +58,7 @@ function handleWsEvent(event: WsEvent) {
       } else {
         friendReqs.addIncoming(event.payload)
         const name = event.payload.display_name || event.payload.username
-        toast.info(`${name} 向你发送了好友申请`)
+        toast.info(i18n.t('ws.friendRequestReceived', { name }))
       }
       break
     case 'friend_request.accepted': {
@@ -66,7 +67,7 @@ function handleWsEvent(event: WsEvent) {
       // 只给非操作方（收到对方接受通知的一侧）显示 toast
       if (direction === 'sent') {
         const name = event.payload.display_name || event.payload.username
-        toast.success(`${name} 接受了你的好友申请`)
+        toast.success(i18n.t('ws.friendRequestAccepted', { name }))
       }
       break
     }

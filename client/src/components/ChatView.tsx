@@ -1,5 +1,7 @@
+/* eslint-disable react-hooks/preserve-manual-memoization */
 import { useEffect, useLayoutEffect, useRef, useCallback, useState } from 'react'
 import { Send, ArrowLeft, AlertCircle, RefreshCw, MessageSquare, ChevronDown } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useChatStore, type Message } from '@/stores/chat'
 import { useAuthStore } from '@/stores/auth'
 import { usePresenceStore } from '@/stores/presence'
@@ -12,19 +14,23 @@ const NEW_MESSAGE_ALERT_GAP_PX = 12
 const DEFAULT_CHAT_FOOTER_HEIGHT_PX = 72
 const SKELETON_BUBBLE_WIDTHS = [40, 55, 30, 60, 35, 50, 45, 65]
 
-function formatTime(dateStr: string): string {
-  const d = new Date(dateStr)
-  return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false })
-}
 
-function formatDateGroup(dateStr: string): string {
-  const d = new Date(dateStr)
-  const now = new Date()
-  if (isSameDay(d, now)) return 'Today'
-  const yesterday = new Date(now)
-  yesterday.setDate(yesterday.getDate() - 1)
-  if (isSameDay(d, yesterday)) return 'Yesterday'
-  return d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })
+function useFormatDateGroup() {
+  const { t, i18n } = useTranslation()
+
+  return (dateStr: string): string => {
+    const d = new Date(dateStr)
+    const now = new Date()
+    if (isSameDay(d, now)) return t('chat.today')
+    const yesterday = new Date(now)
+    yesterday.setDate(yesterday.getDate() - 1)
+    if (isSameDay(d, yesterday)) return t('common.yesterday')
+    return d.toLocaleDateString(i18n.resolvedLanguage, {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric',
+    })
+  }
 }
 
 function isSameDay(a: Date, b: Date): boolean {
@@ -68,7 +74,9 @@ export function ChatView({ onBack }: Props) {
   } = useChatStore()
 
   const { user } = useAuthStore()
+  const { t } = useTranslation()
   const onlineUsers = usePresenceStore((s) => s.onlineUsers)
+  const formatDateGroup = useFormatDateGroup()
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
@@ -385,8 +393,8 @@ export function ChatView({ onBack }: Props) {
             className="echo-chat-empty-icon"
             strokeWidth={1.5}
           />
-          <p className="echo-chat-empty-text">No messages yet</p>
-          <p className="echo-chat-empty-hint">Say something to get started</p>
+          <p className="echo-chat-empty-text">{t('chat.noMessages')}</p>
+          <p className="echo-chat-empty-hint">{t('chat.startHint')}</p>
         </div>
       )
     }
@@ -438,7 +446,7 @@ export function ChatView({ onBack }: Props) {
     <div className="echo-chat">
       {/* Header */}
       <div className="echo-chat-header">
-        <button className="echo-chat-back-btn" onClick={onBack} aria-label="Go back">
+        <button className="echo-chat-back-btn" onClick={onBack} aria-label={t('chat.goBack')}>
           <ArrowLeft size={18} />
         </button>
 
@@ -472,7 +480,7 @@ export function ChatView({ onBack }: Props) {
               onClick={handleLoadOlder}
               disabled={loadingOlder}
             >
-              {loadingOlder ? 'Loading…' : 'Load older messages'}
+              {loadingOlder ? t('chat.loadingOlder') : t('chat.loadOlder')}
             </button>
           </div>
         )}
@@ -490,7 +498,7 @@ export function ChatView({ onBack }: Props) {
           onClick={() => scrollToBottom()}
         >
           <ChevronDown size={14} />
-          New messages
+          {t('chat.newMessages')}
         </button>
       )}
 
@@ -501,7 +509,7 @@ export function ChatView({ onBack }: Props) {
             <span className="echo-typing-dots">
               <span /><span /><span />
             </span>
-            <span>{peer.display_name || peer.username} is typing...</span>
+            <span>{t('chat.typing', { name: peer.display_name || peer.username })}</span>
           </div>
         )}
 
@@ -511,7 +519,7 @@ export function ChatView({ onBack }: Props) {
             <textarea
               ref={textareaRef}
               className="echo-message-textarea"
-              placeholder="Message…"
+              placeholder={t('chat.placeholder')}
               rows={1}
               value={body}
               onChange={(e) => {
@@ -527,7 +535,7 @@ export function ChatView({ onBack }: Props) {
             className="echo-message-send-btn"
             onClick={handleSend}
             disabled={!body.trim()}
-            aria-label="Send message"
+            aria-label={t('chat.send')}
           >
             <Send size={18} />
           </button>
@@ -551,6 +559,9 @@ interface BubbleProps {
 }
 
 function MessageBubble({ msg, isSelf, isGroupStart, isGroupEnd, peer, currentUser, recipientId, retryMessage }: BubbleProps) {
+  const { t, i18n } = useTranslation()
+  const formatTime = (dateStr: string) =>
+    new Date(dateStr).toLocaleTimeString(i18n.resolvedLanguage, { hour: '2-digit', minute: '2-digit', hour12: false })
   const isPending = msg._status === 'pending'
   const isFailed = msg._status === 'failed'
 
@@ -623,7 +634,7 @@ function MessageBubble({ msg, isSelf, isGroupStart, isGroupEnd, peer, currentUse
             onClick={() => retryMessage(msg._tempId!, recipientId, msg.body)}
           >
             <RefreshCw size={11} />
-            Retry
+            {t('chat.retry')}
           </button>
         )}
       </div>

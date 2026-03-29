@@ -1,4 +1,6 @@
 import { type ChangeEvent, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
+import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 
 function Wordmark() {
   return (
@@ -25,6 +27,8 @@ export function AuthLayout({
   heading: string
   subheading: string
 }) {
+  const { t } = useTranslation()
+
   return (
     <div
       style={{
@@ -89,9 +93,9 @@ export function AuthLayout({
           ))}
         </div>
 
-        {/* Logo */}
-        <div style={{ position: 'relative', zIndex: 2 }}>
+        <div style={{ position: 'relative', zIndex: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Wordmark />
+          <LanguageSwitcher />
         </div>
 
         {/* Tagline */}
@@ -107,9 +111,9 @@ export function AuthLayout({
               marginBottom: '16px',
             }}
           >
-            Every message
+            {t('auth.tagline1')}
             <br />
-            <span style={{ color: 'var(--echo-accent)' }}>finds its echo.</span>
+            <span style={{ color: 'var(--echo-accent)' }}>{t('auth.tagline2')}</span>
           </p>
           <p
             style={{
@@ -119,7 +123,7 @@ export function AuthLayout({
               color: 'rgba(var(--echo-text-rgb), 0.28)',
             }}
           >
-            Real-time 1-on-1 messaging
+            {t('auth.taglineSub')}
           </p>
         </div>
       </div>

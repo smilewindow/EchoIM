@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import { apiFetch, ApiError } from '@/lib/api'
 import { useFriendRequestStore } from '@/stores/friendRequests'
 
@@ -15,6 +16,7 @@ export function UserSearchPanel() {
   const [results, setResults] = useState<SearchUser[]>([])
   const [loading, setLoading] = useState(false)
   const [sendingId, setSendingId] = useState<number | null>(null)
+  const { t } = useTranslation()
   const sent = useFriendRequestStore((s) => s.sent)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -71,7 +73,7 @@ export function UserSearchPanel() {
         // 409 说明申请已存在，重新拉取 store 使按钮状态正确
         void useFriendRequestStore.getState().fetchAll()
       } else {
-        toast.error('Failed to send friend request')
+        toast.error(t('search.sendFailed'))
       }
     } finally {
       setSendingId(null)
@@ -106,7 +108,7 @@ export function UserSearchPanel() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by username…"
+            placeholder={t('search.placeholder')}
             className="echo-search-input"
             autoFocus
           />
@@ -114,7 +116,7 @@ export function UserSearchPanel() {
             <button
               onClick={() => setQuery('')}
               className="echo-search-clear"
-              aria-label="Clear search"
+              aria-label={t('search.clear')}
             >
               ×
             </button>
@@ -132,7 +134,7 @@ export function UserSearchPanel() {
 
         {!loading && query.trim().length >= 2 && results.length === 0 && (
           <div className="echo-empty-state">
-            <p className="echo-empty-text">No users found</p>
+            <p className="echo-empty-text">{t('search.noResults')}</p>
           </div>
         )}
 
@@ -151,7 +153,7 @@ export function UserSearchPanel() {
               <path d="m21 21-4.3-4.3" />
             </svg>
             <p className="echo-empty-text">
-              Type at least 2 characters to search
+              {t('search.hint')}
             </p>
           </div>
         )}
@@ -188,7 +190,7 @@ export function UserSearchPanel() {
                 disabled={isSent || sendingId === user.id}
                 className={`echo-action-btn ${isSent ? 'echo-action-btn--sent' : ''}`}
               >
-                {isSent ? 'Sent' : sendingId === user.id ? '…' : 'Add'}
+                {isSent ? t('search.sent') : sendingId === user.id ? '…' : t('search.add')}
               </button>
             </div>
           )

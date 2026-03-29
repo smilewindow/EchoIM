@@ -2,10 +2,12 @@ import { useState, type FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth'
 
 export function ProfileEditPage() {
   const { user, updateProfile } = useAuthStore()
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
   const [displayName, setDisplayName] = useState(user?.display_name ?? '')
@@ -23,13 +25,13 @@ export function ProfileEditPage() {
         display_name: displayName,
         avatar_url: avatarUrl,
       })
-      toast.success('Profile updated')
+      toast.success(t('profile.updated'))
       navigate({
         pathname: '/',
         search: location.search,
       })
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to update profile')
+      toast.error(err instanceof Error ? err.message : t('profile.failed'))
     } finally {
       setLoading(false)
     }
@@ -49,10 +51,10 @@ export function ProfileEditPage() {
           className="echo-profile-back"
         >
           <ArrowLeft size={18} />
-          <span>Back</span>
+          <span>{t('profile.back')}</span>
         </button>
 
-        <h1 className="echo-profile-heading">Edit profile</h1>
+        <h1 className="echo-profile-heading">{t('profile.heading')}</h1>
 
         {/* Avatar preview */}
         <div className="echo-profile-avatar-preview">
@@ -66,7 +68,7 @@ export function ProfileEditPage() {
         <form onSubmit={handleSubmit} className="echo-profile-form">
           <div className="auth-field">
             <label htmlFor="displayName" className="echo-profile-label">
-              Display name
+              {t('profile.displayName')}
             </label>
             <input
               id="displayName"
@@ -80,7 +82,7 @@ export function ProfileEditPage() {
 
           <div className="auth-field">
             <label htmlFor="avatarUrl" className="echo-profile-label">
-              Avatar URL
+              {t('profile.avatarUrl')}
             </label>
             <input
               id="avatarUrl"
@@ -97,7 +99,7 @@ export function ProfileEditPage() {
             disabled={loading}
             className="echo-profile-submit"
           >
-            {loading ? 'Saving…' : 'Save changes'}
+            {loading ? t('profile.saving') : t('profile.save')}
           </button>
         </form>
       </div>

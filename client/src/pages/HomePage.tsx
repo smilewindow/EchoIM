@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { MessageSquare } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth'
 import { useChatStore } from '@/stores/chat'
 import { useFriendRequestStore } from '@/stores/friendRequests'
@@ -12,9 +13,11 @@ import { UserSearchPanel } from '@/components/UserSearchPanel'
 import { ConversationList } from '@/components/ConversationList'
 import { ChatView } from '@/components/ChatView'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 
 export function HomePage() {
   const { user, logout } = useAuthStore()
+  const { t } = useTranslation()
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
@@ -120,12 +123,12 @@ export function HomePage() {
   const tabs: { key: HomeTab; label: string; icon: React.ReactNode }[] = [
     {
       key: 'chats',
-      label: 'Chats',
+      label: t('home.tabs.chats'),
       icon: <MessageSquare size={16} />,
     },
     {
       key: 'friends',
-      label: 'Friends',
+      label: t('home.tabs.friends'),
       icon: (
         <svg
           width="16"
@@ -146,7 +149,7 @@ export function HomePage() {
     },
     {
       key: 'requests',
-      label: 'Requests',
+      label: t('home.tabs.requests'),
       icon: (
         <svg
           width="16"
@@ -167,7 +170,7 @@ export function HomePage() {
     },
     {
       key: 'search',
-      label: 'Search',
+      label: t('home.tabs.search'),
       icon: (
         <svg
           width="16"
@@ -201,7 +204,7 @@ export function HomePage() {
                 })
               }
               className="echo-sidebar-profile-link"
-              title="Edit profile"
+              title={t('home.editProfile')}
             >
               <div className="echo-sidebar-avatar">
                 {avatarUrl ? (
@@ -212,10 +215,11 @@ export function HomePage() {
               </div>
               <div className="flex-1 min-w-0" style={{ textAlign: 'left' }}>
                 <p className="echo-sidebar-name">{displayName}</p>
-                <p className="echo-sidebar-status">Online</p>
+                <p className="echo-sidebar-status">{t('home.online')}</p>
               </div>
             </button>
-            <button onClick={() => setShowLogoutConfirm(true)} className="echo-logout-btn" title="Sign out">
+            <LanguageSwitcher />
+            <button onClick={() => setShowLogoutConfirm(true)} className="echo-logout-btn" title={t('home.signOut')}>
               <svg
                 width="16"
                 height="16"
@@ -297,17 +301,17 @@ export function HomePage() {
             <h2 className="echo-main-title">
               Echo<span className="echo-main-accent">IM</span>
             </h2>
-            <p className="echo-main-sub">Select a friend to start a conversation</p>
+            <p className="echo-main-sub">{t('home.placeholder')}</p>
           </div>
         )}
       </main>
 
       <ConfirmDialog
         open={showLogoutConfirm}
-        title="Sign out"
-        message="Are you sure you want to sign out?"
-        confirmText="Sign out"
-        cancelText="Cancel"
+        title={t('home.signOut')}
+        message={t('home.signOutConfirm')}
+        confirmText={t('home.signOut')}
+        cancelText={t('home.cancel')}
         onConfirm={logout}
         onCancel={() => setShowLogoutConfirm(false)}
       />
