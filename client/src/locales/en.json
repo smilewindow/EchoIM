@@ -65,7 +65,8 @@
     "placeholder": "Message…",
     "goBack": "Go back",
     "send": "Send message",
-    "retry": "Retry"
+    "retry": "Retry",
+    "sendFailed": "Failed to send message"
   },
   "conversations": {
     "label": "Chats",

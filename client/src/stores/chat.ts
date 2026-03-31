@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/api'
+import i18n from '@/lib/i18n'
 import { useAuthStore } from '@/stores/auth'
 import { isWsConnected } from '@/lib/wsConnection'
 
@@ -51,7 +52,7 @@ interface ChatState {
   selectConversation: (convId: number) => Promise<void>
   selectPeer: (peer: PeerInfo) => void
   loadOlderMessages: () => Promise<void>
-  sendMessage: (recipientId: number, body: string) => Promise<void>
+  sendMessage: (recipientId: number, body: string) => boolean
   retryMessage: (tempId: string, recipientId: number, body: string) => void
   markRead: (convId: number, lastReadMessageId: number) => Promise<void>
   clearChat: () => void
@@ -70,6 +71,13 @@ const typingTimeouts = new Map<number, ReturnType<typeof setTimeout>>()
 const pendingReadMessageIds = new Map<number, number>()
 const MESSAGE_PAGE_SIZE = 50
 const GAP_FILL_MAX_PAGES = 20
+let tempMessageSeq = 0
+
+function createTempMessageId() {
+  // tempId 只需要在当前客户端会话里唯一，用来对账 optimistic message 和服务端回包。
+  tempMessageSeq += 1
+  return `pending-${Date.now()}-${tempMessageSeq}`
+}
 
 function sortConversationsByActivity(conversations: Conversation[]) {
   return [...conversations].sort((a, b) => {
@@ -221,87 +229,108 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ messages: [...older, ...state.messages], hasMore: data.length === MESSAGE_PAGE_SIZE })
   },
 
-  sendMessage: async (recipientId: number, body: string) => {
-    const tempId = `pending-${crypto.randomUUID()}`
+  sendMessage: (recipientId: number, body: string) => {
     const { user } = useAuthStore.getState()
-    if (!user) return
-
-    const initialState = get()
-    const requestConversationId = initialState.activeConversationId
-    const requestPeerId = initialState.activePeer?.id ?? null
-    const wasNewConversation = requestConversationId === null
-
-    const optimistic: Message = {
-      id: tempId,
-      conversation_id: requestConversationId ?? -1,
-      sender_id: user.id,
-      body,
-      created_at: new Date().toISOString(),
-      _status: 'pending',
-      _tempId: tempId,
+    if (!user) {
+      console.error('prepare sendMessage failed: missing authenticated user')
+      toast.error(i18n.t('chat.sendFailed'))
+      return false
     }
 
-    set({ messages: [...initialState.messages, optimistic] })
+    let tempId = ''
+    let requestConversationId: number | null = null
+    let requestPeerId: number | null = null
+    let wasNewConversation = false
 
     try {
-      const result = normalizeIncomingMessage(await apiFetch<Message>('/messages', {
-        method: 'POST',
-        body: JSON.stringify({ recipient_id: recipientId, body, client_temp_id: tempId }),
-      }))
-      const state = get()
-      const shouldUpdateActiveMessages = isSameChatContext(
-        state,
-        requestConversationId,
-        requestPeerId,
-      )
+      tempId = createTempMessageId()
+      const initialState = get()
+      requestConversationId = initialState.activeConversationId
+      requestPeerId = initialState.activePeer?.id ?? null
+      wasNewConversation = requestConversationId === null
 
-      // Ignore stale responses after the user navigates to a different chat.
-      if (shouldUpdateActiveMessages) {
-        set({
-          messages: replaceOrAppendMessage(state.messages, tempId, result),
-          activeConversationId: wasNewConversation
-            ? result.conversation_id
-            : state.activeConversationId,
-          activePeer: wasNewConversation ? null : state.activePeer,
-        })
+      const optimistic: Message = {
+        id: tempId,
+        conversation_id: requestConversationId ?? -1,
+        sender_id: user.id,
+        body,
+        created_at: new Date().toISOString(),
+        _status: 'pending',
+        _tempId: tempId,
       }
 
-      // Update conversation list preview
-      const convId = result.conversation_id
-      const existing = get().conversations.find((c) => c.id === convId)
-      if (existing) {
-        set({
-          conversations: sortConversationsByActivity(
-            get().conversations.map((c) =>
-              c.id === convId
-                ? {
-                    ...c,
-                    last_message_body: result.body,
-                    last_message_at: result.created_at,
-                    last_message_sender_id: result.sender_id,
-                  }
-                : c,
+      set({ messages: [...initialState.messages, optimistic] })
+    } catch (err) {
+      // 发送前的本地准备失败时，保留输入内容，不插入失败气泡，用户可以直接重试。
+      console.error('prepare sendMessage failed', err)
+      toast.error(i18n.t('chat.sendFailed'))
+      return false
+    }
+
+    void (async () => {
+      try {
+        const result = normalizeIncomingMessage(await apiFetch<Message>('/messages', {
+          method: 'POST',
+          body: JSON.stringify({ recipient_id: recipientId, body, client_temp_id: tempId }),
+        }))
+        const state = get()
+        const shouldUpdateActiveMessages = isSameChatContext(
+          state,
+          requestConversationId,
+          requestPeerId,
+        )
+
+        // Ignore stale responses after the user navigates to a different chat.
+        if (shouldUpdateActiveMessages) {
+          set({
+            messages: replaceOrAppendMessage(state.messages, tempId, result),
+            activeConversationId: wasNewConversation
+              ? result.conversation_id
+              : state.activeConversationId,
+            activePeer: wasNewConversation ? null : state.activePeer,
+          })
+        }
+
+        // Update conversation list preview
+        const convId = result.conversation_id
+        const existing = get().conversations.find((c) => c.id === convId)
+        if (existing) {
+          set({
+            conversations: sortConversationsByActivity(
+              get().conversations.map((c) =>
+                c.id === convId
+                  ? {
+                      ...c,
+                      last_message_body: result.body,
+                      last_message_at: result.created_at,
+                      last_message_sender_id: result.sender_id,
+                    }
+                  : c,
+              ),
             ),
+          })
+        } else if (wasNewConversation) {
+          // New conversation created — fetch the full list to get peer info
+          void get().fetchConversations()
+        }
+      } catch (err) {
+        console.error('request sendMessage failed', err)
+        const state = get()
+
+        if (!isSameChatContext(state, requestConversationId, requestPeerId)) {
+          return
+        }
+
+        set({
+          messages: state.messages.map((message) =>
+            message._tempId === tempId ? { ...message, _status: 'failed' } : message,
           ),
         })
-      } else if (wasNewConversation) {
-        // New conversation created — fetch the full list to get peer info
-        get().fetchConversations()
+        toast.error(i18n.t('chat.sendFailed'))
       }
-    } catch {
-      const state = get()
+    })()
 
-      if (!isSameChatContext(state, requestConversationId, requestPeerId)) {
-        return
-      }
-
-      set({
-        messages: state.messages.map((message) =>
-          message._tempId === tempId ? { ...message, _status: 'failed' } : message,
-        ),
-      })
-      toast.error('Failed to send message')
-    }
+    return true
   },
 
   retryMessage: (tempId: string, recipientId: number, body: string) => {

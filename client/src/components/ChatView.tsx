@@ -312,10 +312,12 @@ export function ChatView({ onBack }: Props) {
     const trimmed = body.trim()
     if (!trimmed || !recipientId) return
 
+    const queued = sendMessage(recipientId, trimmed)
+    if (!queued) return
+
     stopTyping()
     wasNearBottomRef.current = true
     setNewMessageAlert(false)
-    sendMessage(recipientId, trimmed)
     scrollToBottom()
     setBody('')
     if (textareaRef.current) {
