@@ -185,6 +185,7 @@ export function AuthField({
         {label}
       </label>
       <input
+        className="echo-auth-input"
         id={id}
         type={type}
         autoComplete={autoComplete}
@@ -192,17 +193,6 @@ export function AuthField({
         minLength={minLength}
         value={value}
         onChange={onChange}
-        style={{
-          width: '100%',
-          background: 'transparent',
-          border: 'none',
-          outline: 'none',
-          color: 'var(--echo-text)',
-          fontSize: '15px',
-          lineHeight: 1.5,
-          padding: '2px 0',
-          caretColor: 'var(--echo-accent)',
-        }}
       />
     </div>
   )

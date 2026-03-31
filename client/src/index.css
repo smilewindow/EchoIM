@@ -236,6 +236,19 @@
   border-color: rgba(var(--echo-accent-rgb), 0.65);
 }
 
+.echo-auth-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--echo-text);
+  font-size: 15px;
+  line-height: 1.5;
+  padding: 2px 0;
+  caret-color: var(--echo-accent);
+  font-family: inherit;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    Phase 8 — Friends Flow
    ═══════════════════════════════════════════════════════════════ */
@@ -1527,6 +1540,16 @@
 }
 .echo-message-textarea::placeholder {
   color: rgba(var(--echo-text-rgb), 0.2);
+}
+
+@media (max-width: 640px) {
+  /* 移动端输入控件小于 16px 时，聚焦可能触发浏览器自动放大页面 */
+  .echo-auth-input,
+  .echo-search-input,
+  .echo-profile-input,
+  .echo-message-textarea {
+    font-size: 16px;
+  }
 }
 
 .echo-message-send-btn {
