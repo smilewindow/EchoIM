@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { apiFetch, ApiError } from '@/lib/api'
 import { useFriendRequestStore } from '@/stores/friendRequests'
+import { useChatStore } from '@/stores/chat'
 
 export interface User {
   id: number
@@ -46,6 +47,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.removeItem('token')
     set({ token: null, user: null })
     useFriendRequestStore.getState().reset()
+    useChatStore.getState().clearChat()
   },
 
   fetchMe: async () => {
