@@ -1,11 +1,13 @@
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth'
 import { buildAuthPagePath, getSafeRedirectTarget } from '@/lib/navigation'
 import { AuthLayout, AuthField, AuthSubmitButton } from '@/components/AuthLayout'
 
 export function LoginPage() {
   const { token, login } = useAuthStore()
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [email, setEmail] = useState('')
@@ -24,14 +26,14 @@ export function LoginPage() {
       await login(email, password)
       navigate(redirectTarget, { replace: true })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed')
+      setError(err instanceof Error ? err.message : t('auth.login.failed'))
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <AuthLayout heading="Welcome back" subheading="Sign in to continue your conversations.">
+    <AuthLayout heading={t('auth.login.heading')} subheading={t('auth.login.subheading')}>
       <form onSubmit={handleSubmit}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', marginBottom: '36px' }}>
           {error && (
@@ -50,7 +52,7 @@ export function LoginPage() {
           )}
           <AuthField
             id="email"
-            label="Email"
+            label={t('auth.login.email')}
             type="email"
             autoComplete="email"
             required
@@ -59,7 +61,7 @@ export function LoginPage() {
           />
           <AuthField
             id="password"
-            label="Password"
+            label={t('auth.login.password')}
             type="password"
             autoComplete="current-password"
             required
@@ -68,17 +70,17 @@ export function LoginPage() {
           />
         </div>
 
-        <AuthSubmitButton loading={loading} label="Sign in" loadingLabel="Signing in…" />
+        <AuthSubmitButton loading={loading} label={t('auth.login.submit')} loadingLabel={t('auth.login.submitting')} />
 
         <p style={{ marginTop: '24px', fontSize: '13px', color: 'rgba(var(--echo-text-rgb), 0.38)', textAlign: 'center' }}>
-          No account?{' '}
+          {t('auth.login.noAccount')}{' '}
           <Link
             to={buildAuthPagePath('/register', redirectTarget)}
             style={{ color: 'var(--echo-accent)', textDecoration: 'none', fontWeight: 500 }}
             onMouseEnter={e => ((e.target as HTMLElement).style.textDecoration = 'underline')}
             onMouseLeave={e => ((e.target as HTMLElement).style.textDecoration = 'none')}
           >
-            Register
+            {t('auth.login.register')}
           </Link>
         </p>
       </form>

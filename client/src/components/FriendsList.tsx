@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { apiFetch } from '@/lib/api'
 import { usePresenceStore } from '@/stores/presence'
 import { useFriendRequestStore } from '@/stores/friendRequests'
@@ -18,6 +19,7 @@ interface Props {
 export function FriendsList({ onCountChange, onSelectFriend }: Props) {
   const [friends, setFriends] = useState<Friend[]>([])
   const [loading, setLoading] = useState(true)
+  const { t } = useTranslation()
   const onlineUsers = usePresenceStore((s) => s.onlineUsers)
   const friendsVersion = useFriendRequestStore((s) => s.friendsVersion)
 
@@ -67,8 +69,8 @@ export function FriendsList({ onCountChange, onSelectFriend }: Props) {
           <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
           <path d="M16 3.13a4 4 0 0 1 0 7.75" />
         </svg>
-        <p className="echo-empty-text">No friends yet</p>
-        <p className="echo-empty-hint">Search for users to add friends</p>
+        <p className="echo-empty-text">{t('friends.empty')}</p>
+        <p className="echo-empty-hint">{t('friends.emptyHint')}</p>
       </div>
     )
   }

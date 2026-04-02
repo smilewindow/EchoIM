@@ -1,11 +1,13 @@
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth'
 import { buildAuthPagePath, getSafeRedirectTarget } from '@/lib/navigation'
 import { AuthLayout, AuthField, AuthSubmitButton } from '@/components/AuthLayout'
 
 export function RegisterPage() {
   const { token, register } = useAuthStore()
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [username, setUsername] = useState('')
@@ -25,14 +27,14 @@ export function RegisterPage() {
       await register(username, email, password)
       navigate(redirectTarget, { replace: true })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Registration failed')
+      setError(err instanceof Error ? err.message : t('auth.register.failed'))
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <AuthLayout heading="Create account" subheading="Join EchoIM and start messaging in real time.">
+    <AuthLayout heading={t('auth.register.heading')} subheading={t('auth.register.subheading')}>
       <form onSubmit={handleSubmit}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', marginBottom: '36px' }}>
           {error && (
@@ -51,7 +53,7 @@ export function RegisterPage() {
           )}
           <AuthField
             id="username"
-            label="Username"
+            label={t('auth.register.username')}
             type="text"
             autoComplete="username"
             required
@@ -61,7 +63,7 @@ export function RegisterPage() {
           />
           <AuthField
             id="email"
-            label="Email"
+            label={t('auth.register.email')}
             type="email"
             autoComplete="email"
             required
@@ -70,7 +72,7 @@ export function RegisterPage() {
           />
           <AuthField
             id="password"
-            label="Password"
+            label={t('auth.register.password')}
             type="password"
             autoComplete="new-password"
             required
@@ -80,17 +82,17 @@ export function RegisterPage() {
           />
         </div>
 
-        <AuthSubmitButton loading={loading} label="Create account" loadingLabel="Creating account…" />
+        <AuthSubmitButton loading={loading} label={t('auth.register.submit')} loadingLabel={t('auth.register.submitting')} />
 
         <p style={{ marginTop: '24px', fontSize: '13px', color: 'rgba(var(--echo-text-rgb), 0.38)', textAlign: 'center' }}>
-          Already have an account?{' '}
+          {t('auth.register.hasAccount')}{' '}
           <Link
             to={buildAuthPagePath('/login', redirectTarget)}
             style={{ color: 'var(--echo-accent)', textDecoration: 'none', fontWeight: 500 }}
             onMouseEnter={e => ((e.target as HTMLElement).style.textDecoration = 'underline')}
             onMouseLeave={e => ((e.target as HTMLElement).style.textDecoration = 'none')}
           >
-            Sign in
+            {t('auth.register.signIn')}
           </Link>
         </p>
       </form>

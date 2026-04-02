@@ -1,7 +1,23 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import { apiFetch } from '@/lib/api'
 import { useFriendRequestStore } from '@/stores/friendRequests'
+
+function useTimeAgo() {
+  const { t } = useTranslation()
+
+  return (dateStr: string): string => {
+    const diff = Date.now() - new Date(dateStr).getTime()
+    const mins = Math.floor(diff / 60000)
+    if (mins < 1) return t('requests.justNow')
+    if (mins < 60) return t('requests.mAgo', { count: mins })
+    const hrs = Math.floor(mins / 60)
+    if (hrs < 24) return t('requests.hAgo', { count: hrs })
+    const days = Math.floor(hrs / 24)
+    return t('requests.dAgo', { count: days })
+  }
+}
 
 export function FriendRequestsPanel() {
   const incoming = useFriendRequestStore((s) => s.incoming)
@@ -9,8 +25,10 @@ export function FriendRequestsPanel() {
   const history = useFriendRequestStore((s) => s.history)
   const initialized = useFriendRequestStore((s) => s.initialized)
 
+  const { t } = useTranslation()
   const [respondingId, setRespondingId] = useState<number | null>(null)
   const [showHistory, setShowHistory] = useState(false)
+  const timeAgo = useTimeAgo()
 
   const respond = async (id: number, status: 'accepted' | 'declined') => {
     setRespondingId(id)
@@ -21,24 +39,13 @@ export function FriendRequestsPanel() {
       })
       // 不做乐观更新——服务端会广播 WS 事件给操作方，由 store 统一处理
     } catch {
-      toast.error('Failed to respond to request')
+      toast.error(t('requests.respondFailed'))
     } finally {
       setRespondingId(null)
     }
   }
 
   const initials = (name: string) => name.slice(0, 2).toUpperCase()
-
-  const timeAgo = (dateStr: string) => {
-    const diff = Date.now() - new Date(dateStr).getTime()
-    const mins = Math.floor(diff / 60000)
-    if (mins < 1) return 'just now'
-    if (mins < 60) return `${mins}m ago`
-    const hrs = Math.floor(mins / 60)
-    if (hrs < 24) return `${hrs}h ago`
-    const days = Math.floor(hrs / 24)
-    return `${days}d ago`
-  }
 
   if (!initialized) {
     return (
@@ -67,7 +74,7 @@ export function FriendRequestsPanel() {
           <line x1="19" x2="19" y1="8" y2="14" />
           <line x1="22" x2="16" y1="11" y2="11" />
         </svg>
-        <p className="echo-empty-text">No requests yet</p>
+        <p className="echo-empty-text">{t('requests.empty')}</p>
       </div>
     )
   }
@@ -78,7 +85,7 @@ export function FriendRequestsPanel() {
       {incoming.length > 0 && (
         <>
           <p className="echo-section-label">
-            Pending
+            {t('requests.pending')}
             <span className="echo-section-count">{incoming.length}</span>
           </p>
           {incoming.map((req, i) => (
@@ -117,14 +124,14 @@ export function FriendRequestsPanel() {
                   disabled={respondingId === req.id}
                   className="echo-action-btn echo-action-btn--accept"
                 >
-                  Accept
+                  {t('requests.accept')}
                 </button>
                 <button
                   onClick={() => respond(req.id, 'declined')}
                   disabled={respondingId === req.id}
                   className="echo-action-btn echo-action-btn--decline"
                 >
-                  Decline
+                  {t('requests.decline')}
                 </button>
               </div>
             </div>
@@ -136,7 +143,7 @@ export function FriendRequestsPanel() {
       {sent.length > 0 && (
         <>
           <p className="echo-section-label">
-            Sent
+            {t('requests.sent')}
             <span className="echo-section-count">{sent.length}</span>
           </p>
           {sent.map((req, i) => (
@@ -170,7 +177,7 @@ export function FriendRequestsPanel() {
                 </p>
               </div>
               <span className="echo-status-pill echo-status-pill--pending">
-                Pending
+                {t('requests.pending')}
               </span>
             </div>
           ))}
@@ -184,7 +191,7 @@ export function FriendRequestsPanel() {
             onClick={() => setShowHistory((v) => !v)}
             className="echo-history-toggle"
           >
-            <span>History</span>
+            <span>{t('requests.history')}</span>
             <span className="echo-section-count">{history.length}</span>
             <svg
               width="12"
@@ -227,14 +234,14 @@ export function FriendRequestsPanel() {
                     {req.display_name || req.username}
                   </p>
                   <p className="echo-user-handle">
-                    {req.direction === 'sent' ? 'Sent' : 'Received'} ·{' '}
+                    {req.direction === 'sent' ? t('requests.sentDirection') : t('requests.receivedDirection')} ·{' '}
                     {timeAgo(req.updated_at)}
                   </p>
                 </div>
                 <span
                   className={`echo-status-pill ${req.status === 'accepted' ? 'echo-status-pill--accepted' : 'echo-status-pill--declined'}`}
                 >
-                  {req.status === 'accepted' ? 'Accepted' : 'Declined'}
+                  {req.status === 'accepted' ? t('requests.accepted') : t('requests.declined')}
                 </span>
               </div>
             ))}

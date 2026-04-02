@@ -1,0 +1,116 @@
+{
+  "auth": {
+    "login": {
+      "heading": "Welcome back",
+      "subheading": "Sign in to continue your conversations.",
+      "email": "Email",
+      "password": "Password",
+      "submit": "Sign in",
+      "submitting": "Signing in…",
+      "noAccount": "No account?",
+      "register": "Register",
+      "failed": "Login failed"
+    },
+    "register": {
+      "heading": "Create account",
+      "subheading": "Join EchoIM and start messaging in real time.",
+      "username": "Username",
+      "email": "Email",
+      "password": "Password",
+      "submit": "Create account",
+      "submitting": "Creating account…",
+      "hasAccount": "Already have an account?",
+      "signIn": "Sign in",
+      "failed": "Registration failed"
+    },
+    "tagline1": "Every message",
+    "tagline2": "finds its echo.",
+    "taglineSub": "Real-time 1-on-1 messaging"
+  },
+  "home": {
+    "editProfile": "Edit profile",
+    "online": "Online",
+    "signOut": "Sign out",
+    "signOutConfirm": "Are you sure you want to sign out?",
+    "cancel": "Cancel",
+    "placeholder": "Select a friend to start a conversation",
+    "tabs": {
+      "chats": "Chats",
+      "friends": "Friends",
+      "requests": "Requests",
+      "search": "Search"
+    }
+  },
+  "profile": {
+    "back": "Back",
+    "heading": "Edit profile",
+    "displayName": "Display name",
+    "avatarUrl": "Avatar URL",
+    "saving": "Saving…",
+    "save": "Save changes",
+    "updated": "Profile updated",
+    "failed": "Failed to update profile"
+  },
+  "common": {
+    "yesterday": "Yesterday"
+  },
+  "chat": {
+    "today": "Today",
+    "noMessages": "No messages yet",
+    "startHint": "Say something to get started",
+    "loadingOlder": "Loading…",
+    "loadOlder": "Load older messages",
+    "newMessages": "New messages",
+    "typing": "{{name}} is typing...",
+    "placeholder": "Message…",
+    "goBack": "Go back",
+    "send": "Send message",
+    "retry": "Retry",
+    "sendFailed": "Failed to send message"
+  },
+  "conversations": {
+    "label": "Chats",
+    "empty": "No conversations yet",
+    "emptyHint": "Message a friend to start chatting",
+    "justNow": "Just now",
+    "noMessages": "No messages yet"
+  },
+  "friends": {
+    "empty": "No friends yet",
+    "emptyHint": "Search for users to add friends"
+  },
+  "requests": {
+    "empty": "No requests yet",
+    "pending": "Pending",
+    "sent": "Sent",
+    "history": "History",
+    "accept": "Accept",
+    "decline": "Decline",
+    "accepted": "Accepted",
+    "declined": "Declined",
+    "sentDirection": "Sent",
+    "receivedDirection": "Received",
+    "justNow": "just now",
+    "mAgo": "{{count}}m ago",
+    "hAgo": "{{count}}h ago",
+    "dAgo": "{{count}}d ago",
+    "respondFailed": "Failed to respond to request"
+  },
+  "search": {
+    "placeholder": "Search by username…",
+    "clear": "Clear search",
+    "noResults": "No users found",
+    "hint": "Type at least 2 characters to search",
+    "add": "Add",
+    "sent": "Sent",
+    "sendFailed": "Failed to send friend request"
+  },
+  "ws": {
+    "friendRequestReceived": "{{name}} sent you a friend request",
+    "friendRequestAccepted": "{{name}} accepted your friend request"
+  },
+  "language": {
+    "zh": "中文",
+    "en": "English"
+  }
+}

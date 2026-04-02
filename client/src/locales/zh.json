@@ -1,0 +1,116 @@
+{
+  "auth": {
+    "login": {
+      "heading": "欢迎回来",
+      "subheading": "登录以继续你的对话。",
+      "email": "邮箱",
+      "password": "密码",
+      "submit": "登录",
+      "submitting": "登录中…",
+      "noAccount": "没有账号？",
+      "register": "注册",
+      "failed": "登录失败"
+    },
+    "register": {
+      "heading": "创建账号",
+      "subheading": "加入 EchoIM，开始实时聊天。",
+      "username": "用户名",
+      "email": "邮箱",
+      "password": "密码",
+      "submit": "创建账号",
+      "submitting": "创建中…",
+      "hasAccount": "已有账号？",
+      "signIn": "登录",
+      "failed": "注册失败"
+    },
+    "tagline1": "每条消息",
+    "tagline2": "都有回响。",
+    "taglineSub": "实时一对一聊天"
+  },
+  "home": {
+    "editProfile": "编辑资料",
+    "online": "在线",
+    "signOut": "退出登录",
+    "signOutConfirm": "确定要退出登录吗？",
+    "cancel": "取消",
+    "placeholder": "选择好友开始聊天",
+    "tabs": {
+      "chats": "聊天",
+      "friends": "好友",
+      "requests": "请求",
+      "search": "搜索"
+    }
+  },
+  "profile": {
+    "back": "返回",
+    "heading": "编辑资料",
+    "displayName": "显示名称",
+    "avatarUrl": "头像 URL",
+    "saving": "保存中…",
+    "save": "保存修改",
+    "updated": "资料已更新",
+    "failed": "资料更新失败"
+  },
+  "common": {
+    "yesterday": "昨天"
+  },
+  "chat": {
+    "today": "今天",
+    "noMessages": "暂无消息",
+    "startHint": "说点什么开始聊天吧",
+    "loadingOlder": "加载中…",
+    "loadOlder": "加载更早的消息",
+    "newMessages": "新消息",
+    "typing": "{{name}} 正在输入...",
+    "placeholder": "输入消息…",
+    "goBack": "返回",
+    "send": "发送消息",
+    "retry": "重试",
+    "sendFailed": "发送失败，请重试"
+  },
+  "conversations": {
+    "label": "聊天",
+    "empty": "暂无对话",
+    "emptyHint": "给好友发消息开始聊天",
+    "justNow": "刚刚",
+    "noMessages": "暂无消息"
+  },
+  "friends": {
+    "empty": "还没有好友",
+    "emptyHint": "搜索用户添加好友"
+  },
+  "requests": {
+    "empty": "暂无请求",
+    "pending": "待处理",
+    "sent": "已发送",
+    "history": "历史",
+    "accept": "接受",
+    "decline": "拒绝",
+    "accepted": "已接受",
+    "declined": "已拒绝",
+    "sentDirection": "发出",
+    "receivedDirection": "收到",
+    "justNow": "刚刚",
+    "mAgo": "{{count}}分钟前",
+    "hAgo": "{{count}}小时前",
+    "dAgo": "{{count}}天前",
+    "respondFailed": "回复请求失败"
+  },
+  "search": {
+    "placeholder": "按用户名搜索…",
+    "clear": "清除搜索",
+    "noResults": "未找到用户",
+    "hint": "至少输入 2 个字符进行搜索",
+    "add": "添加",
+    "sent": "已发送",
+    "sendFailed": "发送好友请求失败"
+  },
+  "ws": {
+    "friendRequestReceived": "{{name}} 向你发送了好友申请",
+    "friendRequestAccepted": "{{name}} 接受了你的好友申请"
+  },
+  "language": {
+    "zh": "中文",
+    "en": "English"
+  }
+}

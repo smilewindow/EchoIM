@@ -142,13 +142,13 @@
 
 ## 第 12 阶段 — 部署
 
-- [ ] **12.1** 为后端添加 `Dockerfile`（Node.js）；多阶段构建
-- [ ] **12.2** 为前端添加 `Dockerfile`（Vite 构建 → nginx 静态服务）
-- [ ] **12.3** 更新 `docker-compose.yml`，包含三个服务：`postgres`、`server`、`client`
-- [ ] **12.4** 将所有密钥外置到 `.env` 文件；添加 `.env.example`；确认无硬编码内容
-- [ ] **12.5** 准备云虚拟机（AWS EC2 / GCP Compute Engine / Azure VM）；安装 Docker + Compose
-- [ ] **12.6** 部署：在虚拟机上执行 `git pull` + `docker compose up -d`；确认应用可通过公网 IP 访问
-- [ ] **12.7** 在线上服务器进行端到端冒烟测试：注册两个账号，添加好友，实时聊天
+- [x] **12.1** 为后端添加 `Dockerfile`（Node.js）；多阶段构建
+- [x] **12.2** 为前端添加 `Dockerfile`（Vite 构建 → nginx 静态服务）
+- [x] **12.3** 更新 `docker-compose.yml`，包含三个服务：`postgres`、`server`、`client`
+- [x] **12.4** 将所有密钥外置到 `.env` 文件；添加 `.env.example`；确认无硬编码内容
+- [x] **12.5** 准备云虚拟机（AWS EC2 / GCP Compute Engine / Azure VM）；安装 Docker + Compose
+- [x] **12.6** 部署：在虚拟机上执行 `git pull` + `docker compose up -d`；确认应用可通过公网 IP 访问
+- [x] **12.7** 在线上服务器进行端到端冒烟测试：注册两个账号，添加好友，实时聊天
 
 ---
 

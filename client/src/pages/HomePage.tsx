@@ -1,26 +1,31 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { MessageSquare } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth'
 import { useChatStore } from '@/stores/chat'
 import { useFriendRequestStore } from '@/stores/friendRequests'
 import { apiFetch } from '@/lib/api'
-import { buildHomeTabSearch, parseHomeTab, type HomeTab } from '@/lib/navigation'
+import { buildHomeTabSearch, buildChatSearch, parseChatParam, parseHomeTab, type HomeTab } from '@/lib/navigation'
 import { FriendsList } from '@/components/FriendsList'
 import { FriendRequestsPanel } from '@/components/FriendRequestsPanel'
 import { UserSearchPanel } from '@/components/UserSearchPanel'
 import { ConversationList } from '@/components/ConversationList'
 import { ChatView } from '@/components/ChatView'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 
 export function HomePage() {
   const { user, logout } = useAuthStore()
+  const { t } = useTranslation()
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams] = useSearchParams()
   const displayName = user?.display_name || user?.username || ''
   const avatarUrl = user?.avatar_url
 
-  const { activeConversationId, activePeer, fetchConversations, selectPeer, clearChat } =
+  const { activeConversationId, activePeer, conversations, conversationsLoading, fetchConversations, selectConversation, selectPeer, clearChat } =
     useChatStore()
 
   const activeTab = parseHomeTab(searchParams.get('tab'))
@@ -66,6 +71,48 @@ export function HomePage() {
     )
   }, [activeTab, location.pathname, location.search, navigate])
 
+  // URL → Store: restore active chat after conversations are loaded
+  const chatRestored = useRef(false)
+
+  useEffect(() => {
+    if (conversationsLoading) return
+
+    const chatId = parseChatParam(searchParams.get('chat'))
+
+    if (chatId === null || chatId === activeConversationId) {
+      chatRestored.current = true
+      return
+    }
+
+    const exists = conversations.some((c) => c.id === chatId)
+    if (exists) {
+      selectConversation(chatId)
+    } else {
+      // Invalid/stale chatId — clean up the URL
+      navigate(
+        { pathname: location.pathname, search: buildChatSearch(searchParams, null) },
+        { replace: true },
+      )
+    }
+    chatRestored.current = true
+    // Only run when conversations finish loading, not on every activeConversationId change.
+    // Once selectConversation fires, the Store → URL effect takes over.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationsLoading])
+
+  // Store → URL: keep ?chat= in sync with activeConversationId
+  useEffect(() => {
+    if (!chatRestored.current) return
+
+    const params = new URLSearchParams(window.location.search)
+    if (parseChatParam(params.get('chat')) === activeConversationId) return
+
+    navigate(
+      { pathname: location.pathname, search: buildChatSearch(params, activeConversationId) },
+      { replace: true },
+    )
+  }, [activeConversationId, location.pathname, navigate])
+
   const updateActiveTab = (tab: HomeTab) => {
     navigate({
       pathname: location.pathname,
@@ -76,12 +123,12 @@ export function HomePage() {
   const tabs: { key: HomeTab; label: string; icon: React.ReactNode }[] = [
     {
       key: 'chats',
-      label: 'Chats',
+      label: t('home.tabs.chats'),
       icon: <MessageSquare size={16} />,
     },
     {
       key: 'friends',
-      label: 'Friends',
+      label: t('home.tabs.friends'),
       icon: (
         <svg
           width="16"
@@ -102,7 +149,7 @@ export function HomePage() {
     },
     {
       key: 'requests',
-      label: 'Requests',
+      label: t('home.tabs.requests'),
       icon: (
         <svg
           width="16"
@@ -123,7 +170,7 @@ export function HomePage() {
     },
     {
       key: 'search',
-      label: 'Search',
+      label: t('home.tabs.search'),
       icon: (
         <svg
           width="16"
@@ -157,7 +204,7 @@ export function HomePage() {
                 })
               }
               className="echo-sidebar-profile-link"
-              title="Edit profile"
+              title={t('home.editProfile')}
             >
               <div className="echo-sidebar-avatar">
                 {avatarUrl ? (
@@ -168,10 +215,11 @@ export function HomePage() {
               </div>
               <div className="flex-1 min-w-0" style={{ textAlign: 'left' }}>
                 <p className="echo-sidebar-name">{displayName}</p>
-                <p className="echo-sidebar-status">Online</p>
+                <p className="echo-sidebar-status">{t('home.online')}</p>
               </div>
             </button>
-            <button onClick={logout} className="echo-logout-btn" title="Sign out">
+            <LanguageSwitcher />
+            <button onClick={() => setShowLogoutConfirm(true)} className="echo-logout-btn" title={t('home.signOut')}>
               <svg
                 width="16"
                 height="16"
@@ -253,10 +301,20 @@ export function HomePage() {
             <h2 className="echo-main-title">
               Echo<span className="echo-main-accent">IM</span>
             </h2>
-            <p className="echo-main-sub">Select a friend to start a conversation</p>
+            <p className="echo-main-sub">{t('home.placeholder')}</p>
           </div>
         )}
       </main>
+
+      <ConfirmDialog
+        open={showLogoutConfirm}
+        title={t('home.signOut')}
+        message={t('home.signOutConfirm')}
+        confirmText={t('home.signOut')}
+        cancelText={t('home.cancel')}
+        onConfirm={logout}
+        onCancel={() => setShowLogoutConfirm(false)}
+      />
     </div>
   )
 }

@@ -1,39 +1,46 @@
 import { useCallback } from 'react'
 import { MessageSquare } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useChatStore } from '@/stores/chat'
 
 const SKELETON_NAME_WIDTHS = [75, 60, 90, 55, 80, 65]
 const SKELETON_PREVIEW_WIDTHS = [50, 40, 65, 35, 55, 45]
 
-function formatRelativeTime(dateStr: string | null): string {
-  if (!dateStr) return ''
-  const date = new Date(dateStr)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffSec = Math.floor(diffMs / 1000)
-  const diffMin = Math.floor(diffSec / 60)
-  const diffHr = Math.floor(diffMin / 60)
+function useFormatRelativeTime() {
+  const { t, i18n } = useTranslation()
 
-  if (diffSec < 60) return 'Just now'
-  if (diffMin < 60) return `${diffMin}m`
-  if (diffHr < 24) return `${diffHr}h`
+  return (dateStr: string | null): string => {
+    if (!dateStr) return ''
+    const date = new Date(dateStr)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffSec = Math.floor(diffMs / 1000)
+    const diffMin = Math.floor(diffSec / 60)
+    const diffHr = Math.floor(diffMin / 60)
 
-  const yesterday = new Date(now)
-  yesterday.setDate(yesterday.getDate() - 1)
-  if (
-    date.getDate() === yesterday.getDate() &&
-    date.getMonth() === yesterday.getMonth() &&
-    date.getFullYear() === yesterday.getFullYear()
-  ) {
-    return 'Yesterday'
+    if (diffSec < 60) return t('conversations.justNow')
+    if (diffMin < 60) return `${diffMin}m`
+    if (diffHr < 24) return `${diffHr}h`
+
+    const yesterday = new Date(now)
+    yesterday.setDate(yesterday.getDate() - 1)
+    if (
+      date.getDate() === yesterday.getDate() &&
+      date.getMonth() === yesterday.getMonth() &&
+      date.getFullYear() === yesterday.getFullYear()
+    ) {
+      return t('common.yesterday')
+    }
+
+    return date.toLocaleDateString(i18n.resolvedLanguage, { month: 'short', day: 'numeric' })
   }
-
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
 export function ConversationList() {
   const { conversations, conversationsLoading, activeConversationId, selectConversation } =
     useChatStore()
+  const { t } = useTranslation()
+  const formatRelativeTime = useFormatRelativeTime()
 
   const handleSelect = useCallback(
     (id: number) => {
@@ -50,7 +57,7 @@ export function ConversationList() {
   if (conversationsLoading) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-        <div className="echo-section-label">Chats</div>
+        <div className="echo-section-label">{t('conversations.label')}</div>
         <div className="px-2 py-1">
           {SKELETON_NAME_WIDTHS.map((w, i) => (
             <div key={i} className="echo-skeleton-row" style={{ animationDelay: `${i * 100}ms` }}>
@@ -74,15 +81,15 @@ export function ConversationList() {
           className="echo-empty-icon"
           strokeWidth={1.5}
         />
-        <p className="echo-empty-text">No conversations yet</p>
-        <p className="echo-empty-hint">Message a friend to start chatting</p>
+        <p className="echo-empty-text">{t('conversations.empty')}</p>
+        <p className="echo-empty-hint">{t('conversations.emptyHint')}</p>
       </div>
     )
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-      <div className="echo-section-label">Chats</div>
+      <div className="echo-section-label">{t('conversations.label')}</div>
       <div className="flex-1 overflow-y-auto echo-scroll px-2 py-1">
         {conversations.map((conv, i) => (
           <div
@@ -108,7 +115,7 @@ export function ConversationList() {
                 {conv.peer_display_name || conv.peer_username}
               </p>
               <p className="echo-conversation-preview">
-                {conv.last_message_body ?? 'No messages yet'}
+                {conv.last_message_body ?? t('conversations.noMessages')}
               </p>
             </div>
 

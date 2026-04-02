@@ -26,3 +26,9 @@ Recent commits use short, prefixed subjects such as `docs: add Claude Code repos
 
 ## Security & Configuration Tips
 Copy `.env.example` for local setup and keep real secrets out of git. `POSTGRES_PASSWORD`, `DATABASE_URL`, and `JWT_SECRET` should stay local-only. For development, use the Docker Compose database instead of a shared external instance.
+
+# Output Language
+
+Always respond in Chinese
+
+## 
