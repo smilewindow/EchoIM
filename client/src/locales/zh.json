@@ -14,6 +14,7 @@
     "register": {
       "heading": "创建账号",
       "subheading": "加入 EchoIM，开始实时聊天。",
+      "inviteCode": "邀请码",
       "username": "用户名",
       "email": "邮箱",
       "password": "密码",

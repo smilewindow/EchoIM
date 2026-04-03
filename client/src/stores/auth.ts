@@ -15,7 +15,7 @@ interface AuthState {
   token: string | null
   user: User | null
   login: (email: string, password: string) => Promise<void>
-  register: (username: string, email: string, password: string) => Promise<void>
+  register: (username: string, email: string, password: string, inviteCode: string) => Promise<void>
   logout: () => void
   fetchMe: () => Promise<void>
   updateProfile: (data: { display_name?: string; avatar_url?: string }) => Promise<void>
@@ -34,10 +34,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ token: data.token, user: data.user })
   },
 
-  register: async (username, email, password) => {
+  register: async (username, email, password, inviteCode) => {
     const data = await apiFetch<{ token: string; user: User }>('/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ username, email, password }),
+      body: JSON.stringify({ username, email, password, inviteCode }),
     })
     localStorage.setItem('token', data.token)
     set({ token: data.token, user: data.user })

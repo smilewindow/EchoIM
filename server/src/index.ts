@@ -15,6 +15,10 @@ if (!process.env['JWT_SECRET']) {
   process.exit(1)
 }
 
+if (!process.env['INVITE_CODES']) {
+  console.warn('WARN: INVITE_CODES is not set — all registration is disabled')
+}
+
 import { buildApp } from './app.js'
 
 const start = async () => {
