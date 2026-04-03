@@ -34,6 +34,7 @@ cp .env.example .env
 |------|------|
 | `POSTGRES_PASSWORD` | 数据库密码，使用 `openssl rand -hex 32` 生成 |
 | `JWT_SECRET` | JWT 签名密钥，使用 `openssl rand -hex 32` 生成 |
+| `INVITE_CODES` | 注册邀请码，多个用逗号分隔（如 `code1,code2`）。未设置时所有注册将被拒绝 |
 
 其余变量可保持默认值。
 
