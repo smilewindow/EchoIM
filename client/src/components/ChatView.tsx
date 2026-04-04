@@ -312,9 +312,8 @@ export function ChatView({ onBack }: Props) {
     const trimmed = body.trim()
     if (!trimmed || !recipientId) return
 
-    const queued = sendMessage(recipientId, trimmed)
-    if (!queued) return
-
+    // Clear input BEFORE sendMessage to avoid Zustand store update
+    // racing with the local state update via useSyncExternalStore.
     stopTyping()
     wasNearBottomRef.current = true
     setNewMessageAlert(false)
@@ -323,11 +322,16 @@ export function ChatView({ onBack }: Props) {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
     }
+
+    const queued = sendMessage(recipientId, trimmed)
+    if (!queued) {
+      setBody(trimmed)
+    }
   }, [body, recipientId, scrollToBottom, sendMessage, stopTyping])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
+      if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
         e.preventDefault()
         handleSend()
       }
