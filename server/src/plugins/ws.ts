@@ -1,5 +1,6 @@
 import fp from 'fastify-plugin'
 import { WebSocketServer, WebSocket } from 'ws'
+import crypto from 'node:crypto'
 import type { IncomingMessage } from 'http'
 import type { FastifyInstance } from 'fastify'
 import jwt from 'jsonwebtoken'
@@ -11,11 +12,17 @@ declare module 'fastify' {
   }
 }
 
+const instanceId = crypto.randomUUID()
+const presenceKey = (userId: number) => `presence:${userId}`
+const memberKey = (socketId: string) => `${instanceId}:${socketId}`
+
 export default fp(async function wsPlugin(fastify: FastifyInstance) {
   const wsConnections = new Map<number, Set<WebSocket>>()
   const userIdMap = new WeakMap<IncomingMessage, number>()
+  const wsSocketIds = new Map<WebSocket, string>()
+  const pendingPresenceCloseTasks = new Set<Promise<void>>()
   const wss = new WebSocketServer({ noServer: true })
-  let closing = false
+  const LEASE_MS = 60_000
 
   fastify.decorate('wsConnections', wsConnections)
   fastify.decorate('broadcast', function (userId: number, event: { type: string; payload: unknown }) {
@@ -29,24 +36,52 @@ export default fp(async function wsPlugin(fastify: FastifyInstance) {
     }
   })
 
+  async function getFriendIds(userId: number): Promise<number[]> {
+    const result = await fastify.pool.query(
+      `SELECT CASE WHEN sender_id = $1 THEN recipient_id ELSE sender_id END AS friend_id
+       FROM friend_requests
+       WHERE status = 'accepted' AND (sender_id = $1 OR recipient_id = $1)`,
+      [userId]
+    )
+    return result.rows.map((r: { friend_id: number }) => r.friend_id)
+  }
+
+  async function checkFriendsOnline(friendIds: number[]): Promise<Map<number, boolean>> {
+    if (friendIds.length === 0) return new Map()
+    const pipeline = fastify.redis.pub.pipeline()
+    for (const id of friendIds) {
+      pipeline.presenceCheck(presenceKey(id))
+    }
+    const results = await pipeline.exec()
+    const onlineMap = new Map<number, boolean>()
+    for (let i = 0; i < friendIds.length; i++) {
+      // pipeline.exec() returns [err, result][] — err is null on success
+      onlineMap.set(friendIds[i], results?.[i]?.[1] === 1)
+    }
+    return onlineMap
+  }
+
+  function registerPresence(userId: number, socketId: string): void {
+    fastify.redis.pub.presenceConnect(
+      presenceKey(userId), memberKey(socketId), LEASE_MS
+    ).then((becameOnline) => {
+      if (becameOnline === 1) {
+        return broadcastPresence(userId, 'presence.online')
+      }
+    }).catch((err: unknown) => fastify.log.error(err))
+  }
+
   async function broadcastPresence(userId: number, type: 'presence.online' | 'presence.offline') {
     try {
-      const result = await fastify.pool.query(
-        `SELECT CASE WHEN sender_id = $1 THEN recipient_id ELSE sender_id END AS friend_id
-         FROM friend_requests
-         WHERE status = 'accepted' AND (sender_id = $1 OR recipient_id = $1)`,
-        [userId]
-      )
-      // Re-check state after the async DB round-trip. A quick disconnect/reconnect can
-      // cause the offline query to resolve after a new online query (or vice versa),
-      // leaving friends with a stale indicator. Drop the broadcast if state has changed.
-      const nowOnline = wsConnections.has(userId)
+      const friendIds = await getFriendIds(userId)
+      // Re-check state after the async DB round-trip via Redis (cross-instance aware)
+      const nowOnline = (await fastify.redis.pub.presenceCheck(presenceKey(userId))) === 1
       if (type === 'presence.online' && !nowOnline) return
       if (type === 'presence.offline' && nowOnline) return
 
-      for (const row of result.rows) {
-        const friendId = row.friend_id as number
-        if (wsConnections.has(friendId)) {
+      const onlineMap = await checkFriendsOnline(friendIds)
+      for (const friendId of friendIds) {
+        if (onlineMap.get(friendId)) {
           fastify.broadcast(friendId, { type, payload: { user_id: userId } })
         }
       }
@@ -59,15 +94,10 @@ export default fp(async function wsPlugin(fastify: FastifyInstance) {
   // don't have to wait for a disconnect/reconnect cycle to learn current state.
   async function sendPresenceSnapshot(userId: number, ws: WebSocket) {
     try {
-      const result = await fastify.pool.query(
-        `SELECT CASE WHEN sender_id = $1 THEN recipient_id ELSE sender_id END AS friend_id
-         FROM friend_requests
-         WHERE status = 'accepted' AND (sender_id = $1 OR recipient_id = $1)`,
-        [userId]
-      )
-      for (const row of result.rows) {
-        const friendId = row.friend_id as number
-        if (wsConnections.has(friendId) && ws.readyState === WebSocket.OPEN) {
+      const friendIds = await getFriendIds(userId)
+      const onlineMap = await checkFriendsOnline(friendIds)
+      for (const friendId of friendIds) {
+        if (onlineMap.get(friendId) && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'presence.online', payload: { user_id: friendId } }))
         }
       }
@@ -111,6 +141,8 @@ export default fp(async function wsPlugin(fastify: FastifyInstance) {
 
   wss.on('connection', (ws: WebSocket, request: IncomingMessage) => {
     const userId = userIdMap.get(request)!
+    const socketId = crypto.randomUUID()
+    wsSocketIds.set(ws, socketId)
 
     if (!wsConnections.has(userId)) {
       wsConnections.set(userId, new Set())
@@ -118,9 +150,7 @@ export default fp(async function wsPlugin(fastify: FastifyInstance) {
     const sockets = wsConnections.get(userId)!
     sockets.add(ws)
 
-    if (sockets.size === 1) {
-      broadcastPresence(userId, 'presence.online').catch((err: unknown) => fastify.log.error(err))
-    }
+    registerPresence(userId, socketId)
     sendPresenceSnapshot(userId, ws).catch((err: unknown) => fastify.log.error(err))
 
     ws.on('message', (data) => {
@@ -151,21 +181,106 @@ export default fp(async function wsPlugin(fastify: FastifyInstance) {
     })
 
     ws.on('close', () => {
+      const sid = wsSocketIds.get(ws)
+      wsSocketIds.delete(ws)
       sockets.delete(ws)
-      if (sockets.size === 0 && wsConnections.has(userId)) {
-        wsConnections.delete(userId)
-        if (!closing) {
-          broadcastPresence(userId, 'presence.offline').catch((err: unknown) => fastify.log.error(err))
-        }
+      if (sockets.size === 0) wsConnections.delete(userId)
+
+      if (sid) {
+        const disconnectTask = fastify.redis.pub.presenceDisconnect(
+          presenceKey(userId), memberKey(sid)
+        ).then(async (becameOffline) => {
+          if (becameOffline === 1) {
+            await broadcastPresence(userId, 'presence.offline')
+          }
+        }).catch((err: unknown) => {
+          fastify.log.error(err)
+        }).finally(() => {
+          pendingPresenceCloseTasks.delete(disconnectTask)
+        })
+        pendingPresenceCloseTasks.add(disconnectTask)
       }
     })
   })
 
+  // ioredis fires 'ready' on initial connect AND every reconnect.
+  // By the time wsPlugin runs, redisPlugin has already awaited pub.connect(),
+  // so the initial 'ready' has already fired. Every 'ready' we see is a reconnect.
+  fastify.redis.pub.on('ready', () => {
+    for (const [userId, socks] of wsConnections.entries()) {
+      for (const ws of socks) {
+        const sid = wsSocketIds.get(ws)
+        if (sid) registerPresence(userId, sid)
+      }
+    }
+  })
+
+  const HEARTBEAT_INTERVAL = 30_000
+  const heartbeatTimer = setInterval(async () => {
+    try {
+      const pipeline = fastify.redis.pub.pipeline()
+      for (const [userId, socks] of wsConnections.entries()) {
+        for (const ws of socks) {
+          const sid = wsSocketIds.get(ws)
+          if (sid) {
+            pipeline.presenceHeartbeat(presenceKey(userId), memberKey(sid), LEASE_MS)
+          }
+        }
+      }
+      await pipeline.exec()
+    } catch (err) {
+      fastify.log.error(err, 'presence heartbeat error')
+    }
+  }, HEARTBEAT_INTERVAL)
+
+  const SWEEP_INTERVAL = 30_000
+  const SWEEP_LOCK_KEY = 'presence:sweep:lock'
+  const SWEEP_LOCK_TTL = 10_000
+  const sweepTimer = setInterval(async () => {
+    try {
+      const acquired = await fastify.redis.pub.set(
+        SWEEP_LOCK_KEY, instanceId, 'PX', SWEEP_LOCK_TTL, 'NX'
+      )
+      if (!acquired) return
+
+      let cursor = '0'
+      do {
+        const [nextCursor, keys] = await fastify.redis.pub.scan(
+          cursor, 'MATCH', 'presence:*', 'COUNT', 100
+        )
+        cursor = nextCursor
+
+        const validKeys = keys.filter((k) => k !== SWEEP_LOCK_KEY)
+        if (validKeys.length === 0) continue
+
+        const pipeline = fastify.redis.pub.pipeline()
+        for (const key of validKeys) {
+          pipeline.presenceSweepKey(key)
+        }
+        const results = await pipeline.exec()
+
+        for (let i = 0; i < validKeys.length; i++) {
+          if (results?.[i]?.[1] === 1) {
+            const userId = parseInt(validKeys[i].split(':')[1])
+            await broadcastPresence(userId, 'presence.offline')
+          }
+        }
+      } while (cursor !== '0')
+    } catch (err) {
+      fastify.log.error(err, 'presence sweep error')
+    }
+  }, SWEEP_INTERVAL)
+
   fastify.addHook('onClose', async () => {
-    closing = true
+    clearInterval(heartbeatTimer)
+    clearInterval(sweepTimer)
     for (const client of wss.clients) {
       client.terminate()
     }
     await new Promise<void>((resolve) => wss.close(() => resolve()))
+    // 等所有 close 触发的 presence 清理收尾，避免 Redis 先断开导致停机边沿丢失。
+    if (pendingPresenceCloseTasks.size > 0) {
+      await Promise.allSettled([...pendingPresenceCloseTasks])
+    }
   })
 })

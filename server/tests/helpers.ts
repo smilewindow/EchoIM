@@ -16,13 +16,17 @@ interface RegisterPayload {
   username?: string
   email?: string
   password?: string
+  inviteCode?: string
 }
 
 export async function registerUser(app: App, overrides: RegisterPayload = {}) {
+  const defaultInviteCode =
+    process.env['INVITE_CODES']?.split(',').map((code) => code.trim()).find(Boolean) ?? 'letschat'
   const body = {
     username: 'alice',
     email: 'alice@test.com',
     password: 'password123',
+    inviteCode: defaultInviteCode,
     ...overrides,
   }
   const res = await app.inject({

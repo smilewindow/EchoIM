@@ -80,6 +80,13 @@ declare module 'ioredis' {
     presenceCheck(key: string): Promise<number>
     presenceSweepKey(key: string): Promise<number>
   }
+  interface ChainableCommander {
+    presenceConnect(key: string, member: string, leaseDurationMs: number): ChainableCommander
+    presenceDisconnect(key: string, member: string): ChainableCommander
+    presenceHeartbeat(key: string, member: string, leaseDurationMs: number): ChainableCommander
+    presenceCheck(key: string): ChainableCommander
+    presenceSweepKey(key: string): ChainableCommander
+  }
 }
 
 function createRedisClient(url: string): Redis {

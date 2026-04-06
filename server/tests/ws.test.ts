@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest'
 import WebSocket from 'ws'
 import type { AddressInfo } from 'net'
 import { getApp, truncateAll, registerUser } from './helpers.js'
@@ -35,7 +35,10 @@ function connectWs(port: number, token: string): Promise<WebSocket> {
 
 function waitForEvent(ws: WebSocket, type: string, timeout = 2000): Promise<unknown> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`Timeout waiting for event: ${type}`)), timeout)
+    const timer = setTimeout(() => {
+      ws.off('message', handler)
+      reject(new Error(`Timeout waiting for event: ${type}`))
+    }, timeout)
     const handler = (data: WebSocket.RawData) => {
       const msg = JSON.parse(data.toString()) as { type: string; payload: unknown }
       if (msg.type === type) {
@@ -53,6 +56,19 @@ function cleanConnections(app: App) {
     for (const s of sockets) s.terminate()
   }
   app.wsConnections.clear()
+}
+
+async function waitForCondition(
+  condition: () => boolean | Promise<boolean>,
+  timeout = 2000,
+  interval = 25,
+) {
+  const deadline = Date.now() + timeout
+  while (Date.now() < deadline) {
+    if (await condition()) return
+    await new Promise((resolve) => setTimeout(resolve, interval))
+  }
+  throw new Error('Timed out waiting for condition')
 }
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
@@ -387,6 +403,91 @@ describe('WebSocket presence', () => {
 
     carolWs.close()
     aliceWs.close()
+  })
+})
+
+describe('WebSocket presence recovery', () => {
+  let app: App
+  let port: number
+
+  beforeEach(async () => {
+    app = await getApp()
+    await app.listen({ port: 0, host: '127.0.0.1' })
+    port = (app.server.address() as AddressInfo).port
+    await truncateAll(app)
+    await app.redis.pub.flushdb()
+  })
+
+  afterEach(async () => {
+    if (!app) return
+    if (app.server.listening) {
+      cleanConnections(app)
+      await app.close()
+    }
+  })
+
+  it('re-registers active sockets and re-broadcasts presence.online after Redis data loss recovery', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const bobWs = await connectWs(port, bob.token)
+
+    const initialOnlinePromise = waitForEvent(bobWs, 'presence.online')
+    const aliceWs = await connectWs(port, alice.token)
+    await initialOnlinePromise
+
+    await app.redis.pub.flushdb()
+    await waitForCondition(async () => {
+      const [aliceOnline, bobOnline] = await Promise.all([
+        app.redis.pub.presenceCheck(`presence:${alice.user.id}`),
+        app.redis.pub.presenceCheck(`presence:${bob.user.id}`),
+      ])
+      return aliceOnline === 0 && bobOnline === 0
+    })
+
+    const recoveredOnlinePromise = waitForEvent(bobWs, 'presence.online', 5000)
+    // 用 ready 事件触发恢复路径，避免在测试里真的重启 Docker Redis。
+    app.redis.pub.emit('ready')
+
+    const payload = await recoveredOnlinePromise as Record<string, unknown>
+    expect(payload.user_id).toBe(alice.user.id)
+
+    await waitForCondition(async () => {
+      const [aliceOnline, bobOnline] = await Promise.all([
+        app.redis.pub.presenceCheck(`presence:${alice.user.id}`),
+        app.redis.pub.presenceCheck(`presence:${bob.user.id}`),
+      ])
+      return aliceOnline === 1 && bobOnline === 1
+    })
+
+    aliceWs.close()
+    bobWs.close()
+  })
+
+  it('broadcasts presence.offline when the server terminates the last local socket and a friend stays online elsewhere', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const broadcastSpy = vi.spyOn(app, 'broadcast')
+
+    // 用一个“远端实例”的租约模拟仍在线的好友，避免单实例停机时观察者也一起断掉。
+    await app.redis.pub.presenceConnect(`presence:${bob.user.id}`, 'remote-instance:socket-1', 60_000)
+
+    const aliceWs = await connectWs(port, alice.token)
+    await waitForCondition(async () => {
+      return (await app.redis.pub.presenceCheck(`presence:${alice.user.id}`)) === 1
+    })
+
+    cleanConnections(app)
+
+    await waitForCondition(() => {
+      return broadcastSpy.mock.calls.some(([targetUserId, event]) => {
+        if (targetUserId !== bob.user.id) return false
+        if (typeof event !== 'object' || event === null) return false
+
+        const { type, payload } = event as {
+          type?: string
+          payload?: { user_id?: number }
+        }
+        return type === 'presence.offline' && payload?.user_id === alice.user.id
+      })
+    }, 5000)
   })
 })
 
