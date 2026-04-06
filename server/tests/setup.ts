@@ -2,6 +2,7 @@ import dotenv from 'dotenv'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import pg from 'pg'
+import { Redis } from 'ioredis'
 import { runMigrations, MIGRATIONS_DIR } from '../src/db/migrations-runner.js'
 
 // Load .env so DATABASE_URL is available in the main (globalSetup) process
@@ -43,4 +44,22 @@ export async function setup() {
   } finally {
     await testPool.end()
   }
+
+  // Verify Redis connectivity (use DB 1 for test isolation)
+  const redisUrl = process.env['TEST_REDIS_URL'] ?? 'redis://localhost:6379/1'
+  const redis = new Redis(redisUrl, { lazyConnect: true })
+  // Suppress ioredis' unhandled error log so only our message shows on failure
+  redis.on('error', () => {})
+  try {
+    await redis.connect()
+    await redis.ping()
+  } catch {
+    redis.disconnect()
+    throw new Error(
+      `Redis is not reachable at ${redisUrl}. ` +
+      'Tests require a running Redis instance. ' +
+      'Run "docker compose up redis" or set TEST_REDIS_URL.',
+    )
+  }
+  redis.disconnect()
 }

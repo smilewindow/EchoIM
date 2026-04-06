@@ -11,3 +11,5 @@ if (!base) throw new Error('DATABASE_URL must be set in .env before running test
 
 process.env['DATABASE_URL'] = base.replace(/\/[^/]+$/, '/echoim_test')
 process.env['JWT_SECRET'] = process.env['JWT_SECRET'] ?? 'test-secret-for-vitest'
+// Test Redis uses DB 1 to avoid flushing dev data
+process.env['REDIS_URL'] = process.env['TEST_REDIS_URL'] ?? 'redis://localhost:6379/1'

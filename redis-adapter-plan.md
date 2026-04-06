@@ -36,7 +36,7 @@
 
 ---
 
-## 阶段 1 — 基础设施（Redis 服务 + 连接）
+## 阶段 1 — 基础设施（Redis 服务 + 连接） ✅ 已完成
 
 ### 1.1 docker-compose.yml 新增 Redis 服务
 

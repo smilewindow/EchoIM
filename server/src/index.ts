@@ -19,6 +19,10 @@ if (!process.env['INVITE_CODES']) {
   console.warn('WARN: INVITE_CODES is not set — all registration is disabled')
 }
 
+if (!process.env['REDIS_URL']) {
+  console.warn('WARN: REDIS_URL is not set — using default redis://localhost:6379')
+}
+
 import { buildApp } from './app.js'
 
 const start = async () => {
