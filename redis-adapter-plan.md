@@ -88,7 +88,7 @@ declare module 'fastify' {
 
 ---
 
-## 阶段 2 — 在线状态迁移到 Redis（Sorted Set 租约模型）
+## 阶段 2 — 在线状态迁移到 Redis（Sorted Set 租约模型） ✅ 已完成
 
 ### 2.1 数据模型：Sorted Set + per-member 过期
 
