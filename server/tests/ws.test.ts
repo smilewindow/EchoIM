@@ -27,9 +27,54 @@ async function setupFriends(app: App): Promise<{ alice: UserInfo; bob: UserInfo 
 function connectWs(port: number, token: string): Promise<WebSocket> {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(`ws://127.0.0.1:${port}/ws?token=${token}`)
-    ws.once('open', () => resolve(ws))
-    ws.once('unexpected-response', () => reject(new Error('Connection rejected')))
-    ws.once('error', reject)
+    const cleanup = () => {
+      clearTimeout(timer)
+      ws.off('message', handleMessage)
+      ws.off('unexpected-response', handleUnexpectedResponse)
+      ws.off('error', handleError)
+      ws.off('close', handleClose)
+    }
+    const handleUnexpectedResponse = () => {
+      cleanup()
+      reject(new Error('Connection rejected'))
+    }
+    const handleError = (err: Error) => {
+      cleanup()
+      reject(err)
+    }
+    const handleClose = () => {
+      cleanup()
+      reject(new Error('Socket closed before connection.ready'))
+    }
+    const handleMessage = (data: WebSocket.RawData) => {
+      let msg: { type?: string }
+      try {
+        msg = JSON.parse(data.toString()) as { type?: string }
+      } catch {
+        cleanup()
+        reject(new Error('Malformed message before connection.ready'))
+        return
+      }
+
+      if (msg.type !== 'connection.ready') {
+        cleanup()
+        reject(new Error(`Expected connection.ready, got ${msg.type ?? 'unknown'}`))
+        return
+      }
+
+      cleanup()
+      resolve(ws)
+    }
+    const timer = setTimeout(() => {
+      cleanup()
+      ws.terminate()
+      reject(new Error('Timeout waiting for connection.ready'))
+    }, 2000)
+
+    ws.on('message', handleMessage)
+    ws.once('unexpected-response', handleUnexpectedResponse)
+    ws.once('error', handleError)
+    ws.once('close', handleClose)
   })
 }
 

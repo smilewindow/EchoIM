@@ -333,7 +333,7 @@ const sweepTimer = setInterval(async () => {
 
 ---
 
-## 阶段 3 — 消息广播迁移到 Redis Pub/Sub
+## 阶段 3 — 消息广播迁移到 Redis Pub/Sub ✅ 已完成
 
 ### 3.1 频道设计
 
@@ -433,9 +433,7 @@ wss.on('connection', async (ws, request) => {
   ws.on('close', async () => {
     wsSocketIds.delete(ws)
     if (!initialized) {
-      // 还没完成初始化就断开了 —— 只在这里递减 pendingInits
       state.pendingInits--
-      // 通过队列串行化：只有当 ready + pending 都为 0 时才 unsubscribe
       await enqueueSubOp(state, async () => {
         await tryUnsubscribeAndReclaim(userId, state)
       })
@@ -443,31 +441,42 @@ wss.on('connection', async (ws, request) => {
     }
     // === 正常断开清理 ===
     state.readySockets.delete(ws)
-    // 同步更新 wsConnections
     const localSockets = wsConnections.get(userId)
     if (localSockets) {
       localSockets.delete(ws)
       if (localSockets.size === 0) wsConnections.delete(userId)
     }
+    // ★ presence 下线先于 unsubscribe 启动，避免 unsubscribe 延迟阻塞离线广播
+    const disconnectTask = redis.pub.presenceDisconnect(
+      `presence:${userId}`,
+      `${instanceId}:${socketId}`
+    ).then(async (becameOffline) => {
+      if (becameOffline === 1 && !closing) {
+        await broadcastPresence(userId, 'presence.offline')
+      }
+    }).catch((err) => {
+      fastify.log.error(err)
+    }).finally(() => {
+      pendingPresenceCloseTasks.delete(disconnectTask)
+    })
+    pendingPresenceCloseTasks.add(disconnectTask)
     // 通过队列串行化 unsubscribe 决策
     await enqueueSubOp(state, async () => {
       await tryUnsubscribeAndReclaim(userId, state)
     })
-    // presence 下线
-    const becameOffline = await redis.pub.presenceDisconnect(
-      `presence:${userId}`,
-      `${instanceId}:${socketId}`
-    )
-    if (becameOffline === 1 && !closing) {
-      broadcastPresence(userId, 'presence.offline')
-    }
+  })
+
+  // ★ message handler 在 async subscribe 之前注册，避免初始化期间丢失客户端消息
+  ws.on('message', (data) => {
+    void (async () => {
+      // typing 等事件处理...
+    })()
   })
 
   try {
     wsSocketIds.set(ws, socketId)
 
     // 通过队列串行化：需要 subscribe 时等待完成
-    // subscribe 失败时用 try/catch 回滚状态，防止卡在 subscribing
     await enqueueSubOp(state, async () => {
       if (state.status === 'unsubscribed' || state.status === 'unsubscribing') {
         state.status = 'subscribing'
@@ -475,33 +484,26 @@ wss.on('connection', async (ws, request) => {
           await redis.sub.subscribe(`user:${userId}`)
           state.status = 'subscribed'
         } catch (err) {
-          // 订阅失败，回滚状态，让后续连接可以重试
           state.status = 'unsubscribed'
-          throw err  // 继续向外层抛出
+          throw err
         }
       }
-      // 如果已经是 subscribed，直接通过
-      // 如果是 subscribing，等队列前面的操作完成即可
     })
 
-    // 检查客户端是否在 await 期间断开
     if (ws.readyState !== WebSocket.OPEN) return
 
     // 订阅已就绪，从 pending 转为 ready
     state.pendingInits--
     state.readySockets.add(ws)
 
-    // 同时更新 wsConnections（供本地投递使用）
     if (!wsConnections.has(userId)) wsConnections.set(userId, new Set())
     wsConnections.get(userId)!.add(ws)
 
-    // ★ 立即标记 initialized，确保此后 close 走"正常断开"分支
-    // 此时 ws 已在 readySockets + wsConnections 中，close 回调需要从中移除
     initialized = true
 
-    // 原子操作注册 presence（时间基准由 Redis TIME 提供）
-    // 如果这里或后续步骤失败，catch 调用 ws.close()，
-    // close 回调走 initialized=true 分支，正确清理 readySockets/wsConnections/presence
+    // ★ 通知客户端 subscribe 已完成，连接可用
+    ws.send(JSON.stringify({ type: 'connection.ready' }))
+
     const becameOnline = await redis.pub.presenceConnect(
       `presence:${userId}`,
       `${instanceId}:${socketId}`,
@@ -512,16 +514,9 @@ wss.on('connection', async (ws, request) => {
         .catch((e) => fastify.log.error(e, 'broadcastPresence failed'))
     }
 
-    // snapshot 失败不应中断连接，catch 后记日志即可
     await sendPresenceSnapshot(userId, ws)
       .catch((e) => fastify.log.error(e, 'sendPresenceSnapshot failed'))
-
-    // 注册 message 事件处理器（typing 等）...
   } catch (err) {
-    // initialized=false 时：pendingInits 由 close 回调递减
-    // initialized=true 时：close 回调走正常分支，从 readySockets/wsConnections 中移除，
-    //   并执行 presenceDisconnect 清理 Redis（即使 presenceConnect 没跑过，
-    //   disconnect 的 Lua 脚本对不存在的 member 执行 ZREM 也只会返回 0，安全无副作用）
     fastify.log.error(err, 'ws connection init failed')
     ws.close()
   }
@@ -533,6 +528,11 @@ wss.on('connection', async (ws, request) => {
 > - `pendingInits` 的递减**统一由 close 回调负责**（未初始化时），catch 只调用 `ws.close()` 触发 close 事件，避免双重递减导致负数。
 > - subscribe 失败时通过 try/catch 将状态回滚到 `unsubscribed`，后续连接可以重试，不会卡在 `subscribing`。
 > - 过期 member 的批量清理（`ZREMRANGEBYSCORE`）只在 sweep 中执行。disconnect 只移除自己（`ZREM`）并在无活连接时 `DEL` 整个 key。查询路径（`presenceCheck`）只做 `ZCOUNT` 判断不删数据。每个 offline 边沿只由一个路径产生，不会重复广播。
+>
+> **与原始计划的偏差及原因：**
+> 1. **message handler 提前注册**（在 async subscribe 之前而非之后）：原计划中 handler 在初始化尾部注册，但 WS `open` 触发后客户端可能立即发送消息（如 typing），若 handler 还未挂上则消息会被丢弃。提前注册后，handler 内部的 async DB 查询为接收方的 subscribe 完成提供了足够的时间窗口。
+> 2. **close handler 中 presenceDisconnect 先于 enqueueSubOp 启动**：原计划是先 await unsubscribe 再做 presenceDisconnect，但 unsubscribe 的延迟会阻塞离线广播的发出，导致测试超时且生产中离线通知不及时。调整后两者并行，互不阻塞。
+> 3. **新增 `connection.ready` 信号**（原计划未涉及）：原计划的 subscribe-before-ready 只保护了服务端侧（socket 加入 wsConnections 前必须完成 subscribe），但客户端 `onopen` 后即认为连接可用，在 subscribe 完成前通过 HTTP 触发的 broadcast 可能丢失。新增 `connection.ready` 后客户端推迟"可用"标记，彻底关闭了这个窗口。客户端 `useWebSocket.ts` 相应修改：`onopen` 不再 `setWsConnected(true)`，改为收到 `connection.ready` 后才标记。
 
 ### 3.3 重构 broadcast 函数
 

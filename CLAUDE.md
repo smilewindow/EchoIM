@@ -56,8 +56,9 @@ npm run lint --prefix server
 - **框架：** Fastify，带有 `authenticate` 钩子（JWT 验证，将 `req.user` 附加到请求）
 - **数据库：** 通过 `pg` 使用 PostgreSQL；原生 SQL 迁移（无 ORM）
 - **WebSocket：** `ws` 库；Fastify 在 `WS /ws?token=<jwt>` 处理升级
-- **在线状态：** 内存 `Map<userId, Set<WebSocket>>` — 不持久化，重启后丢失
-- **消息扇出：** `broadcast(userId, event)` 发送给该用户所有活跃 WS 会话（多设备支持）
+- **在线状态：** Redis Sorted Set 租约模型（跨实例），本地 `Map<userId, Set<WebSocket>>` 做投递索引
+- **消息扇出：** `broadcast(userId, event)` 通过 Redis Pub/Sub 发布到 `user:{userId}` 频道，所有实例的本地投递器接收并转发给本地 WebSocket
+- **连接握手：** 服务端完成 Redis SUBSCRIBE 后发送 `connection.ready`，客户端收到后才标记连接可用
 
 ### 前端（`/client`）
 - **状态管理：** Zustand `authStore` 持有 JWT（localStorage）和当前用户
@@ -72,6 +73,7 @@ npm run lint --prefix server
 ### WebSocket 事件
 | 事件 | 方向 | 备注 |
 |------|------|------|
+| `connection.ready` | 服务端 → 客户端 | Redis SUBSCRIBE 完成后发送，客户端收到后才视为连接可用 |
 | `message.new` | 服务端 → 客户端 | 完整消息对象 |
 | `conversation.updated` | 服务端 → 客户端 | 已读回执更新后 |
 | `typing.start` / `typing.stop` | 客户端 ↔ 服务端 ↔ 接收方 | 转发给接收方会话 |

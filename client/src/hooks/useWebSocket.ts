@@ -103,32 +103,43 @@ export function useWebSocket() {
       globalWs = ws
 
       ws.onopen = () => {
-        setWsConnected(true)
+        // Connection is open but NOT yet usable — server still needs to
+        // complete Redis SUBSCRIBE. We defer setWsConnected(true) until
+        // the server sends 'connection.ready'. Reset backoff here since
+        // the TCP handshake succeeded.
         reconnectDelayRef.current = 1000
-
-        if (!isFirstConnectionRef.current) {
-          // Clear stale presence state — server will re-send a snapshot of online friends
-          usePresenceStore.getState().clearAll()
-          // 重连后先刷新会话列表：草稿聊天可能已经在离线期间变成正式会话。
-          void useChatStore
-            .getState()
-            .fetchConversations()
-            .then(async () => {
-              const promoted = await useChatStore.getState().promoteActivePeerConversation()
-              if (!promoted) {
-                await useChatStore.getState().refetchMissedMessages()
-              }
-            })
-          // 补回离线期间漏掉的好友申请事件
-          void useFriendRequestStore.getState().fetchAll()
-        }
-        isFirstConnectionRef.current = false
       }
 
       ws.onmessage = (event) => {
         try {
-          const msg = JSON.parse(event.data as string) as WsEvent
-          handleWsEvent(msg)
+          const msg = JSON.parse(event.data as string) as { type: string; payload?: unknown }
+
+          // Server signals that Redis subscribe is done and the socket is
+          // fully ready to receive broadcast messages.
+          if (msg.type === 'connection.ready') {
+            setWsConnected(true)
+
+            if (!isFirstConnectionRef.current) {
+              // Clear stale presence state — server will re-send a snapshot of online friends
+              usePresenceStore.getState().clearAll()
+              // 重连后先刷新会话列表：草稿聊天可能已经在离线期间变成正式会话。
+              void useChatStore
+                .getState()
+                .fetchConversations()
+                .then(async () => {
+                  const promoted = await useChatStore.getState().promoteActivePeerConversation()
+                  if (!promoted) {
+                    await useChatStore.getState().refetchMissedMessages()
+                  }
+                })
+              // 补回离线期间漏掉的好友申请事件
+              void useFriendRequestStore.getState().fetchAll()
+            }
+            isFirstConnectionRef.current = false
+            return
+          }
+
+          handleWsEvent(msg as WsEvent)
         } catch {
           // ignore malformed messages
         }

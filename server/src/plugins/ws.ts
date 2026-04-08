@@ -12,26 +12,82 @@ declare module 'fastify' {
   }
 }
 
+interface UserSubState {
+  status: 'subscribing' | 'subscribed' | 'unsubscribing' | 'unsubscribed'
+  readySockets: Set<WebSocket>
+  pendingInits: number
+  queue: Promise<void>
+}
+
 const instanceId = crypto.randomUUID()
 const presenceKey = (userId: number) => `presence:${userId}`
 const memberKey = (socketId: string) => `${instanceId}:${socketId}`
+const CONNECTION_READY_MSG = JSON.stringify({ type: 'connection.ready' })
 
 export default fp(async function wsPlugin(fastify: FastifyInstance) {
   const wsConnections = new Map<number, Set<WebSocket>>()
   const userIdMap = new WeakMap<IncomingMessage, number>()
   const wsSocketIds = new Map<WebSocket, string>()
   const pendingPresenceCloseTasks = new Set<Promise<void>>()
+  const userSubStates = new Map<number, UserSubState>()
   const wss = new WebSocketServer({ noServer: true })
   const LEASE_MS = 60_000
+  let closing = false
+
+  function getOrCreateSubState(userId: number): UserSubState {
+    if (!userSubStates.has(userId)) {
+      userSubStates.set(userId, {
+        status: 'unsubscribed',
+        readySockets: new Set(),
+        pendingInits: 0,
+        queue: Promise.resolve(),
+      })
+    }
+    return userSubStates.get(userId)!
+  }
+
+  function enqueueSubOp(state: UserSubState, op: () => Promise<void>): Promise<void> {
+    state.queue = state.queue.then(op, op)
+    return state.queue
+  }
+
+  async function tryUnsubscribeAndReclaim(userId: number, state: UserSubState) {
+    if (state.readySockets.size > 0 || state.pendingInits > 0) return
+
+    if (state.status === 'subscribed' || state.status === 'subscribing') {
+      state.status = 'unsubscribing'
+      try {
+        await fastify.redis.sub.unsubscribe(`user:${userId}`)
+      } catch (err) {
+        fastify.log.error(err, `failed to unsubscribe user:${userId}`)
+      }
+      state.status = 'unsubscribed'
+    }
+
+    if (
+      userSubStates.get(userId) === state &&
+      state.readySockets.size === 0 &&
+      state.pendingInits === 0 &&
+      state.status === 'unsubscribed'
+    ) {
+      userSubStates.delete(userId)
+    }
+  }
 
   fastify.decorate('wsConnections', wsConnections)
+
   fastify.decorate('broadcast', function (userId: number, event: { type: string; payload: unknown }) {
+    fastify.redis.pub.publish(`user:${userId}`, JSON.stringify(event))
+      .catch((err: unknown) => fastify.log.error(err, 'redis publish failed'))
+  })
+
+  fastify.redis.sub.on('message', (channel: string, message: string) => {
+    const userId = parseInt(channel.split(':')[1])
     const sockets = wsConnections.get(userId)
     if (!sockets) return
-    const msg = JSON.stringify(event)
     for (const socket of sockets) {
       if (socket.readyState === WebSocket.OPEN) {
-        socket.send(msg)
+        socket.send(message)
       }
     }
   })
@@ -55,26 +111,14 @@ export default fp(async function wsPlugin(fastify: FastifyInstance) {
     const results = await pipeline.exec()
     const onlineMap = new Map<number, boolean>()
     for (let i = 0; i < friendIds.length; i++) {
-      // pipeline.exec() returns [err, result][] — err is null on success
       onlineMap.set(friendIds[i], results?.[i]?.[1] === 1)
     }
     return onlineMap
   }
 
-  function registerPresence(userId: number, socketId: string): void {
-    fastify.redis.pub.presenceConnect(
-      presenceKey(userId), memberKey(socketId), LEASE_MS
-    ).then((becameOnline) => {
-      if (becameOnline === 1) {
-        return broadcastPresence(userId, 'presence.online')
-      }
-    }).catch((err: unknown) => fastify.log.error(err))
-  }
-
   async function broadcastPresence(userId: number, type: 'presence.online' | 'presence.offline') {
     try {
       const friendIds = await getFriendIds(userId)
-      // Re-check state after the async DB round-trip via Redis (cross-instance aware)
       const nowOnline = (await fastify.redis.pub.presenceCheck(presenceKey(userId))) === 1
       if (type === 'presence.online' && !nowOnline) return
       if (type === 'presence.offline' && nowOnline) return
@@ -90,8 +134,6 @@ export default fp(async function wsPlugin(fastify: FastifyInstance) {
     }
   }
 
-  // Send the newcomer a snapshot of which friends are already online so clients
-  // don't have to wait for a disconnect/reconnect cycle to learn current state.
   async function sendPresenceSnapshot(userId: number, ws: WebSocket) {
     try {
       const friendIds = await getFriendIds(userId)
@@ -139,27 +181,59 @@ export default fp(async function wsPlugin(fastify: FastifyInstance) {
     })
   })
 
-  wss.on('connection', (ws: WebSocket, request: IncomingMessage) => {
+  wss.on('connection', async (ws: WebSocket, request: IncomingMessage) => {
     const userId = userIdMap.get(request)!
     const socketId = crypto.randomUUID()
-    wsSocketIds.set(ws, socketId)
+    let initialized = false
+    const state = getOrCreateSubState(userId)
 
-    if (!wsConnections.has(userId)) {
-      wsConnections.set(userId, new Set())
-    }
-    const sockets = wsConnections.get(userId)!
-    sockets.add(ws)
+    // Immediately increment pendingInits before any await
+    state.pendingInits++
 
-    registerPresence(userId, socketId)
-    sendPresenceSnapshot(userId, ws).catch((err: unknown) => fastify.log.error(err))
+    // Register close handler immediately — owns pendingInits decrement when !initialized
+    ws.on('close', async () => {
+      wsSocketIds.delete(ws)
+      if (!initialized) {
+        state.pendingInits--
+        await enqueueSubOp(state, async () => {
+          await tryUnsubscribeAndReclaim(userId, state)
+        })
+        return
+      }
+      // Normal disconnect cleanup
+      state.readySockets.delete(ws)
+      const localSockets = wsConnections.get(userId)
+      if (localSockets) {
+        localSockets.delete(ws)
+        if (localSockets.size === 0) wsConnections.delete(userId)
+      }
+      // Presence offline — fire before enqueueSubOp to avoid latency from unsubscribe
+      const disconnectTask = fastify.redis.pub.presenceDisconnect(
+        presenceKey(userId), memberKey(socketId)
+      ).then(async (becameOffline) => {
+        if (becameOffline === 1 && !closing) {
+          await broadcastPresence(userId, 'presence.offline')
+        }
+      }).catch((err: unknown) => {
+        fastify.log.error(err)
+      }).finally(() => {
+        pendingPresenceCloseTasks.delete(disconnectTask)
+      })
+      pendingPresenceCloseTasks.add(disconnectTask)
+      // Unsubscribe channel if no more local sockets
+      await enqueueSubOp(state, async () => {
+        await tryUnsubscribeAndReclaim(userId, state)
+      })
+    })
 
+    // Register message handler before async subscribe so incoming WS
+    // messages aren't dropped during initialization.
     ws.on('message', (data) => {
       void (async () => {
         try {
           const msg = JSON.parse(data.toString()) as { type: string; conversation_id: number }
           if (msg.type !== 'typing.start' && msg.type !== 'typing.stop') return
 
-          // Verify sender is a member and get the other member
           const result = await fastify.pool.query(
             `SELECT cm2.user_id AS recipient_id
              FROM conversation_members cm1
@@ -180,37 +254,78 @@ export default fp(async function wsPlugin(fastify: FastifyInstance) {
       })()
     })
 
-    ws.on('close', () => {
-      const sid = wsSocketIds.get(ws)
-      wsSocketIds.delete(ws)
-      sockets.delete(ws)
-      if (sockets.size === 0) wsConnections.delete(userId)
+    try {
+      wsSocketIds.set(ws, socketId)
 
-      if (sid) {
-        const disconnectTask = fastify.redis.pub.presenceDisconnect(
-          presenceKey(userId), memberKey(sid)
-        ).then(async (becameOffline) => {
-          if (becameOffline === 1) {
-            await broadcastPresence(userId, 'presence.offline')
+      // Serialize subscribe via queue
+      await enqueueSubOp(state, async () => {
+        if (state.status === 'unsubscribed' || state.status === 'unsubscribing') {
+          state.status = 'subscribing'
+          try {
+            await fastify.redis.sub.subscribe(`user:${userId}`)
+            state.status = 'subscribed'
+          } catch (err) {
+            state.status = 'unsubscribed'
+            throw err
           }
-        }).catch((err: unknown) => {
-          fastify.log.error(err)
-        }).finally(() => {
-          pendingPresenceCloseTasks.delete(disconnectTask)
-        })
-        pendingPresenceCloseTasks.add(disconnectTask)
+        }
+      })
+
+      // Client may have disconnected while awaiting subscribe
+      if (ws.readyState !== WebSocket.OPEN) return
+
+      // Transition from pending to ready
+      state.pendingInits--
+      state.readySockets.add(ws)
+
+      if (!wsConnections.has(userId)) wsConnections.set(userId, new Set())
+      wsConnections.get(userId)!.add(ws)
+
+      initialized = true
+
+      ws.send(CONNECTION_READY_MSG)
+
+      // Register presence
+      const becameOnline = await fastify.redis.pub.presenceConnect(
+        presenceKey(userId),
+        memberKey(socketId),
+        LEASE_MS
+      )
+      if (becameOnline === 1) {
+        broadcastPresence(userId, 'presence.online')
+          .catch((e: unknown) => fastify.log.error(e, 'broadcastPresence failed'))
       }
-    })
+
+      await sendPresenceSnapshot(userId, ws)
+        .catch((e: unknown) => fastify.log.error(e, 'sendPresenceSnapshot failed'))
+    } catch (err) {
+      fastify.log.error(err, 'ws connection init failed')
+      ws.close()
+    }
   })
 
-  // ioredis fires 'ready' on initial connect AND every reconnect.
-  // By the time wsPlugin runs, redisPlugin has already awaited pub.connect(),
-  // so the initial 'ready' has already fired. Every 'ready' we see is a reconnect.
+  // On Redis reconnect, re-register presence for all active connections
   fastify.redis.pub.on('ready', () => {
     for (const [userId, socks] of wsConnections.entries()) {
       for (const ws of socks) {
         const sid = wsSocketIds.get(ws)
-        if (sid) registerPresence(userId, sid)
+        if (sid) {
+          fastify.redis.pub.presenceConnect(
+            presenceKey(userId), memberKey(sid), LEASE_MS
+          ).then((becameOnline) => {
+            if (becameOnline === 1) {
+              return broadcastPresence(userId, 'presence.online')
+            }
+          }).catch((err: unknown) => fastify.log.error(err))
+        }
+      }
+    }
+    // Re-subscribe channels for all tracked users
+    for (const [userId, subState] of userSubStates.entries()) {
+      if (subState.readySockets.size > 0 || subState.pendingInits > 0) {
+        fastify.redis.sub.subscribe(`user:${userId}`)
+          .then(() => { subState.status = 'subscribed' })
+          .catch((err: unknown) => fastify.log.error(err, `re-subscribe user:${userId} failed`))
       }
     }
   })
@@ -272,13 +387,13 @@ export default fp(async function wsPlugin(fastify: FastifyInstance) {
   }, SWEEP_INTERVAL)
 
   fastify.addHook('onClose', async () => {
+    closing = true
     clearInterval(heartbeatTimer)
     clearInterval(sweepTimer)
     for (const client of wss.clients) {
       client.terminate()
     }
     await new Promise<void>((resolve) => wss.close(() => resolve()))
-    // 等所有 close 触发的 presence 清理收尾，避免 Redis 先断开导致停机边沿丢失。
     if (pendingPresenceCloseTasks.size > 0) {
       await Promise.allSettled([...pendingPresenceCloseTasks])
     }
