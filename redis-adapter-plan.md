@@ -579,47 +579,74 @@ redis.sub.on('message', (channel, message) => {
 
 ---
 
-## 阶段 4 — 在线状态广播适配
+## 阶段 4 — 在线状态广播适配 ✅ 已完成
 
-### 4.1 修改 broadcastPresence
+> 本阶段的核心改动已在阶段 2/3 实现中一并完成。下方伪代码已更新为实际实现。
 
-`broadcastPresence` 中原有的 race condition 防护需要适配为查询 Redis：
+### 4.1 公共 helper：getFriendIds + checkFriendsOnline
+
+将好友列表查询和批量在线状态检查提取为公共函数，供 `broadcastPresence` 和 `sendPresenceSnapshot` 复用：
+
+```ts
+async function getFriendIds(userId: number): Promise<number[]> {
+  const result = await fastify.pool.query(
+    `SELECT CASE WHEN sender_id = $1 THEN recipient_id ELSE sender_id END AS friend_id
+     FROM friend_requests
+     WHERE status = 'accepted' AND (sender_id = $1 OR recipient_id = $1)`,
+    [userId]
+  )
+  return result.rows.map((r: { friend_id: number }) => r.friend_id)
+}
+
+async function checkFriendsOnline(friendIds: number[]): Promise<Map<number, boolean>> {
+  if (friendIds.length === 0) return new Map()
+  const pipeline = fastify.redis.pub.pipeline()
+  for (const id of friendIds) {
+    pipeline.presenceCheck(presenceKey(id))
+  }
+  const results = await pipeline.exec()
+  const onlineMap = new Map<number, boolean>()
+  for (let i = 0; i < friendIds.length; i++) {
+    onlineMap.set(friendIds[i], results?.[i]?.[1] === 1)
+  }
+  return onlineMap
+}
+```
+
+### 4.2 修改 broadcastPresence
+
+`broadcastPresence` 中原有的 race condition 防护适配为查询 Redis。相比原计划额外优化：通过 `checkFriendsOnline` pipeline 批量查询好友在线状态，仅向在线好友发布 Pub/Sub 消息，减少无效 publish：
 
 ```ts
 async function broadcastPresence(userId: number, type: 'presence.online' | 'presence.offline') {
-  const result = await fastify.pool.query(/* 查好友列表 */)
+  const friendIds = await getFriendIds(userId)
 
-  // 异步 DB 查询后 re-check — 改为查 Redis
-  const nowOnline = await isUserOnline(userId)
+  // 异步 DB 查询后 re-check — 查 Redis
+  const nowOnline = (await fastify.redis.pub.presenceCheck(presenceKey(userId))) === 1
   if (type === 'presence.online' && !nowOnline) return
   if (type === 'presence.offline' && nowOnline) return
 
-  for (const row of result.rows) {
-    const friendId = row.friend_id as number
-    // broadcast 已走 Redis Pub/Sub，无需再判断 friendId 是否在本地
-    fastify.broadcast(friendId, { type, payload: { user_id: userId } })
+  // ★ 优化：仅向在线好友发布，避免无人订阅的 Pub/Sub 消息
+  const onlineMap = await checkFriendsOnline(friendIds)
+  for (const friendId of friendIds) {
+    if (onlineMap.get(friendId)) {
+      fastify.broadcast(friendId, { type, payload: { user_id: userId } })
+    }
   }
 }
 ```
 
-### 4.2 修改 sendPresenceSnapshot
+### 4.3 修改 sendPresenceSnapshot
+
+复用 `checkFriendsOnline` 实现批量查询：
 
 ```ts
 async function sendPresenceSnapshot(userId: number, ws: WebSocket) {
-  const result = await fastify.pool.query(/* 查好友列表 */)
-  const friendIds = result.rows.map(r => r.friend_id as number)
-
-  // 批量查询好友在线状态（pipeline + Lua 脚本，时间基准统一由 Redis TIME 提供）
-  const pipeline = redis.pub.pipeline()
-  for (const fid of friendIds) {
-    pipeline.presenceCheck(`presence:${fid}`)
-  }
-  const results = await pipeline.exec()
-
-  for (let i = 0; i < friendIds.length; i++) {
-    const isOnline = results![i]![1] === 1
-    if (isOnline && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'presence.online', payload: { user_id: friendIds[i] } }))
+  const friendIds = await getFriendIds(userId)
+  const onlineMap = await checkFriendsOnline(friendIds)
+  for (const friendId of friendIds) {
+    if (onlineMap.get(friendId) && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'presence.online', payload: { user_id: friendId } }))
     }
   }
 }
