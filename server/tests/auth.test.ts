@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import jwt from 'jsonwebtoken'
-import { getApp, truncateAll, registerUser } from './helpers.js'
+import { getApp, truncateAll, registerUser, getInviteCode } from './helpers.js'
 import type { App } from './helpers.js'
 
 describe('POST /api/auth/register', () => {
@@ -14,7 +14,7 @@ describe('POST /api/auth/register', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/auth/register',
-      payload: { username: 'alice', email: 'alice@test.com', password: 'password123' },
+      payload: { username: 'alice', email: 'alice@test.com', password: 'password123', inviteCode: getInviteCode() },
     })
     expect(res.statusCode).toBe(201)
     const body = res.json()
@@ -76,7 +76,7 @@ describe('POST /api/auth/register', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/auth/register',
-      payload: { username: 'bob', email: 'alice@test.com', password: 'password123' },
+      payload: { username: 'bob', email: 'alice@test.com', password: 'password123', inviteCode: getInviteCode() },
     })
     expect(res.statusCode).toBe(409)
     expect(res.json().error).toMatch(/email/i)
@@ -87,7 +87,7 @@ describe('POST /api/auth/register', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/auth/register',
-      payload: { username: 'alice', email: 'other@test.com', password: 'password123' },
+      payload: { username: 'alice', email: 'other@test.com', password: 'password123', inviteCode: getInviteCode() },
     })
     expect(res.statusCode).toBe(409)
     expect(res.json().error).toMatch(/username/i)
@@ -97,7 +97,7 @@ describe('POST /api/auth/register', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/auth/register',
-      payload: { username: 'alice', email: ' Alice@Test.COM ', password: 'password123' },
+      payload: { username: 'alice', email: ' Alice@Test.COM ', password: 'password123', inviteCode: getInviteCode() },
     })
     expect(res.statusCode).toBe(201)
     expect(res.json().user.email).toBe('alice@test.com')

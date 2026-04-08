@@ -12,6 +12,10 @@ export async function truncateAll(app: App) {
   )
 }
 
+export function getInviteCode(): string {
+  return process.env['INVITE_CODES']?.split(',').map((code) => code.trim()).find(Boolean) ?? 'letschat'
+}
+
 interface RegisterPayload {
   username?: string
   email?: string
@@ -20,8 +24,7 @@ interface RegisterPayload {
 }
 
 export async function registerUser(app: App, overrides: RegisterPayload = {}) {
-  const defaultInviteCode =
-    process.env['INVITE_CODES']?.split(',').map((code) => code.trim()).find(Boolean) ?? 'letschat'
+  const defaultInviteCode = getInviteCode()
   const body = {
     username: 'alice',
     email: 'alice@test.com',
