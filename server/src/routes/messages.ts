@@ -84,7 +84,9 @@ const messageRoutes: FastifyPluginAsync = async (fastify) => {
     // client_temp_id 只回给发送方，用来精确替换本地 optimistic message，不落库也不广播给对端。
     const senderMessage = client_temp_id ? { ...msgRow, client_temp_id } : msgRow
     fastify.broadcast(recipient_id, { type: 'message.new', payload: msgRow })
+      .catch((err: unknown) => fastify.log.error(err, 'broadcast failed'))
     fastify.broadcast(sender_id, { type: 'message.new', payload: senderMessage })
+      .catch((err: unknown) => fastify.log.error(err, 'broadcast failed'))
 
     return reply.status(201).send(senderMessage)
   })

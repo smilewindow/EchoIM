@@ -654,46 +654,76 @@ async function sendPresenceSnapshot(userId: number, ws: WebSocket) {
 
 ---
 
-## 阶段 5 — 优雅下线与崩溃恢复
+## 阶段 5 — 优雅下线与崩溃恢复 ✅
 
 ### 5.1 优雅下线（Graceful Shutdown）
 
 当前代码在关闭时设置 `closing = true` 并跳过 offline 广播。单实例时问题不大，但多实例 rolling restart 时，用户会"假在线"整个 TTL 窗口。
 
-新的关闭流程：
+#### 实现要点
+
+**1. 必须用 `preClose` 而非 `onClose`**
+
+Fastify v5 的关闭顺序为 `preClose → server.close() → onClose`。`server.close()` 会等待所有 TCP 连接（含升级的 WS）排空。若 presence 清理和 WS 终止放在 `onClose` 中，`server.close()` 永远等不到 WS 断开，形成死锁。
+
+**2. `broadcast` 必须返回 Promise**
+
+`broadcastPresence` 内部调用 `fastify.broadcast()`（Redis PUBLISH），shutdown 路径需要 await 所有 publish 真正落到 Redis，否则 Redis 插件的 `onClose` 随后 `disconnect()`，在途 publish 会丢失。非 shutdown 路径（路由中的 fire-and-forget 调用）加 `.catch()` 防止 unhandled rejection。
+
+**3. socket close handler 固化 `wasClosing` 快照**
+
+单个 socket 的 close 回调在入口处 `const wasClosing = closing`，后续用快照判断是否广播 offline。避免"socket 从 wsConnections 删除 → closing 变 true → presenceDisconnect resolve 时跳过广播 → preClose 扫描也看不到该 socket"的竞态。
+
+**4. upgrade 入口拒绝 closing 中的新连接**
+
+`preClose` 设置 `closing = true` 后、`server.close()` 停止 accept 之前，upgrade handler 仍能收到新请求。需在 upgrade 入口加 `if (closing)` guard 返回 503，防止最后时刻新连接绕过 preClose 清理。
+
+#### 关闭流程
 
 ```ts
-fastify.addHook('onClose', async () => {
-  closing = true
+// upgrade 入口拒绝关闭中的新连接
+fastify.server.on('upgrade', (request, socket, head) => {
+  if (closing) {
+    socket.write('HTTP/1.1 503 Service Unavailable\r\n...\r\n')
+    socket.destroy()
+    return
+  }
+  // ... 正常 upgrade 逻辑
+})
 
-  // 1. 停止心跳和清扫定时器
+// preClose: 在 server.close() 之前执行
+fastify.addHook('preClose', async () => {
+  closing = true
   clearInterval(heartbeatTimer)
   clearInterval(sweepTimer)
 
-  // 2. 主动清理本实例所有 presence member，并补发 offline
+  // 并发清理所有 presence member，并 await publish 完成
+  const offlineTasks: Promise<void>[] = []
   for (const [userId, sockets] of wsConnections.entries()) {
     for (const ws of sockets) {
       const socketId = wsSocketIds.get(ws)
       if (socketId) {
-        const becameOffline = await redis.pub.presenceDisconnect(
-          `presence:${userId}`,
-          `${instanceId}:${socketId}`
+        offlineTasks.push(
+          redis.pub.presenceDisconnect(presenceKey(userId), memberKey(socketId))
+            .then(async (becameOffline) => {
+              if (becameOffline === 1) await broadcastPresence(userId, 'presence.offline')
+            })
         )
-        if (becameOffline === 1) {
-          // 直接通过 Redis Pub/Sub 广播 offline（其他实例会投递）
-          await broadcastPresence(userId, 'presence.offline')
-        }
       }
     }
   }
+  await Promise.allSettled(offlineTasks)
 
-  // 3. 关闭所有 WebSocket 连接
-  for (const client of wss.clients) {
-    client.terminate()
-  }
+  // 终止 WS 连接，使 server.close() 能正常完成
+  for (const client of wss.clients) client.terminate()
   await new Promise<void>((resolve) => wss.close(() => resolve()))
+})
 
-  // 4. Redis 连接由 redis 插件的 onClose 钩子关闭
+// onClose: server.close() 之后，排空残留的异步 disconnect 任务
+fastify.addHook('onClose', async () => {
+  if (pendingPresenceCloseTasks.size > 0) {
+    await Promise.allSettled([...pendingPresenceCloseTasks])
+  }
 })
 ```
 

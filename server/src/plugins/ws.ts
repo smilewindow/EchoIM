@@ -7,7 +7,7 @@ import jwt from 'jsonwebtoken'
 
 declare module 'fastify' {
   interface FastifyInstance {
-    broadcast: (userId: number, event: { type: string; payload: unknown }) => void
+    broadcast: (userId: number, event: { type: string; payload: unknown }) => Promise<void>
     wsConnections: Map<number, Set<WebSocket>>
   }
 }
@@ -76,9 +76,8 @@ export default fp(async function wsPlugin(fastify: FastifyInstance) {
 
   fastify.decorate('wsConnections', wsConnections)
 
-  fastify.decorate('broadcast', function (userId: number, event: { type: string; payload: unknown }) {
-    fastify.redis.pub.publish(`user:${userId}`, JSON.stringify(event))
-      .catch((err: unknown) => fastify.log.error(err, 'redis publish failed'))
+  fastify.decorate('broadcast', async function (userId: number, event: { type: string; payload: unknown }) {
+    await fastify.redis.pub.publish(`user:${userId}`, JSON.stringify(event))
   })
 
   fastify.redis.sub.on('message', (channel: string, message: string) => {
@@ -124,11 +123,15 @@ export default fp(async function wsPlugin(fastify: FastifyInstance) {
       if (type === 'presence.offline' && nowOnline) return
 
       const onlineMap = await checkFriendsOnline(friendIds)
+      const publishTasks: Promise<void>[] = []
       for (const friendId of friendIds) {
         if (onlineMap.get(friendId)) {
-          fastify.broadcast(friendId, { type, payload: { user_id: userId } })
+          publishTasks.push(
+            fastify.broadcast(friendId, { type, payload: { user_id: userId } })
+          )
         }
       }
+      await Promise.all(publishTasks)
     } catch (err) {
       fastify.log.error(err)
     }
@@ -149,6 +152,12 @@ export default fp(async function wsPlugin(fastify: FastifyInstance) {
   }
 
   fastify.server.on('upgrade', (request: IncomingMessage, socket, head) => {
+    if (closing) {
+      socket.write('HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\nConnection: close\r\n\r\n')
+      socket.destroy()
+      return
+    }
+
     const url = new URL(request.url ?? '', 'http://localhost')
     if (url.pathname !== '/ws') {
       socket.write('HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n')
@@ -192,6 +201,10 @@ export default fp(async function wsPlugin(fastify: FastifyInstance) {
 
     // Register close handler immediately — owns pendingInits decrement when !initialized
     ws.on('close', async () => {
+      // Snapshot closing flag at handler entry to avoid race with onClose hook.
+      // If closing was already true when this fires, the onClose hook handles
+      // presence cleanup; this handler only does structural bookkeeping.
+      const wasClosing = closing
       wsSocketIds.delete(ws)
       if (!initialized) {
         state.pendingInits--
@@ -211,7 +224,7 @@ export default fp(async function wsPlugin(fastify: FastifyInstance) {
       const disconnectTask = fastify.redis.pub.presenceDisconnect(
         presenceKey(userId), memberKey(socketId)
       ).then(async (becameOffline) => {
-        if (becameOffline === 1 && !closing) {
+        if (becameOffline === 1 && !wasClosing) {
           await broadcastPresence(userId, 'presence.offline')
         }
       }).catch((err: unknown) => {
@@ -244,7 +257,7 @@ export default fp(async function wsPlugin(fastify: FastifyInstance) {
           if (result.rowCount === 0) return
 
           const recipientId = result.rows[0].recipient_id as number
-          fastify.broadcast(recipientId, {
+          await fastify.broadcast(recipientId, {
             type: msg.type,
             payload: { conversation_id: msg.conversation_id, user_id: userId },
           })
@@ -386,14 +399,47 @@ export default fp(async function wsPlugin(fastify: FastifyInstance) {
     }
   }, SWEEP_INTERVAL)
 
-  fastify.addHook('onClose', async () => {
+  // preClose runs BEFORE server.close(). Without this, server.close() waits
+  // for all TCP connections (including upgraded WS) to drain, blocking onClose
+  // hooks indefinitely.
+  fastify.addHook('preClose', async () => {
     closing = true
     clearInterval(heartbeatTimer)
     clearInterval(sweepTimer)
+
+    // Graceful shutdown: actively clean up presence and broadcast offline
+    // before terminating connections. Individual socket close handlers skip
+    // offline broadcast when wasClosing=true, so we handle it here.
+    const offlineTasks: Promise<void>[] = []
+    for (const [userId, sockets] of wsConnections.entries()) {
+      for (const ws of sockets) {
+        const socketId = wsSocketIds.get(ws)
+        if (socketId) {
+          offlineTasks.push(
+            fastify.redis.pub.presenceDisconnect(
+              presenceKey(userId), memberKey(socketId)
+            ).then(async (becameOffline) => {
+              if (becameOffline === 1) {
+                await broadcastPresence(userId, 'presence.offline')
+              }
+            }).catch((err: unknown) => {
+              fastify.log.error(err, 'graceful shutdown presence cleanup failed')
+            })
+          )
+        }
+      }
+    }
+    await Promise.allSettled(offlineTasks)
+
+    // Terminate WS connections so server.close() can complete
     for (const client of wss.clients) {
       client.terminate()
     }
     await new Promise<void>((resolve) => wss.close(() => resolve()))
+  })
+
+  fastify.addHook('onClose', async () => {
+    // Drain any in-flight disconnect tasks from individual socket close handlers
     if (pendingPresenceCloseTasks.size > 0) {
       await Promise.allSettled([...pendingPresenceCloseTasks])
     }

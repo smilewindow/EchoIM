@@ -536,6 +536,64 @@ describe('WebSocket presence recovery', () => {
   })
 })
 
+// ─── Graceful shutdown ───────────────────────────────────────────────────────
+
+describe('WebSocket graceful shutdown', () => {
+  let app1: App
+  let app2: App
+  let port1: number
+  let port2: number
+
+  beforeEach(async () => {
+    app1 = await getApp()
+    app2 = await getApp()
+    await app1.listen({ port: 0, host: '127.0.0.1' })
+    await app2.listen({ port: 0, host: '127.0.0.1' })
+    port1 = (app1.server.address() as AddressInfo).port
+    port2 = (app2.server.address() as AddressInfo).port
+    await truncateAll(app1)
+    await app1.redis.pub.flushdb()
+  })
+
+  afterEach(async () => {
+    // app1 may already be closed by the test
+    if (app1?.server?.listening) {
+      cleanConnections(app1)
+      await app1.close()
+    }
+    if (app2?.server?.listening) {
+      cleanConnections(app2)
+      await app2.close()
+    }
+  })
+
+  it('broadcasts presence.offline to friends on other instances when app closes gracefully', async () => {
+    // Register users via app1 (shared PG)
+    const { alice, bob } = await setupFriends(app1)
+
+    // Bob connects to app2 (observer instance)
+    const bobWs = await connectWs(port2, bob.token)
+
+    // Alice connects to app1 (instance that will shut down)
+    const onlinePromise = waitForEvent(bobWs, 'presence.online')
+    const aliceWs = await connectWs(port1, alice.token)
+    await onlinePromise
+
+    // Gracefully close app1 — should trigger offline broadcast via Redis Pub/Sub
+    const offlinePromise = waitForEvent(bobWs, 'presence.offline', 5000)
+    await app1.close()
+
+    const payload = await offlinePromise as Record<string, unknown>
+    expect(payload.user_id).toBe(alice.user.id)
+
+    // Verify Alice's presence is cleaned up in Redis
+    const aliceOnline = await app2.redis.pub.presenceCheck(`presence:${alice.user.id}`)
+    expect(aliceOnline).toBe(0)
+
+    bobWs.close()
+  })
+})
+
 // ─── Friend request events ──────────────────────────────────────────────────
 
 describe('WebSocket friend_request events', () => {
