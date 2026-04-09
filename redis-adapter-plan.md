@@ -738,7 +738,7 @@ fastify.addHook('onClose', async () => {
 
 ---
 
-## 阶段 6 — 测试适配
+## 阶段 6 — 测试适配 ✅ 已完成
 
 ### 6.1 测试策略：真实 Redis
 
@@ -771,9 +771,9 @@ process.env['REDIS_URL'] = process.env['TEST_REDIS_URL'] ?? 'redis://localhost:6
 
 ### 6.3 更新测试辅助函数
 
-`server/tests/helpers/` 中：
-- `buildApp()` 需确保 redis 插件正常初始化（它会读取 `process.env['REDIS_URL']`，此时已被 env-setup.ts 指向 DB 1）
-- 新增 `flushRedis()` 辅助函数，调用 `FLUSHDB`（只清 DB 1）
+`server/tests/helpers.ts` 中：
+- `getApp()` 调用 `buildApp()`，redis 插件正常初始化（读取 `process.env['REDIS_URL']`，已被 env-setup.ts 指向 DB 1）
+- 新增 `flushRedis(app)` 辅助函数，调用 `app.redis.pub.flushdb()`（只清 DB 1）
 
 ### 6.4 测试生命周期
 
@@ -801,83 +801,44 @@ afterEach(async () => {
 
 ### 6.6 新增集成测试：跨实例场景
 
-```ts
-describe('cross-instance broadcast', () => {
-  let app1, app2
+测试文件：`server/tests/cross-instance.test.ts`
 
-  beforeEach(async () => {
-    await flushRedis()
-    app1 = await buildApp()  // 实例 1
-    app2 = await buildApp()  // 实例 2（共享同一 Redis + PG）
-  })
+**实现说明：**
+- ws.ts 暴露了 `wsUserSubStates`（`userSubStates` 的引用）用于测试断言订阅状态清理
+- 跨实例测试每个 case 独立创建两个 app 实例，共享同一 Redis + PG
 
-  afterEach(async () => {
-    await app1.close()
-    await app2.close()
-  })
+**已实现的用例（9 个）：**
 
-  it('跨实例消息投递', async () => {
-    // 用户 A 通过 app1 的 WS 连接
-    // 用户 B 通过 app2 的 WS 连接
-    // A 通过 app1 发送消息
-    // 验证 B 在 app2 上收到 message.new 事件
-  })
-
-  it('跨实例在线状态可见', async () => {
-    // 用户 A 连实例 1，用户 B 连实例 2
-    // B 应收到 A 的 presence.online
-    // A 断开后 B 应收到 presence.offline
-  })
-})
-
-describe('crash recovery', () => {
-  it('实例崩溃后僵尸 member 被清扫并补发 offline', async () => {
-    // app1 必须用子进程启动（同进程 buildApp 的 close 钩子会正常执行，无法模拟真正崩溃）
-    // 使用 tsx 直接运行 TS 源码，避免依赖 build 产物
-    const app1Process = fork('src/index.ts', {
-      execArgv: ['--import', 'tsx'],
-      env: { ...testEnv, PORT: '3001' },
-    })
-    const app2 = await buildApp()  // app2 在测试进程内，用于接收事件
-
-    // 用户 A 通过 app1（子进程，端口 3001）建立 WS 连接
-    // 用户 B 通过 app2 建立 WS 连接
-    // B 收到 A 的 presence.online
-
-    // 模拟崩溃：SIGKILL 子进程（不触发任何 close/exit 钩子）
-    process.kill(app1Process.pid!, 'SIGKILL')
-
-    // 等待 lease 过期 + sweep 周期（测试中可缩短为秒级以加速）
-    // B 应收到 A 的 presence.offline
-  })
-})
-
-describe('subscribe failure / early disconnect cleanup', () => {
-  it('subscribe 失败后 userSubStates 被回收', async () => {
-    const app = await buildApp()
-    // mock redis.sub.subscribe 使其抛错
-    // 建立 WS 连接 → 初始化失败 → ws.close() 触发 close 回调
-    // 验证 userSubStates 中该 userId 的 state 已被 delete
-  })
-
-  it('初始化期间客户端提前断开后 userSubStates 被回收', async () => {
-    const app = await buildApp()
-    // 建立 WS 连接，在 subscribe 完成前主动断开
-    // 验证 userSubStates 中该 userId 的 state 已被 delete
-    // 验证 pendingInits 没有变成负数
-  })
-})
-
-describe('graceful shutdown', () => {
-  it('实例优雅关闭时主动补发 offline', async () => {
-    const app1 = await buildApp()
-    const app2 = await buildApp()
-    // 用户 A 连实例 1，用户 B 连实例 2
-    // 正常关闭 app1
-    // B 应立即收到 A 的 presence.offline（不需要等 TTL）
-  })
-})
 ```
+cross-instance broadcast
+  ✓ 跨实例消息投递（A 在 app1 发消息，B 在 app2 收到 message.new）
+  ✓ 跨实例消息回显（A 的 WS 在 app2，通过 app1 发 HTTP，app2 收到 message.new）
+
+cross-instance presence
+  ✓ 跨实例上线通知（A 连 app1，B 在 app2 收到 presence.online）
+  ✓ 跨实例下线通知（A 断开 app1，B 在 app2 收到 presence.offline）
+  ✓ 跨实例 presence snapshot（阻断 app1 的广播路径，确认 B 收到的
+    presence.online 来自 app2 的 sendPresenceSnapshot() 直接 ws.send，
+    而非 Redis Pub/Sub 广播）
+
+subscribe failure / early disconnect cleanup
+  ✓ subscribe 抛错后 wsUserSubStates 被回收（mock subscribe 抛错，验证
+    wsUserSubStates 和 wsConnections 都被清理）
+  ✓ subscribe 失败后系统恢复（第一次失败，第二次正常连接，subState 为 subscribed）
+  ✓ 初始化期间客户端提前断开后 wsUserSubStates 被回收（mock 慢 subscribe，
+    open 后立即 close，验证 !initialized 分支的 pendingInits-- 和
+    tryUnsubscribeAndReclaim 清理）
+
+cross-instance typing indicators
+  ✓ 跨实例 typing.start 转发
+```
+
+**未实现的用例：**
+- crash recovery（子进程 fork + SIGKILL）：需要子进程启动完整服务器并缩短
+  lease/sweep 间隔，复杂度高。崩溃恢复的核心逻辑（sweep 清扫过期 member 并
+  补发 offline）已由 `ws.test.ts` 中的 presence recovery 测试间接覆盖。
+- graceful shutdown 跨实例测试：已在 `ws.test.ts` 的 "WebSocket graceful shutdown"
+  describe 中实现，未重复添加到 cross-instance.test.ts。
 
 ---
 

@@ -1,119 +1,17 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest'
 import WebSocket from 'ws'
 import type { AddressInfo } from 'net'
-import { getApp, truncateAll, registerUser } from './helpers.js'
-import type { App } from './helpers.js'
-
-type UserInfo = { token: string; user: { id: number; username: string; email: string } }
-
-async function setupFriends(app: App): Promise<{ alice: UserInfo; bob: UserInfo }> {
-  const alice = await registerUser(app)
-  const bob = await registerUser(app, { username: 'bob', email: 'bob@test.com', password: 'password123' })
-  const reqRes = await app.inject({
-    method: 'POST',
-    url: '/api/friend-requests',
-    headers: { authorization: `Bearer ${alice.token}` },
-    payload: { recipient_id: bob.user.id },
-  })
-  await app.inject({
-    method: 'PUT',
-    url: `/api/friend-requests/${reqRes.json<{ id: number }>().id}`,
-    headers: { authorization: `Bearer ${bob.token}` },
-    payload: { status: 'accepted' },
-  })
-  return { alice, bob }
-}
-
-function connectWs(port: number, token: string): Promise<WebSocket> {
-  return new Promise((resolve, reject) => {
-    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws?token=${token}`)
-    const cleanup = () => {
-      clearTimeout(timer)
-      ws.off('message', handleMessage)
-      ws.off('unexpected-response', handleUnexpectedResponse)
-      ws.off('error', handleError)
-      ws.off('close', handleClose)
-    }
-    const handleUnexpectedResponse = () => {
-      cleanup()
-      reject(new Error('Connection rejected'))
-    }
-    const handleError = (err: Error) => {
-      cleanup()
-      reject(err)
-    }
-    const handleClose = () => {
-      cleanup()
-      reject(new Error('Socket closed before connection.ready'))
-    }
-    const handleMessage = (data: WebSocket.RawData) => {
-      let msg: { type?: string }
-      try {
-        msg = JSON.parse(data.toString()) as { type?: string }
-      } catch {
-        cleanup()
-        reject(new Error('Malformed message before connection.ready'))
-        return
-      }
-
-      if (msg.type !== 'connection.ready') {
-        cleanup()
-        reject(new Error(`Expected connection.ready, got ${msg.type ?? 'unknown'}`))
-        return
-      }
-
-      cleanup()
-      resolve(ws)
-    }
-    const timer = setTimeout(() => {
-      cleanup()
-      ws.terminate()
-      reject(new Error('Timeout waiting for connection.ready'))
-    }, 2000)
-
-    ws.on('message', handleMessage)
-    ws.once('unexpected-response', handleUnexpectedResponse)
-    ws.once('error', handleError)
-    ws.once('close', handleClose)
-  })
-}
-
-function waitForEvent(ws: WebSocket, type: string, timeout = 2000): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      ws.off('message', handler)
-      reject(new Error(`Timeout waiting for event: ${type}`))
-    }, timeout)
-    const handler = (data: WebSocket.RawData) => {
-      const msg = JSON.parse(data.toString()) as { type: string; payload: unknown }
-      if (msg.type === type) {
-        clearTimeout(timer)
-        ws.off('message', handler)
-        resolve(msg.payload)
-      }
-    }
-    ws.on('message', handler)
-  })
-}
+import {
+  getApp, truncateAll, flushRedis, registerUser,
+  setupFriends, connectWs, waitForEvent, waitForCondition,
+} from './helpers.js'
+import type { App, UserInfo } from './helpers.js'
 
 function cleanConnections(app: App) {
   for (const sockets of app.wsConnections.values()) {
     for (const s of sockets) s.terminate()
   }
   app.wsConnections.clear()
-}
-
-async function waitForCondition(
-  condition: () => boolean | Promise<boolean>,
-  timeout = 2000,
-  interval = 25,
-) {
-  const deadline = Date.now() + timeout
-  while (Date.now() < deadline) {
-    if (await condition()) return
-    await new Promise((resolve) => setTimeout(resolve, interval))
-  }
-  throw new Error('Timed out waiting for condition')
 }
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
@@ -128,7 +26,7 @@ describe('WebSocket auth', () => {
     port = (app.server.address() as AddressInfo).port
   })
   afterAll(async () => { await app.close() })
-  beforeEach(async () => { cleanConnections(app); await truncateAll(app) })
+  beforeEach(async () => { cleanConnections(app); await truncateAll(app); await flushRedis(app) })
 
   it('accepts a valid token', async () => {
     const alice = await registerUser(app)
@@ -170,7 +68,7 @@ describe('WebSocket message.new', () => {
     port = (app.server.address() as AddressInfo).port
   })
   afterAll(async () => { await app.close() })
-  beforeEach(async () => { cleanConnections(app); await truncateAll(app) })
+  beforeEach(async () => { cleanConnections(app); await truncateAll(app); await flushRedis(app) })
 
   it('delivers message.new to recipient', async () => {
     const { alice, bob } = await setupFriends(app)
@@ -242,7 +140,7 @@ describe('WebSocket conversation.updated', () => {
     port = (app.server.address() as AddressInfo).port
   })
   afterAll(async () => { await app.close() })
-  beforeEach(async () => { cleanConnections(app); await truncateAll(app) })
+  beforeEach(async () => { cleanConnections(app); await truncateAll(app); await flushRedis(app) })
 
   it('delivers conversation.updated when user marks read', async () => {
     const { alice, bob } = await setupFriends(app)
@@ -284,7 +182,7 @@ describe('WebSocket typing indicators', () => {
     port = (app.server.address() as AddressInfo).port
   })
   afterAll(async () => { await app.close() })
-  beforeEach(async () => { cleanConnections(app); await truncateAll(app) })
+  beforeEach(async () => { cleanConnections(app); await truncateAll(app); await flushRedis(app) })
 
   it('forwards typing.start to recipient', async () => {
     const { alice, bob } = await setupFriends(app)
@@ -371,7 +269,7 @@ describe('WebSocket presence', () => {
     port = (app.server.address() as AddressInfo).port
   })
   afterAll(async () => { await app.close() })
-  beforeEach(async () => { cleanConnections(app); await truncateAll(app) })
+  beforeEach(async () => { cleanConnections(app); await truncateAll(app); await flushRedis(app) })
 
   it('sends snapshot of already-online friends to newcomer', async () => {
     const { alice, bob } = await setupFriends(app)
@@ -460,7 +358,7 @@ describe('WebSocket presence recovery', () => {
     await app.listen({ port: 0, host: '127.0.0.1' })
     port = (app.server.address() as AddressInfo).port
     await truncateAll(app)
-    await app.redis.pub.flushdb()
+    await flushRedis(app)
   })
 
   afterEach(async () => {
@@ -479,7 +377,7 @@ describe('WebSocket presence recovery', () => {
     const aliceWs = await connectWs(port, alice.token)
     await initialOnlinePromise
 
-    await app.redis.pub.flushdb()
+    await flushRedis(app)
     await waitForCondition(async () => {
       const [aliceOnline, bobOnline] = await Promise.all([
         app.redis.pub.presenceCheck(`presence:${alice.user.id}`),
@@ -552,7 +450,7 @@ describe('WebSocket graceful shutdown', () => {
     port1 = (app1.server.address() as AddressInfo).port
     port2 = (app2.server.address() as AddressInfo).port
     await truncateAll(app1)
-    await app1.redis.pub.flushdb()
+    await flushRedis(app1)
   })
 
   afterEach(async () => {
@@ -606,7 +504,7 @@ describe('WebSocket friend_request events', () => {
     port = (app.server.address() as AddressInfo).port
   })
   afterAll(async () => { await app.close() })
-  beforeEach(async () => { cleanConnections(app); await truncateAll(app) })
+  beforeEach(async () => { cleanConnections(app); await truncateAll(app); await flushRedis(app) })
 
   it('delivers friend_request.new to recipient with sender info', async () => {
     const alice = await registerUser(app)

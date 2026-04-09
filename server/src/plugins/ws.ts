@@ -9,10 +9,12 @@ declare module 'fastify' {
   interface FastifyInstance {
     broadcast: (userId: number, event: { type: string; payload: unknown }) => Promise<void>
     wsConnections: Map<number, Set<WebSocket>>
+    /** Exposed for testing — tracks per-user subscription lifecycle */
+    wsUserSubStates: Map<number, UserSubState>
   }
 }
 
-interface UserSubState {
+export interface UserSubState {
   status: 'subscribing' | 'subscribed' | 'unsubscribing' | 'unsubscribed'
   readySockets: Set<WebSocket>
   pendingInits: number
@@ -75,6 +77,7 @@ export default fp(async function wsPlugin(fastify: FastifyInstance) {
   }
 
   fastify.decorate('wsConnections', wsConnections)
+  fastify.decorate('wsUserSubStates', userSubStates)
 
   fastify.decorate('broadcast', async function (userId: number, event: { type: string; payload: unknown }) {
     await fastify.redis.pub.publish(`user:${userId}`, JSON.stringify(event))
