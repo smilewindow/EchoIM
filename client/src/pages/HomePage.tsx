@@ -31,6 +31,7 @@ export function HomePage() {
   const activeTab = parseHomeTab(searchParams.get('tab'))
   const [friendCount, setFriendCount] = useState(0)
   const requestCount = useFriendRequestStore((s) => s.incoming.length)
+  const totalUnread = conversations.reduce((sum, c) => sum + c.unread_count, 0)
   const friendsVersion = useFriendRequestStore((s) => s.friendsVersion)
 
   const chatActive = activeConversationId !== null || activePeer !== null
@@ -248,6 +249,9 @@ export function HomePage() {
             >
               {tab.icon}
               <span>{tab.label}</span>
+              {tab.key === 'chats' && totalUnread > 0 && (
+                <span className="echo-badge">{totalUnread > 99 ? '99+' : totalUnread}</span>
+              )}
               {tab.key === 'friends' && friendCount > 0 && (
                 <span className="echo-count">{friendCount}</span>
               )}

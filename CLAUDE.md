@@ -56,8 +56,9 @@ npm run lint --prefix server
 - **框架：** Fastify，带有 `authenticate` 钩子（JWT 验证，将 `req.user` 附加到请求）
 - **数据库：** 通过 `pg` 使用 PostgreSQL；原生 SQL 迁移（无 ORM）
 - **WebSocket：** `ws` 库；Fastify 在 `WS /ws?token=<jwt>` 处理升级
-- **在线状态：** 内存 `Map<userId, Set<WebSocket>>` — 不持久化，重启后丢失
-- **消息扇出：** `broadcast(userId, event)` 发送给该用户所有活跃 WS 会话（多设备支持）
+- **在线状态：** Redis Sorted Set 租约模型（跨实例），本地 `Map<userId, Set<WebSocket>>` 做投递索引
+- **消息扇出：** `broadcast(userId, event)` 通过 Redis Pub/Sub 发布到 `user:{userId}` 频道，所有实例的本地投递器接收并转发给本地 WebSocket
+- **连接握手：** 服务端完成 Redis SUBSCRIBE 后发送 `connection.ready`，客户端收到后才标记连接可用
 
 ### 前端（`/client`）
 - **状态管理：** Zustand `authStore` 持有 JWT（localStorage）和当前用户
@@ -72,10 +73,29 @@ npm run lint --prefix server
 ### WebSocket 事件
 | 事件 | 方向 | 备注 |
 |------|------|------|
+| `connection.ready` | 服务端 → 客户端 | Redis SUBSCRIBE 完成后发送，客户端收到后才视为连接可用 |
 | `message.new` | 服务端 → 客户端 | 完整消息对象 |
 | `conversation.updated` | 服务端 → 客户端 | 已读回执更新后 |
 | `typing.start` / `typing.stop` | 客户端 ↔ 服务端 ↔ 接收方 | 转发给接收方会话 |
 | `presence.online` / `presence.offline` | 服务端 → 好友 | WS 连接/断开时 |
+
+## 本地验证
+
+WS / presence / 消息广播 / 跨实例分布等**连接生命周期相关**的行为验证，应该用前端的 **prod build（Vite preview，端口 4173）**，不要用 dev server（端口 5173）：
+
+```bash
+npm run build --prefix client
+npm run preview --prefix client   # 访问 http://localhost:4173
+```
+
+**原因：** `client/src/main.tsx` 启用了 `<StrictMode>`。React 18 在 dev 模式下会把 `useEffect` 双调用（mount → cleanup → mount），`useWebSocket` 每次初始化都会产生一个短命的"影子"WS 连接（典型存活 2 ms 就被 cleanup 关掉）。日志里会看到**每次刷新都有一条多余的 connect + disconnect**，在多实例场景下还会被 nginx 轮询到另一个实例，把"哪条 WS 真的活着、在哪个实例上"变得极难判读。prod build 没有 StrictMode 双调用，日志干净。
+
+**适用场景：**
+- 阶段 7 多实例手工验证（`docker compose --profile multi up`）
+- 任何要看 `server/src/plugins/ws.ts` 里 `ws connected` / `ws disconnected` 日志来推断行为的调试
+- 任何要对比"连接分布在哪个实例"的场景
+
+**日常功能开发不要关 StrictMode**——它是帮你发现 effect 清理 bug 的开发辅助，只是**验证时**切到 prod build 跑一遍。
 
 ## 关键决策
 

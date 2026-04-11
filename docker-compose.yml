@@ -1,4 +1,12 @@
 services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -17,9 +25,12 @@ services:
     profiles: [deploy]
     depends_on:
       - postgres
+      - redis
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-echoim}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-echoim}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      INVITE_CODES: ${INVITE_CODES:-}
+      REDIS_URL: redis://redis:6379
       PORT: 3000
     ports:
       - "${SERVER_PORT:-3000}:3000"
@@ -33,5 +44,52 @@ services:
     ports:
       - "${CLIENT_PORT:-80}:80"
 
+  # ---------------------------------------------------------------------------
+  # 多实例验证（阶段 7）：使用独立的 `multi` profile，避免与单实例 `deploy`
+  # 冲突。启动方式：docker compose --profile multi up -d --build
+  # nginx 监听 ${SERVER_PORT:-3000}，轮询到 server-1 / server-2；
+  # WebSocket 通过 Redis Pub/Sub 跨实例投递，无需会话粘性。
+  # ---------------------------------------------------------------------------
+  server-1:
+    build: ./server
+    restart: unless-stopped
+    profiles: [multi]
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-echoim}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-echoim}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      INVITE_CODES: ${INVITE_CODES:-}
+      REDIS_URL: redis://redis:6379
+      PORT: 3000
+
+  server-2:
+    build: ./server
+    restart: unless-stopped
+    profiles: [multi]
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-echoim}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-echoim}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      INVITE_CODES: ${INVITE_CODES:-}
+      REDIS_URL: redis://redis:6379
+      PORT: 3000
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    profiles: [multi]
+    depends_on:
+      - server-1
+      - server-2
+    ports:
+      - "${SERVER_PORT:-3000}:3000"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
 volumes:
   postgres-data:
+  redis-data:

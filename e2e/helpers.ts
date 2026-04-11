@@ -18,6 +18,19 @@ export interface SentMessage {
   created_at: string
 }
 
+/**
+ * Read the invite code from INVITE_CODES env var, falling back to the same
+ * default the Vitest helpers use so local runs without env still work.
+ * Mirrors server/tests/helpers.ts::getInviteCode.
+ */
+export function getInviteCode(): string {
+  return (
+    process.env.INVITE_CODES?.split(',')
+      .map((code) => code.trim())
+      .find(Boolean) ?? 'letschat'
+  )
+}
+
 export async function seedUser(
   username: string,
   email: string,
@@ -26,7 +39,7 @@ export async function seedUser(
   const res = await fetch(`${API}/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, email, password }),
+    body: JSON.stringify({ username, email, password, inviteCode: getInviteCode() }),
   })
   if (!res.ok) {
     const body = await res.text()

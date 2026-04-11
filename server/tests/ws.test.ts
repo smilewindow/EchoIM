@@ -1,52 +1,11 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest'
 import WebSocket from 'ws'
 import type { AddressInfo } from 'net'
-import { getApp, truncateAll, registerUser } from './helpers.js'
-import type { App } from './helpers.js'
-
-type UserInfo = { token: string; user: { id: number; username: string; email: string } }
-
-async function setupFriends(app: App): Promise<{ alice: UserInfo; bob: UserInfo }> {
-  const alice = await registerUser(app)
-  const bob = await registerUser(app, { username: 'bob', email: 'bob@test.com', password: 'password123' })
-  const reqRes = await app.inject({
-    method: 'POST',
-    url: '/api/friend-requests',
-    headers: { authorization: `Bearer ${alice.token}` },
-    payload: { recipient_id: bob.user.id },
-  })
-  await app.inject({
-    method: 'PUT',
-    url: `/api/friend-requests/${reqRes.json<{ id: number }>().id}`,
-    headers: { authorization: `Bearer ${bob.token}` },
-    payload: { status: 'accepted' },
-  })
-  return { alice, bob }
-}
-
-function connectWs(port: number, token: string): Promise<WebSocket> {
-  return new Promise((resolve, reject) => {
-    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws?token=${token}`)
-    ws.once('open', () => resolve(ws))
-    ws.once('unexpected-response', () => reject(new Error('Connection rejected')))
-    ws.once('error', reject)
-  })
-}
-
-function waitForEvent(ws: WebSocket, type: string, timeout = 2000): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`Timeout waiting for event: ${type}`)), timeout)
-    const handler = (data: WebSocket.RawData) => {
-      const msg = JSON.parse(data.toString()) as { type: string; payload: unknown }
-      if (msg.type === type) {
-        clearTimeout(timer)
-        ws.off('message', handler)
-        resolve(msg.payload)
-      }
-    }
-    ws.on('message', handler)
-  })
-}
+import {
+  getApp, truncateAll, flushRedis, registerUser,
+  setupFriends, connectWs, waitForEvent, waitForCondition,
+} from './helpers.js'
+import type { App, UserInfo } from './helpers.js'
 
 function cleanConnections(app: App) {
   for (const sockets of app.wsConnections.values()) {
@@ -67,7 +26,7 @@ describe('WebSocket auth', () => {
     port = (app.server.address() as AddressInfo).port
   })
   afterAll(async () => { await app.close() })
-  beforeEach(async () => { cleanConnections(app); await truncateAll(app) })
+  beforeEach(async () => { cleanConnections(app); await truncateAll(app); await flushRedis(app) })
 
   it('accepts a valid token', async () => {
     const alice = await registerUser(app)
@@ -109,7 +68,7 @@ describe('WebSocket message.new', () => {
     port = (app.server.address() as AddressInfo).port
   })
   afterAll(async () => { await app.close() })
-  beforeEach(async () => { cleanConnections(app); await truncateAll(app) })
+  beforeEach(async () => { cleanConnections(app); await truncateAll(app); await flushRedis(app) })
 
   it('delivers message.new to recipient', async () => {
     const { alice, bob } = await setupFriends(app)
@@ -181,7 +140,7 @@ describe('WebSocket conversation.updated', () => {
     port = (app.server.address() as AddressInfo).port
   })
   afterAll(async () => { await app.close() })
-  beforeEach(async () => { cleanConnections(app); await truncateAll(app) })
+  beforeEach(async () => { cleanConnections(app); await truncateAll(app); await flushRedis(app) })
 
   it('delivers conversation.updated when user marks read', async () => {
     const { alice, bob } = await setupFriends(app)
@@ -223,7 +182,7 @@ describe('WebSocket typing indicators', () => {
     port = (app.server.address() as AddressInfo).port
   })
   afterAll(async () => { await app.close() })
-  beforeEach(async () => { cleanConnections(app); await truncateAll(app) })
+  beforeEach(async () => { cleanConnections(app); await truncateAll(app); await flushRedis(app) })
 
   it('forwards typing.start to recipient', async () => {
     const { alice, bob } = await setupFriends(app)
@@ -310,7 +269,7 @@ describe('WebSocket presence', () => {
     port = (app.server.address() as AddressInfo).port
   })
   afterAll(async () => { await app.close() })
-  beforeEach(async () => { cleanConnections(app); await truncateAll(app) })
+  beforeEach(async () => { cleanConnections(app); await truncateAll(app); await flushRedis(app) })
 
   it('sends snapshot of already-online friends to newcomer', async () => {
     const { alice, bob } = await setupFriends(app)
@@ -390,6 +349,149 @@ describe('WebSocket presence', () => {
   })
 })
 
+describe('WebSocket presence recovery', () => {
+  let app: App
+  let port: number
+
+  beforeEach(async () => {
+    app = await getApp()
+    await app.listen({ port: 0, host: '127.0.0.1' })
+    port = (app.server.address() as AddressInfo).port
+    await truncateAll(app)
+    await flushRedis(app)
+  })
+
+  afterEach(async () => {
+    if (!app) return
+    if (app.server.listening) {
+      cleanConnections(app)
+      await app.close()
+    }
+  })
+
+  it('re-registers active sockets and re-broadcasts presence.online after Redis data loss recovery', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const bobWs = await connectWs(port, bob.token)
+
+    const initialOnlinePromise = waitForEvent(bobWs, 'presence.online')
+    const aliceWs = await connectWs(port, alice.token)
+    await initialOnlinePromise
+
+    await flushRedis(app)
+    await waitForCondition(async () => {
+      const [aliceOnline, bobOnline] = await Promise.all([
+        app.redis.pub.presenceCheck(`presence:${alice.user.id}`),
+        app.redis.pub.presenceCheck(`presence:${bob.user.id}`),
+      ])
+      return aliceOnline === 0 && bobOnline === 0
+    })
+
+    const recoveredOnlinePromise = waitForEvent(bobWs, 'presence.online', 5000)
+    // 用 ready 事件触发恢复路径，避免在测试里真的重启 Docker Redis。
+    app.redis.pub.emit('ready')
+
+    const payload = await recoveredOnlinePromise as Record<string, unknown>
+    expect(payload.user_id).toBe(alice.user.id)
+
+    await waitForCondition(async () => {
+      const [aliceOnline, bobOnline] = await Promise.all([
+        app.redis.pub.presenceCheck(`presence:${alice.user.id}`),
+        app.redis.pub.presenceCheck(`presence:${bob.user.id}`),
+      ])
+      return aliceOnline === 1 && bobOnline === 1
+    })
+
+    aliceWs.close()
+    bobWs.close()
+  })
+
+  it('broadcasts presence.offline when the server terminates the last local socket and a friend stays online elsewhere', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const broadcastSpy = vi.spyOn(app, 'broadcast')
+
+    // 用一个“远端实例”的租约模拟仍在线的好友，避免单实例停机时观察者也一起断掉。
+    await app.redis.pub.presenceConnect(`presence:${bob.user.id}`, 'remote-instance:socket-1', 60_000)
+
+    const aliceWs = await connectWs(port, alice.token)
+    await waitForCondition(async () => {
+      return (await app.redis.pub.presenceCheck(`presence:${alice.user.id}`)) === 1
+    })
+
+    cleanConnections(app)
+
+    await waitForCondition(() => {
+      return broadcastSpy.mock.calls.some(([targetUserId, event]) => {
+        if (targetUserId !== bob.user.id) return false
+        if (typeof event !== 'object' || event === null) return false
+
+        const { type, payload } = event as {
+          type?: string
+          payload?: { user_id?: number }
+        }
+        return type === 'presence.offline' && payload?.user_id === alice.user.id
+      })
+    }, 5000)
+  })
+})
+
+// ─── Graceful shutdown ───────────────────────────────────────────────────────
+
+describe('WebSocket graceful shutdown', () => {
+  let app1: App
+  let app2: App
+  let port1: number
+  let port2: number
+
+  beforeEach(async () => {
+    app1 = await getApp()
+    app2 = await getApp()
+    await app1.listen({ port: 0, host: '127.0.0.1' })
+    await app2.listen({ port: 0, host: '127.0.0.1' })
+    port1 = (app1.server.address() as AddressInfo).port
+    port2 = (app2.server.address() as AddressInfo).port
+    await truncateAll(app1)
+    await flushRedis(app1)
+  })
+
+  afterEach(async () => {
+    // app1 may already be closed by the test
+    if (app1?.server?.listening) {
+      cleanConnections(app1)
+      await app1.close()
+    }
+    if (app2?.server?.listening) {
+      cleanConnections(app2)
+      await app2.close()
+    }
+  })
+
+  it('broadcasts presence.offline to friends on other instances when app closes gracefully', async () => {
+    // Register users via app1 (shared PG)
+    const { alice, bob } = await setupFriends(app1)
+
+    // Bob connects to app2 (observer instance)
+    const bobWs = await connectWs(port2, bob.token)
+
+    // Alice connects to app1 (instance that will shut down)
+    const onlinePromise = waitForEvent(bobWs, 'presence.online')
+    const aliceWs = await connectWs(port1, alice.token)
+    await onlinePromise
+
+    // Gracefully close app1 — should trigger offline broadcast via Redis Pub/Sub
+    const offlinePromise = waitForEvent(bobWs, 'presence.offline', 5000)
+    await app1.close()
+
+    const payload = await offlinePromise as Record<string, unknown>
+    expect(payload.user_id).toBe(alice.user.id)
+
+    // Verify Alice's presence is cleaned up in Redis
+    const aliceOnline = await app2.redis.pub.presenceCheck(`presence:${alice.user.id}`)
+    expect(aliceOnline).toBe(0)
+
+    bobWs.close()
+  })
+})
+
 // ─── Friend request events ──────────────────────────────────────────────────
 
 describe('WebSocket friend_request events', () => {
@@ -402,7 +504,7 @@ describe('WebSocket friend_request events', () => {
     port = (app.server.address() as AddressInfo).port
   })
   afterAll(async () => { await app.close() })
-  beforeEach(async () => { cleanConnections(app); await truncateAll(app) })
+  beforeEach(async () => { cleanConnections(app); await truncateAll(app); await flushRedis(app) })
 
   it('delivers friend_request.new to recipient with sender info', async () => {
     const alice = await registerUser(app)

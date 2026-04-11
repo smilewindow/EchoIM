@@ -46,7 +46,9 @@ const friendRequestRoutes: FastifyPluginAsync = async (fastify) => {
       const recipientInfo = recipientCheck.rows[0]
       // 接收方看到发送者信息；发送方看到接收者信息（与 /friend-requests/sent 结构一致）
       fastify.broadcast(recipient_id, { type: 'friend_request.new', payload: { ...row, ...senderInfo.rows[0] } })
+        .catch((err: unknown) => fastify.log.error(err, 'broadcast failed'))
       fastify.broadcast(senderId, { type: 'friend_request.new', payload: { ...row, ...recipientInfo } })
+        .catch((err: unknown) => fastify.log.error(err, 'broadcast failed'))
       return reply.status(201).send(row)
     } catch (err: unknown) {
       if (typeof err === 'object' && err !== null && (err as { code?: string }).code === '23505') {
@@ -138,7 +140,9 @@ const friendRequestRoutes: FastifyPluginAsync = async (fastify) => {
     const eventType = row.status === 'accepted' ? 'friend_request.accepted' : 'friend_request.declined'
     // 原始发送方看到操作方（responder）的信息；操作方看到原始发送方的信息
     fastify.broadcast(row.sender_id, { type: eventType, payload: { ...row, ...responderInfo.rows[0] } })
+      .catch((err: unknown) => fastify.log.error(err, 'broadcast failed'))
     fastify.broadcast(request.user.id, { type: eventType, payload: { ...row, ...senderInfo.rows[0] } })
+      .catch((err: unknown) => fastify.log.error(err, 'broadcast failed'))
 
     return reply.status(200).send(row)
   })

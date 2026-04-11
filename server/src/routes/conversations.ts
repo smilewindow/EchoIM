@@ -136,7 +136,7 @@ const conversationRoutes: FastifyPluginAsync = async (fastify) => {
     fastify.broadcast(userId, {
       type: 'conversation.updated',
       payload: { conversation_id: convId, last_read_message_id: confirmedLastReadMessageId },
-    })
+    }).catch((err: unknown) => fastify.log.error(err, 'broadcast failed'))
 
     return reply.status(200).send({ last_read_message_id: confirmedLastReadMessageId })
   })

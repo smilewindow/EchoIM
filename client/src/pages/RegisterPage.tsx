@@ -10,6 +10,7 @@ export function RegisterPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const [inviteCode, setInviteCode] = useState('')
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -24,7 +25,7 @@ export function RegisterPage() {
     setError('')
     setLoading(true)
     try {
-      await register(username, email, password)
+      await register(username, email, password, inviteCode)
       navigate(redirectTarget, { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : t('auth.register.failed'))
@@ -51,6 +52,15 @@ export function RegisterPage() {
               {error}
             </p>
           )}
+          <AuthField
+            id="inviteCode"
+            label={t('auth.register.inviteCode')}
+            type="text"
+            autoComplete="off"
+            required
+            value={inviteCode}
+            onChange={e => setInviteCode(e.target.value)}
+          />
           <AuthField
             id="username"
             label={t('auth.register.username')}

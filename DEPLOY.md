@@ -34,6 +34,7 @@ cp .env.example .env
 |------|------|
 | `POSTGRES_PASSWORD` | 数据库密码，使用 `openssl rand -hex 32` 生成 |
 | `JWT_SECRET` | JWT 签名密钥，使用 `openssl rand -hex 32` 生成 |
+| `INVITE_CODES` | 注册邀请码，多个用逗号分隔（如 `code1,code2`）。未设置时所有注册将被拒绝 |
 
 其余变量可保持默认值。
 
@@ -89,3 +90,25 @@ docker compose --profile deploy down -v
 git pull
 docker compose --profile deploy up -d --build
 ```
+
+## 附录：多实例验证（可选）
+
+`docker-compose.yml` 中还提供了一个独立的 `multi` profile，用于本地验证 Redis Pub/Sub 跨实例消息投递和在线状态广播（Redis 适配阶段 7 引入）。它**不是生产部署路径**——没有 TLS、没有健康检查、nginx 配置也未做生产级调优，只用来复现多副本场景下的 WS 行为。
+
+```bash
+# 启动两个 server 副本 + nginx 负载均衡（复用同一个 postgres/redis）
+docker compose --profile multi up -d --build
+
+# 查看两个实例日志（另开终端）
+docker compose --profile multi logs -f server-1
+docker compose --profile multi logs -f server-2
+
+# 停止
+docker compose --profile multi down
+```
+
+拓扑：nginx 监听 `${SERVER_PORT:-3000}`，轮询到 `server-1:3000` / `server-2:3000`；消息通过 Redis Pub/Sub 跨实例投递，所以无需会话粘性。
+
+验证项见 `redis-adapter-plan.md` §7.2（跨实例收消息 / presence / typing / 优雅重启 / 强制 kill 后 60~90s offline）。
+
+> 注意：`multi` 和 `deploy` 两个 profile **不要同时启动**——它们都会尝试占用 `${SERVER_PORT:-3000}` 端口。

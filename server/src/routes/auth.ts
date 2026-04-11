@@ -7,20 +7,27 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     schema: {
       body: {
         type: 'object',
-        required: ['username', 'email', 'password'],
+        required: ['username', 'email', 'password', 'inviteCode'],
         additionalProperties: false,
         properties: {
           username: { type: 'string', minLength: 3, maxLength: 50 },
           email: { type: 'string', minLength: 1, maxLength: 254 },
           password: { type: 'string', minLength: 8, maxLength: 128 },
+          inviteCode: { type: 'string', minLength: 1, maxLength: 100 },
         },
       },
     },
   }, async (request, reply) => {
-    const { username: rawUsername, email: rawEmail, password } = request.body as {
+    const { username: rawUsername, email: rawEmail, password, inviteCode } = request.body as {
       username: string
       email: string
       password: string
+      inviteCode: string
+    }
+
+    const validCodes = (process.env['INVITE_CODES'] ?? '').split(',').map(c => c.trim()).filter(Boolean)
+    if (validCodes.length === 0 || !validCodes.includes(inviteCode.trim())) {
+      return reply.status(403).send({ error: 'Invalid invite code' })
     }
 
     const username = rawUsername.trim()

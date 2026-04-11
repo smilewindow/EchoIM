@@ -21,6 +21,8 @@ Use TypeScript with ESM imports throughout. Prettier enforces 2-space indentatio
 ## Testing Guidelines
 No automated test runner is configured yet. Until one is added, every PR should pass both lint commands and both build commands, smoke-test `GET /healthz`, and manually verify the affected UI or API flow. If you add non-trivial logic, include colocated `*.test.ts` or `*.test.tsx` files in the same PR instead of deferring coverage.
 
+**WS / presence / cross-instance behavior verification must run against the client production build** (`npm run build --prefix client && npm run preview --prefix client`, port 4173), not the Vite dev server on port 5173. React `<StrictMode>` double-invokes `useEffect` in dev, creating a short-lived shadow WebSocket on every mount that pollutes server logs and, under the multi-instance `docker compose --profile multi` setup, lands on a different backend than the "real" connection. See `CLAUDE.md` §本地验证 for details.
+
 ## Commit & Pull Request Guidelines
 Recent commits use short, prefixed subjects such as `docs: add Claude Code repository guide`. Follow that pattern with focused, imperative messages like `feat:`, `fix:`, `docs:`, or `refactor:`. PRs should include a short summary, note which areas changed (`client`, `server`, or infra), call out env or schema updates, and attach screenshots for UI work or example requests/responses for API changes.
 

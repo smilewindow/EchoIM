@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import { MessageSquare } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useChatStore } from '@/stores/chat'
+import { usePresenceStore } from '@/stores/presence'
 
 const SKELETON_NAME_WIDTHS = [75, 60, 90, 55, 80, 65]
 const SKELETON_PREVIEW_WIDTHS = [50, 40, 65, 35, 55, 45]
@@ -40,6 +41,7 @@ export function ConversationList() {
   const { conversations, conversationsLoading, activeConversationId, selectConversation } =
     useChatStore()
   const { t } = useTranslation()
+  const onlineUsers = usePresenceStore((s) => s.onlineUsers)
   const formatRelativeTime = useFormatRelativeTime()
 
   const handleSelect = useCallback(
@@ -108,6 +110,7 @@ export function ConversationList() {
                   </span>
                 )}
               </div>
+              <span className={`echo-presence-dot ${onlineUsers.has(conv.peer_id) ? 'echo-presence-dot--online' : 'echo-presence-dot--offline'}`} />
             </div>
 
             <div className="echo-conversation-info">
