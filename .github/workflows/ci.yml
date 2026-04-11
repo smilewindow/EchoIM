@@ -32,10 +32,23 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
+      # Redis 适配阶段 1 起 server 启动强依赖 Redis（presence + Pub/Sub）。
+      # 没有这个 service 容器，webServer 会在 ioredis ECONNREFUSED 上崩掉。
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     # e2e/config.js 会基于这个基础连接串自动创建 echoim_e2e，并在启动前跑 migration。
     env:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
       JWT_SECRET: ci-test-secret
+      REDIS_URL: redis://127.0.0.1:6379
 
     steps:
       - name: Checkout repository
