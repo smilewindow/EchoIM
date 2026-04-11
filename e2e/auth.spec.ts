@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { seedUser, cleanDatabase } from './helpers'
+import { seedUser, cleanDatabase, getInviteCode } from './helpers'
 
 test.beforeEach(async () => {
   await cleanDatabase()
@@ -10,6 +10,7 @@ test('register new user → redirected to home', async ({ page }) => {
   await page.locator('#username').fill('alice')
   await page.locator('#email').fill('alice@example.com')
   await page.locator('#password').fill('password123')
+  await page.locator('#inviteCode').fill(getInviteCode())
   await page.getByRole('button', { name: 'Create account' }).click()
   await page.waitForURL('/')
   // Sidebar should show the logged-in user's name

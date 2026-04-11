@@ -49,6 +49,9 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
       JWT_SECRET: ci-test-secret
       REDIS_URL: redis://127.0.0.1:6379
+      # 注册链路需要有效邀请码（见 server/src/routes/auth.ts），和 server/tests
+      # 的 getInviteCode() 默认值保持一致，这样 Vitest 和 Playwright 用同一套。
+      INVITE_CODES: letschat
 
     steps:
       - name: Checkout repository
