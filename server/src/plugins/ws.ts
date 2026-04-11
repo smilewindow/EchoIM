@@ -27,6 +27,8 @@ const memberKey = (socketId: string) => `${instanceId}:${socketId}`
 const CONNECTION_READY_MSG = JSON.stringify({ type: 'connection.ready' })
 
 export default fp(async function wsPlugin(fastify: FastifyInstance) {
+  fastify.log.info({ instanceId }, 'ws plugin initialized')
+
   const wsConnections = new Map<number, Set<WebSocket>>()
   const userIdMap = new WeakMap<IncomingMessage, number>()
   const wsSocketIds = new Map<WebSocket, string>()
@@ -204,6 +206,10 @@ export default fp(async function wsPlugin(fastify: FastifyInstance) {
 
     // Register close handler immediately — owns pendingInits decrement when !initialized
     ws.on('close', async () => {
+      fastify.log.info(
+        { userId, socketId, instanceId, initialized },
+        'ws disconnected'
+      )
       // Snapshot closing flag at handler entry to avoid race with onClose hook.
       // If closing was already true when this fires, the onClose hook handles
       // presence cleanup; this handler only does structural bookkeeping.
@@ -298,6 +304,11 @@ export default fp(async function wsPlugin(fastify: FastifyInstance) {
       wsConnections.get(userId)!.add(ws)
 
       initialized = true
+
+      fastify.log.info(
+        { userId, socketId, instanceId },
+        'ws connected'
+      )
 
       ws.send(CONNECTION_READY_MSG)
 

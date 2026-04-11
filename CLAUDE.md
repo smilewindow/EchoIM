@@ -79,6 +79,24 @@ npm run lint --prefix server
 | `typing.start` / `typing.stop` | 客户端 ↔ 服务端 ↔ 接收方 | 转发给接收方会话 |
 | `presence.online` / `presence.offline` | 服务端 → 好友 | WS 连接/断开时 |
 
+## 本地验证
+
+WS / presence / 消息广播 / 跨实例分布等**连接生命周期相关**的行为验证，应该用前端的 **prod build（Vite preview，端口 4173）**，不要用 dev server（端口 5173）：
+
+```bash
+npm run build --prefix client
+npm run preview --prefix client   # 访问 http://localhost:4173
+```
+
+**原因：** `client/src/main.tsx` 启用了 `<StrictMode>`。React 18 在 dev 模式下会把 `useEffect` 双调用（mount → cleanup → mount），`useWebSocket` 每次初始化都会产生一个短命的"影子"WS 连接（典型存活 2 ms 就被 cleanup 关掉）。日志里会看到**每次刷新都有一条多余的 connect + disconnect**，在多实例场景下还会被 nginx 轮询到另一个实例，把"哪条 WS 真的活着、在哪个实例上"变得极难判读。prod build 没有 StrictMode 双调用，日志干净。
+
+**适用场景：**
+- 阶段 7 多实例手工验证（`docker compose --profile multi up`）
+- 任何要看 `server/src/plugins/ws.ts` 里 `ws connected` / `ws disconnected` 日志来推断行为的调试
+- 任何要对比"连接分布在哪个实例"的场景
+
+**日常功能开发不要关 StrictMode**——它是帮你发现 effect 清理 bug 的开发辅助，只是**验证时**切到 prod build 跑一遍。
+
 ## 关键决策
 
 - **联系人双向互认：** 用户不能向非好友发消息；好友关系需双方同意

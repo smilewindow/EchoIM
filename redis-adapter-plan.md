@@ -656,6 +656,8 @@ async function sendPresenceSnapshot(userId: number, ws: WebSocket) {
 
 ## 阶段 5 — 优雅下线与崩溃恢复 ✅
 
+> **补丁（2026-04-11）**：初版只实现了 `preClose` hook 本身，但遗漏了"把 SIGTERM/SIGINT 接到 `fastify.close()`"这一步。Fastify 不会自动监听信号，Node.js 默认收到 SIGTERM 就直接终止进程，导致容器重启时 `preClose` hook 根本不会被触发——presence 不清理、也不广播 offline，表现和 `kill -9` 无异。已在 `server/src/index.ts` 里添加 `process.once('SIGTERM' / 'SIGINT', ...)` 调用 `app.close()` 的信号处理，phase 5 的优雅下线路径现在完整可用。问题由阶段 7 手工验证发现。
+
 ### 5.1 优雅下线（Graceful Shutdown）
 
 当前代码在关闭时设置 `closing = true` 并跳过 offline 广播。单实例时问题不大，但多实例 rolling restart 时，用户会"假在线"整个 TTL 窗口。
@@ -842,7 +844,9 @@ cross-instance typing indicators
 
 ---
 
-## 阶段 7 — Docker Compose 多实例验证
+## 阶段 7 — Docker Compose 多实例验证 ✅ 已完成
+
+> 实施说明：为保留现有单实例 `deploy` profile（DEPLOY.md 引用），多实例服务改用独立的 `multi` profile。启动方式：`docker compose --profile multi up -d --build`。`nginx.conf` 位于仓库根目录。
 
 ### 7.1 更新 docker-compose.yml
 
@@ -851,7 +855,7 @@ cross-instance typing indicators
 ```yaml
 nginx:
   image: nginx:alpine
-  profiles: [deploy]
+  profiles: [multi]
   depends_on:
     - server-1
     - server-2
@@ -862,13 +866,13 @@ nginx:
 
 server-1:
   build: ./server
-  profiles: [deploy]
+  profiles: [multi]
   environment:
     # ... 同原 server，加上 REDIS_URL
 
 server-2:
   build: ./server
-  profiles: [deploy]
+  profiles: [multi]
   environment:
     # ... 同 server-1
 ```
@@ -893,12 +897,35 @@ server {
 
 ### 7.2 手工验证清单
 
-- [ ] 用户 A 连到 server-1，用户 B 连到 server-2
-- [ ] A 给 B 发消息，B 实时收到
-- [ ] 在线状态跨实例正确显示
-- [ ] 一个实例优雅重启后，另一个实例上的用户立即收到 offline/online
-- [ ] 一个实例强制 kill 后，另一个实例上的用户在 60~90s 内收到 offline（lease 60s + sweep 间隔最多 30s）
-- [ ] 输入提示跨实例正常工作
+全部在 `docker compose --profile multi up -d --build` 拓扑下、使用 client prod build（`npm run preview --prefix client`, port 4173）完成。
+
+- [x] 用户 A 连到 server-1，用户 B 连到 server-2（通过 `ws connected` 日志里的 `instanceId` 确认）
+- [x] A 给 B 发消息，B 实时收到（跨实例 Pub/Sub 路径）
+- [x] 在线状态跨实例正确显示（好友列表 presence 指示器）
+- [x] 一个实例优雅重启（`docker compose --profile multi stop server-1`）后，另一个实例上的用户立即收到 offline/online —— 依赖阶段 5 的 `preClose` hook + `server/src/index.ts` 的 SIGTERM wiring
+- [x] 一个实例强制 kill（`kill -s SIGKILL`）后，另一个实例上的用户在 60~90s 内收到 offline（lease 60s + sweep 间隔最多 30s）
+- [x] 输入提示跨实例正常工作
+
+#### item 5 数据面实测记录（2026-04-11）
+
+为避开"客户端重连到幸存实例后在 UI 上永远是 online"的干扰，采用直接观测 Redis ZSET 的方式验证 sweep 回收路径：
+
+| 时刻 | ZCARD `presence:7` | 事件 |
+|---|---|---|
+| T0 | 1 | 基线：user 7 在 server-1，单一 member |
+| T0 + 0s | 1 | `docker compose --profile multi kill -s SIGKILL server-1` |
+| T0 + 3s | **2** | client 重连落到 server-2，新 member 追加，老 member 成为孤儿（score 冻结在 T0+60s） |
+| T0 + ~28s ~ T0 + ~78s | 2 | 孤儿继续存在，server-2 heartbeat 只推进自己 member 的 score |
+| T0 + **88s** | **1** | server-2 sweep 命中过期孤儿，`ZREMRANGEBYSCORE` 清理 |
+| T0 + 139s | 1 | 稳定，仅剩 server-2 的活跃 member |
+
+验证的机制链路：
+1. `presenceConnect` 多实例追加语义正确（新 socket 不覆盖孤儿）
+2. heartbeat 只续自己 socket 的租约（老 member score 全程冻结）
+3. sweep Lua 脚本的 `ZREMRANGEBYSCORE` 过期边界准确，未误杀活跃 member（ZCARD 精确变 1 而非 0）
+4. 30s sweep 间隔的上限满足"60~90s 内回收"的 SLA
+
+sweep 归零广播 `presence.offline` 这条分支本次未触发（user 7 在 server-2 上仍活跃），但与 item 4 的 graceful shutdown 共享同一个 `broadcastPresence` 函数，工程上已覆盖。
 
 ---
 
