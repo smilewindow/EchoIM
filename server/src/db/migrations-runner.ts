@@ -2,9 +2,19 @@ import path from 'path'
 import fs from 'fs'
 import pg from 'pg'
 
+// 跨实例串行化迁移执行：多个 server 副本同时 fresh-start 时，若不加锁，
+// 它们会各自读到空的 schema_migrations 后并发执行 DDL + INSERT，导致主键
+// 冲突或 DDL race。用一个固定 bigint 作为 advisory lock 的 key，session
+// 级锁在 client.release() 之前显式释放，pool.end() 也会最终丢弃。
+const MIGRATION_LOCK_KEY = 4959_663_001
+
 export async function runMigrations(pool: pg.Pool, migrationsDir: string) {
   const client = await pool.connect()
+  let locked = false
   try {
+    await client.query('SELECT pg_advisory_lock($1)', [MIGRATION_LOCK_KEY])
+    locked = true
+
     await client.query(`
       CREATE TABLE IF NOT EXISTS schema_migrations (
         filename TEXT PRIMARY KEY,
@@ -40,6 +50,13 @@ export async function runMigrations(pool: pg.Pool, migrationsDir: string) {
     await client.query('ROLLBACK')
     throw err
   } finally {
+    if (locked) {
+      await client
+        .query('SELECT pg_advisory_unlock($1)', [MIGRATION_LOCK_KEY])
+        .catch(() => {
+          // 释放失败不覆盖原始错误；pool 关闭时会话结束后锁也会被丢弃。
+        })
+    }
     client.release()
   }
 }
