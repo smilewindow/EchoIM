@@ -7,6 +7,22 @@ import { useAuthStore } from '@/stores/auth'
 import { uploadAvatar, ApiError } from '@/lib/api'
 import { compressImage, validateImageFile } from '@/lib/image'
 
+function toAbsoluteUrl(url: string): string {
+  if (url && url.startsWith('/')) return `${window.location.origin}${url}`
+  return url
+}
+
+function toStoredAvatarUrl(url: string): string {
+  if (!url || url.startsWith('/')) return url
+
+  const parsedUrl = new URL(url)
+
+  // 仅剥离真正同源的 origin，避免把文本前缀相同的外链误判成本地上传头像
+  return parsedUrl.origin === window.location.origin
+    ? `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`
+    : url
+}
+
 export function ProfileEditPage() {
   const { user, updateProfile, fetchMe, logout } = useAuthStore()
   const { t } = useTranslation()
@@ -14,7 +30,7 @@ export function ProfileEditPage() {
   const location = useLocation()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [displayName, setDisplayName] = useState(user?.display_name ?? '')
-  const [avatarUrl, setAvatarUrl] = useState(user?.avatar_url ?? '')
+  const [avatarUrl, setAvatarUrl] = useState(toAbsoluteUrl(user?.avatar_url ?? ''))
   const [loading, setLoading] = useState(false)
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'compressing' | 'uploading'>('idle')
 
@@ -49,7 +65,7 @@ export function ProfileEditPage() {
       const result = await uploadAvatar(blob)
 
       // Update local state and refetch user
-      setAvatarUrl(result.avatar_url)
+      setAvatarUrl(toAbsoluteUrl(result.avatar_url))
       await fetchMe()
       toast.success(t('profile.uploadSuccess'))
     } catch (err) {
@@ -72,7 +88,7 @@ export function ProfileEditPage() {
     try {
       await updateProfile({
         display_name: displayName,
-        avatar_url: avatarUrl,
+        avatar_url: toStoredAvatarUrl(avatarUrl),
       })
       toast.success(t('profile.updated'))
       navigate({
