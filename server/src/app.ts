@@ -10,6 +10,7 @@ import friendRequestRoutes from './routes/friend-requests.js'
 import friendRoutes from './routes/friends.js'
 import messageRoutes from './routes/messages.js'
 import conversationRoutes from './routes/conversations.js'
+import staticPlugin from './plugins/static.js'
 
 export async function buildApp(opts: FastifyServerOptions = {}) {
   const app = Fastify({
@@ -31,6 +32,7 @@ export async function buildApp(opts: FastifyServerOptions = {}) {
 
   app.get('/healthz', async () => ({ status: 'ok' }))
 
+  await app.register(staticPlugin)
   await app.register(dbPlugin)
   await app.register(redisPlugin)
   await app.register(wsPlugin)
