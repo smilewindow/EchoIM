@@ -1658,6 +1658,50 @@
   object-fit: cover;
 }
 
+.echo-profile-avatar-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.echo-profile-file-input {
+  display: none;
+}
+
+.echo-profile-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--echo-glass-bg);
+  border: 1px solid var(--echo-glass-border);
+  border-radius: 0.5rem;
+  color: var(--echo-text);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  backdrop-filter: blur(var(--echo-glass-blur));
+}
+
+.echo-profile-upload-btn:hover:not(:disabled) {
+  background: var(--echo-glass-bg-heavy);
+  border-color: var(--echo-accent);
+}
+
+.echo-profile-upload-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.echo-profile-upload-hint {
+  font-size: 0.75rem;
+  color: var(--echo-text);
+  opacity: 0.6;
+  margin: 0;
+}
+
 .echo-profile-form {
   display: flex;
   flex-direction: column;
