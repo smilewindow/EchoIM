@@ -29,3 +29,28 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
 
   return await res.json() as T
 }
+
+export async function uploadAvatar(blob: Blob): Promise<{ avatar_url: string }> {
+  const token = localStorage.getItem('token')
+  const formData = new FormData()
+  formData.append('avatar', blob, 'avatar.jpg')
+
+  const res = await fetch(`${API_BASE}/upload/avatar`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  })
+
+  if (!res.ok) {
+    let message = 'Upload failed'
+    try {
+      const data = (await res.json()) as { error?: string }
+      if (data.error) message = data.error
+    } catch {
+      // non-JSON error body
+    }
+    throw new ApiError(message, res.status)
+  }
+
+  return (await res.json()) as { avatar_url: string }
+}
