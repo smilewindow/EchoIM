@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
+import sharp from 'sharp'
 import { rm, readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { getApp, truncateAll, registerUser } from './helpers.js'
@@ -208,6 +209,41 @@ describe('POST /api/upload/avatar', () => {
     const fileBuffer = await readFile(filepath)
     expect(fileBuffer[0]).toBe(0xff)
     expect(fileBuffer[1]).toBe(0xd8)
+  })
+
+  it('flattens transparent PNG to white background instead of black', async () => {
+    // Same 1x1 transparent PNG used in other tests
+    const pngBuffer = Buffer.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+      0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+      0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+      0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4,
+      0x89, 0x00, 0x00, 0x00, 0x0a, 0x49, 0x44, 0x41,
+      0x54, 0x78, 0x9c, 0x63, 0x00, 0x01, 0x00, 0x00,
+      0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00,
+      0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae,
+      0x42, 0x60, 0x82,
+    ])
+    const form = createMultipartForm('avatar', pngBuffer, 'transparent.png', 'image/png')
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/upload/avatar',
+      headers: { authorization: `Bearer ${token}`, ...form.headers },
+      payload: form.body,
+    })
+    expect(res.statusCode).toBe(200)
+    const url = res.json<{ avatar_url: string }>().avatar_url
+    const filename = url.split('/').pop()!
+    const filepath = join(uploadsDir, filename)
+
+    // Read the output JPEG with sharp and check the top-left pixel is white, not black
+    const { data } = await sharp(await readFile(filepath))
+      .raw()
+      .toBuffer({ resolveWithObject: true })
+    // First 3 bytes = R, G, B of pixel (0,0)
+    expect(data[0]).toBeGreaterThan(250) // R ≈ 255
+    expect(data[1]).toBeGreaterThan(250) // G ≈ 255
+    expect(data[2]).toBeGreaterThan(250) // B ≈ 255
   })
 })
 
