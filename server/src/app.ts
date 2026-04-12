@@ -11,6 +11,7 @@ import friendRoutes from './routes/friends.js'
 import messageRoutes from './routes/messages.js'
 import conversationRoutes from './routes/conversations.js'
 import staticPlugin from './plugins/static.js'
+import uploadRoutes from './routes/upload.js'
 
 export async function buildApp(opts: FastifyServerOptions = {}) {
   const app = Fastify({
@@ -42,6 +43,7 @@ export async function buildApp(opts: FastifyServerOptions = {}) {
   await app.register(friendRoutes, { prefix: '/api/friends' })
   await app.register(messageRoutes, { prefix: '/api/messages' })
   await app.register(conversationRoutes, { prefix: '/api/conversations' })
+  await app.register(uploadRoutes, { prefix: '/api/upload' })
 
   return app
 }
