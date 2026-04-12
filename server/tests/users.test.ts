@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
+import { mkdir, writeFile, readdir } from 'node:fs/promises'
+import { join } from 'node:path'
 import { getApp, truncateAll, registerUser } from './helpers.js'
 import type { App } from './helpers.js'
 
@@ -155,5 +157,69 @@ describe('PUT /api/users/me', () => {
 
     expect(res.statusCode).toBe(401)
     expect(res.json().error).toBe('User no longer exists')
+  })
+
+  it('deletes old local avatar file when avatar_url changes to external URL', async () => {
+    const uploadsDir = join(process.cwd(), 'uploads', 'avatars')
+    await mkdir(uploadsDir, { recursive: true })
+
+    // Simulate an existing local avatar
+    const oldFilename = `${1}-${Date.now()}.jpg`
+    const oldFilepath = join(uploadsDir, oldFilename)
+    const oldAvatarUrl = `/uploads/avatars/${oldFilename}`
+    await writeFile(oldFilepath, Buffer.from('fake image'))
+
+    // Set user's avatar to local file
+    await app.pool.query('UPDATE users SET avatar_url = $1 WHERE username = $2', [
+      oldAvatarUrl,
+      'alice',
+    ])
+
+    // Update to external URL
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/users/me',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { avatar_url: 'https://example.com/new-avatar.png' },
+    })
+
+    expect(res.statusCode).toBe(200)
+    expect(res.json().avatar_url).toBe('https://example.com/new-avatar.png')
+
+    // Old local file should be deleted
+    const files = await readdir(uploadsDir).catch(() => [])
+    expect(files).not.toContain(oldFilename)
+  })
+
+  it('deletes old local avatar file when avatar_url is cleared', async () => {
+    const uploadsDir = join(process.cwd(), 'uploads', 'avatars')
+    await mkdir(uploadsDir, { recursive: true })
+
+    // Simulate an existing local avatar
+    const oldFilename = `${1}-${Date.now()}.jpg`
+    const oldFilepath = join(uploadsDir, oldFilename)
+    const oldAvatarUrl = `/uploads/avatars/${oldFilename}`
+    await writeFile(oldFilepath, Buffer.from('fake image'))
+
+    // Set user's avatar to local file
+    await app.pool.query('UPDATE users SET avatar_url = $1 WHERE username = $2', [
+      oldAvatarUrl,
+      'alice',
+    ])
+
+    // Clear avatar
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/users/me',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { avatar_url: '' },
+    })
+
+    expect(res.statusCode).toBe(200)
+    expect(res.json().avatar_url).toBe('')
+
+    // Old local file should be deleted
+    const files = await readdir(uploadsDir).catch(() => [])
+    expect(files).not.toContain(oldFilename)
   })
 })

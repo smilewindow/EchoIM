@@ -1,5 +1,9 @@
 import type { FastifyPluginAsync } from 'fastify'
+import { rm } from 'node:fs/promises'
+import { join } from 'node:path'
 import { authenticate } from '../hooks/authenticate.js'
+
+const UPLOADS_DIR = join(process.cwd(), 'uploads', 'avatars')
 
 const userRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('preHandler', authenticate)
@@ -40,6 +44,19 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
 
     const trimmedDisplayName = display_name !== undefined ? display_name.trim() : undefined
 
+    // Get old avatar URL before update (for cleanup)
+    let oldAvatarUrl: string | null = null
+    if (avatar_url !== undefined) {
+      const oldResult = await fastify.pool.query(
+        'SELECT avatar_url FROM users WHERE id = $1',
+        [request.user.id],
+      )
+      if (oldResult.rowCount === 0) {
+        return reply.status(401).send({ error: 'User no longer exists' })
+      }
+      oldAvatarUrl = oldResult.rows[0]?.avatar_url as string | null
+    }
+
     const result = await fastify.pool.query(
       `UPDATE users
        SET display_name = COALESCE($1, display_name),
@@ -49,8 +66,21 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
       [trimmedDisplayName ?? null, avatar_url ?? null, request.user.id]
     )
     if (result.rowCount === 0) {
-      // 资料编辑也统一按失效登录处理，避免出现 200 空 body。
       return reply.status(401).send({ error: 'User no longer exists' })
+    }
+
+    // Clean up old local avatar file if avatar_url changed (best-effort)
+    if (
+      avatar_url !== undefined &&
+      oldAvatarUrl?.startsWith('/uploads/avatars/') &&
+      oldAvatarUrl !== avatar_url
+    ) {
+      const oldFilename = oldAvatarUrl.split('/').pop()
+      if (oldFilename) {
+        await rm(join(UPLOADS_DIR, oldFilename), { force: true }).catch((err) => {
+          fastify.log.warn({ err, oldFilename }, 'failed to cleanup old avatar file')
+        })
+      }
     }
 
     return reply.status(200).send(result.rows[0])
