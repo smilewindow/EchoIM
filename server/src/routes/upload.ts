@@ -30,6 +30,7 @@ const uploadRoutes: FastifyPluginAsync = async (fastify) => {
     let processedBuffer: Buffer
     try {
       processedBuffer = await sharp(buffer)
+        .flatten({ background: { r: 255, g: 255, b: 255 } })
         .resize(OUTPUT_SIZE, OUTPUT_SIZE, {
           fit: 'cover',
           position: 'center',

@@ -30,17 +30,23 @@ export function ProfileEditPage() {
       const errorKey =
         validationError === 'INVALID_TYPE' ? 'profile.invalidFileType' : 'profile.fileTooLarge'
       toast.error(t(errorKey))
+      if (fileInputRef.current) fileInputRef.current.value = ''
       return
     }
 
     try {
-      // Compress
+      // Compress (fallback to original file if Canvas APIs unavailable)
       setUploadStatus('compressing')
-      const compressedBlob = await compressImage(file)
+      let blob: Blob
+      try {
+        blob = await compressImage(file)
+      } catch {
+        blob = file
+      }
 
       // Upload
       setUploadStatus('uploading')
-      const result = await uploadAvatar(compressedBlob)
+      const result = await uploadAvatar(blob)
 
       // Update local state and refetch user
       setAvatarUrl(result.avatar_url)

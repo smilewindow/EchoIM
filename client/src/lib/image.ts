@@ -37,6 +37,9 @@ export async function compressImage(file: File): Promise<Blob> {
     if (!ctx) {
       throw new Error('Failed to get canvas context')
     }
+    // Fill white background before drawing (transparent areas become black in JPEG)
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, width, height)
     ctx.drawImage(img, 0, 0, width, height)
 
     const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality })
