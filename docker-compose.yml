@@ -34,6 +34,8 @@ services:
       PORT: 3000
     ports:
       - "${SERVER_PORT:-3000}:3000"
+    volumes:
+      - avatar-uploads:/app/uploads
 
   client:
     build: ./client
@@ -63,6 +65,8 @@ services:
       INVITE_CODES: ${INVITE_CODES:-}
       REDIS_URL: redis://redis:6379
       PORT: 3000
+    volumes:
+      - avatar-uploads:/app/uploads
 
   server-2:
     build: ./server
@@ -77,6 +81,8 @@ services:
       INVITE_CODES: ${INVITE_CODES:-}
       REDIS_URL: redis://redis:6379
       PORT: 3000
+    volumes:
+      - avatar-uploads:/app/uploads
 
   nginx:
     image: nginx:alpine
@@ -93,3 +99,4 @@ services:
 volumes:
   postgres-data:
   redis-data:
+  avatar-uploads:
