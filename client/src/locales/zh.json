@@ -50,7 +50,15 @@
     "saving": "保存中…",
     "save": "保存修改",
     "updated": "资料已更新",
-    "failed": "资料更新失败"
+    "failed": "资料更新失败",
+    "selectFile": "选择图片",
+    "uploading": "上传中...",
+    "compressing": "压缩中...",
+    "uploadSuccess": "头像已上传",
+    "uploadFailed": "上传失败",
+    "invalidFileType": "文件类型不支持，仅支持 JPG、PNG、GIF、WebP",
+    "fileTooLarge": "文件过大，最大 10MB",
+    "uploadHint": "支持 JPG、PNG、GIF、WebP，最大 10MB"
   },
   "common": {
     "yesterday": "昨天"

@@ -50,7 +50,15 @@
     "saving": "Saving…",
     "save": "Save changes",
     "updated": "Profile updated",
-    "failed": "Failed to update profile"
+    "failed": "Failed to update profile",
+    "selectFile": "Select Image",
+    "uploading": "Uploading...",
+    "compressing": "Compressing...",
+    "uploadSuccess": "Avatar uploaded",
+    "uploadFailed": "Upload failed",
+    "invalidFileType": "Invalid file type. Allowed: JPG, PNG, GIF, WebP",
+    "fileTooLarge": "File too large. Maximum: 10MB",
+    "uploadHint": "JPG, PNG, GIF, WebP · Max 10MB"
   },
   "common": {
     "yesterday": "Yesterday"
