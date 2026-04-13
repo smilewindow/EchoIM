@@ -1474,20 +1474,20 @@ git commit -m "feat(client): add avatar upload UI to ProfileEditPage"
 
 ## 任务 11：手动集成测试
 
-- [ ] **步骤 1：启动数据库和 Redis**
+- [x] **步骤 1：启动数据库和 Redis**
 
 ```bash
 cd /Users/xuyuqin/Documents/EchoIM && docker compose up postgres redis
 ```
 
-- [ ] **步骤 2：启动后端**
+- [x] **步骤 2：启动后端**
 
 新终端：
 ```bash
 cd /Users/xuyuqin/Documents/EchoIM/server && npm run dev
 ```
 
-- [ ] **步骤 3：启动前端**
+- [x] **步骤 3：启动前端**
 
 新终端：
 ```bash
@@ -1496,7 +1496,7 @@ cd /Users/xuyuqin/Documents/EchoIM/client && npm run dev
 
 注意：`vite.config.ts` 默认 `ECHOIM_API_ORIGIN` 为 `http://localhost:3000`，前端会代理到本地后端。
 
-- [ ] **步骤 4：测试正常流程**
+- [x] **步骤 4：测试正常流程**
 
 1. 打开 http://localhost:5173
 2. 登录或注册
@@ -1508,26 +1508,26 @@ cd /Users/xuyuqin/Documents/EchoIM/client && npm run dev
 8. 点击保存
 9. 刷新页面 — 验证头像持久化
 
-- [ ] **步骤 5：测试 /uploads 代理**
+- [x] **步骤 5：测试 /uploads 代理**
 
 1. 上传后，从浏览器开发者工具复制头像 URL（如 `/uploads/avatars/1-1234567890.jpg`）
 2. 在新标签页打开：`http://localhost:5173/uploads/avatars/1-1234567890.jpg`
 3. 验证图片正常加载
 
-- [ ] **步骤 6：测试错误场景**
+- [x] **步骤 6：测试错误场景**
 
 1. 尝试上传 `.txt` 文件 — 应显示本地化的「文件类型不支持」错误
 2. 尝试上传 >10MB 的文件 — 应显示本地化的「文件过大」错误
 3. 验证 URL 输入仍然可用（输入外部 URL，保存，验证持久化）
 
-- [ ] **步骤 7：测试通过上传替换头像**
+- [x] **步骤 7：测试通过上传替换头像**
 
 1. 上传头像 A
 2. 在 Network 面板或 `server/uploads/avatars/` 中记录文件名
 3. 上传头像 B
 4. 检查 `server/uploads/avatars/` — 旧文件应已被删除
 
-- [ ] **步骤 8：测试通过 URL 变更清理头像**
+- [x] **步骤 8：测试通过 URL 变更清理头像**
 
 1. 上传本地头像
 2. 记录文件名
@@ -1535,7 +1535,7 @@ cd /Users/xuyuqin/Documents/EchoIM/client && npm run dev
 4. 点击保存
 5. 检查 `server/uploads/avatars/` — 旧本地文件应已被删除
 
-- [ ] **步骤 9：测试通过清空清理头像**
+- [x] **步骤 9：测试通过清空清理头像**
 
 1. 上传本地头像
 2. 记录文件名
@@ -1543,7 +1543,7 @@ cd /Users/xuyuqin/Documents/EchoIM/client && npm run dev
 4. 点击保存
 5. 检查 `server/uploads/avatars/` — 旧本地文件应已被删除
 
-- [ ] **步骤 10：测试多实例（可选）**
+- [x] **步骤 10：测试多实例（可选）**
 
 **重要：** 先停止本地 dev server（在运行 `npm run dev` 的终端 2 中按 Ctrl+C）。
 
