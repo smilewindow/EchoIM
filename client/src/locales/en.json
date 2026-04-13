@@ -121,5 +121,14 @@
   "language": {
     "zh": "中文",
     "en": "English"
+  },
+  "sound": {
+    "mode": {
+      "off": "Notifications off",
+      "slide": "Sound: Slide",
+      "double": "Sound: Double ding",
+      "bubble": "Sound: Bubble",
+      "crisp": "Sound: Crisp"
+    }
   }
 }

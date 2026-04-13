@@ -121,5 +121,14 @@
   "language": {
     "zh": "中文",
     "en": "English"
+  },
+  "sound": {
+    "mode": {
+      "off": "通知已关闭",
+      "slide": "音效：下滑",
+      "double": "音效：双叮",
+      "bubble": "音效：气泡",
+      "crisp": "音效：清脆"
+    }
   }
 }

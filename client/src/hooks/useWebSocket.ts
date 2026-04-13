@@ -6,6 +6,9 @@ import { usePresenceStore } from '@/stores/presence'
 import { useFriendRequestStore, type FriendRequest } from '@/stores/friendRequests'
 import { useAuthStore } from '@/stores/auth'
 import { setWsConnected } from '@/lib/wsConnection'
+import { playNotification } from '@/lib/sound'
+import { useSoundStore } from '@/stores/sound'
+
 
 // Module-level socket reference so sendWsMessage can be called from anywhere
 let globalWs: WebSocket | null = null
@@ -36,6 +39,10 @@ function handleWsEvent(event: WsEvent) {
   switch (event.type) {
     case 'message.new':
       chat.handleIncomingMessage(event.payload)
+      if (event.payload.sender_id !== currentUserId) {
+        const { soundMode } = useSoundStore.getState()
+        if (soundMode !== 'off') playNotification(soundMode)
+      }
       break
     case 'conversation.updated':
       chat.handleConversationUpdated(event.payload)

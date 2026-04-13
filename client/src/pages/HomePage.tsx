@@ -14,10 +14,13 @@ import { ConversationList } from '@/components/ConversationList'
 import { ChatView } from '@/components/ChatView'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
+import { useSoundStore } from '@/stores/sound'
+import { Bell, BellOff } from 'lucide-react'
 
 export function HomePage() {
   const { user, logout } = useAuthStore()
   const { t } = useTranslation()
+  const { soundMode, cycleSound } = useSoundStore()
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
@@ -220,6 +223,9 @@ export function HomePage() {
               </div>
             </button>
             <LanguageSwitcher />
+            <button onClick={cycleSound} className="echo-icon-btn" title={t(`sound.mode.${soundMode}`)}>
+              {soundMode === 'off' ? <BellOff size={16} /> : <Bell size={16} />}
+            </button>
             <button onClick={() => setShowLogoutConfirm(true)} className="echo-logout-btn" title={t('home.signOut')}>
               <svg
                 width="16"

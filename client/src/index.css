@@ -338,7 +338,8 @@
   opacity: 0.8;
 }
 
-.echo-logout-btn {
+.echo-logout-btn,
+.echo-icon-btn {
   width: 32px;
   height: 32px;
   display: flex;
@@ -352,7 +353,8 @@
   transition: all 0.15s ease;
   flex-shrink: 0;
 }
-.echo-logout-btn:hover {
+.echo-logout-btn:hover,
+.echo-icon-btn:hover {
   color: var(--echo-accent);
   background: rgba(var(--echo-accent-rgb), 0.08);
 }
@@ -987,6 +989,7 @@
 .echo-action-btn:focus-visible,
 .echo-message-send-btn:focus-visible,
 .echo-logout-btn:focus-visible,
+.echo-icon-btn:focus-visible,
 .echo-chat-back-btn:focus-visible {
   outline: 2px solid rgba(var(--echo-accent-rgb), 0.5);
   outline-offset: 2px;
