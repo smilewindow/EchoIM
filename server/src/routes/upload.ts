@@ -6,9 +6,20 @@ import { join } from 'node:path'
 import { authenticate } from '../hooks/authenticate.js'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB (front-end compresses before upload)
-const OUTPUT_SIZE = 400
-const OUTPUT_QUALITY = 80
-const UPLOADS_DIR = join(process.cwd(), 'uploads', 'avatars')
+
+const AVATAR_CONFIG = {
+  outputSize: 400,
+  outputQuality: 80,
+  uploadsDir: join(process.cwd(), 'uploads', 'avatars'),
+  urlPrefix: '/uploads/avatars',
+}
+
+const MESSAGE_IMAGE_CONFIG = {
+  maxDimension: 1600,
+  outputQuality: 80,
+  uploadsDir: join(process.cwd(), 'uploads', 'messages'),
+  urlPrefix: '/uploads/messages',
+}
 
 const uploadRoutes: FastifyPluginAsync = async (fastify) => {
   await fastify.register(fastifyMultipart, {
@@ -31,11 +42,11 @@ const uploadRoutes: FastifyPluginAsync = async (fastify) => {
     try {
       processedBuffer = await sharp(buffer)
         .flatten({ background: { r: 255, g: 255, b: 255 } })
-        .resize(OUTPUT_SIZE, OUTPUT_SIZE, {
+        .resize(AVATAR_CONFIG.outputSize, AVATAR_CONFIG.outputSize, {
           fit: 'cover',
           position: 'center',
         })
-        .jpeg({ quality: OUTPUT_QUALITY })
+        .jpeg({ quality: AVATAR_CONFIG.outputQuality })
         .toBuffer()
     } catch {
       return reply.status(400).send({ error: 'Invalid image file' })
@@ -43,11 +54,11 @@ const uploadRoutes: FastifyPluginAsync = async (fastify) => {
 
     // Generate filename
     const filename = `${request.user.id}-${Date.now()}.jpg`
-    const filepath = join(UPLOADS_DIR, filename)
-    const avatarUrl = `/uploads/avatars/${filename}`
+    const filepath = join(AVATAR_CONFIG.uploadsDir, filename)
+    const avatarUrl = `${AVATAR_CONFIG.urlPrefix}/${filename}`
 
     // Ensure directory exists
-    await mkdir(UPLOADS_DIR, { recursive: true })
+    await mkdir(AVATAR_CONFIG.uploadsDir, { recursive: true })
 
     // Get old avatar URL before update
     const oldAvatarResult = await fastify.pool.query(
@@ -83,16 +94,54 @@ const uploadRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     // Delete old avatar file if it was a local upload (best-effort, don't fail the request)
-    if (oldAvatarUrl?.startsWith('/uploads/avatars/')) {
+    if (oldAvatarUrl?.startsWith(AVATAR_CONFIG.urlPrefix + '/')) {
       const oldFilename = oldAvatarUrl.split('/').pop()
       if (oldFilename && oldFilename !== filename) {
-        await rm(join(UPLOADS_DIR, oldFilename), { force: true }).catch((err) => {
+        await rm(join(AVATAR_CONFIG.uploadsDir, oldFilename), { force: true }).catch((err) => {
           fastify.log.warn({ err, oldFilename }, 'failed to cleanup old avatar file')
         })
       }
     }
 
     return reply.status(200).send({ avatar_url: avatarUrl })
+  })
+
+  fastify.post('/message-image', async (request, reply) => {
+    const file = await request.file()
+
+    if (!file) {
+      return reply.status(400).send({ error: 'No file provided' })
+    }
+
+    const buffer = await file.toBuffer()
+
+    // Validate and process with sharp (validates magic bytes implicitly)
+    let processedBuffer: Buffer
+    try {
+      processedBuffer = await sharp(buffer)
+        .flatten({ background: { r: 255, g: 255, b: 255 } })
+        .resize(MESSAGE_IMAGE_CONFIG.maxDimension, MESSAGE_IMAGE_CONFIG.maxDimension, {
+          fit: 'inside',
+          withoutEnlargement: true,
+        })
+        .jpeg({ quality: MESSAGE_IMAGE_CONFIG.outputQuality })
+        .toBuffer()
+    } catch {
+      return reply.status(400).send({ error: 'Invalid image file' })
+    }
+
+    // Generate filename
+    const filename = `${request.user.id}-${Date.now()}.jpg`
+    const filepath = join(MESSAGE_IMAGE_CONFIG.uploadsDir, filename)
+    const mediaUrl = `${MESSAGE_IMAGE_CONFIG.urlPrefix}/${filename}`
+
+    // Ensure directory exists
+    await mkdir(MESSAGE_IMAGE_CONFIG.uploadsDir, { recursive: true })
+
+    // Save file
+    await writeFile(filepath, processedBuffer)
+
+    return reply.status(200).send({ media_url: mediaUrl })
   })
 }
 
