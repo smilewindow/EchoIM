@@ -9,21 +9,41 @@ const messageRoutes: FastifyPluginAsync = async (fastify) => {
       body: {
         type: 'object',
         additionalProperties: false,
-        required: ['recipient_id', 'body'],
+        required: ['recipient_id'],
         properties: {
           recipient_id: { type: 'integer' },
-          body: { type: 'string', minLength: 1 },
+          body: { type: ['string', 'null'] },
           client_temp_id: { type: 'string', minLength: 1 },
+          message_type: { type: 'string', enum: ['text', 'image'], default: 'text' },
+          media_url: { type: 'string' },
         },
       },
     },
   }, async (request, reply) => {
-    const { recipient_id, body, client_temp_id } = request.body as {
+    const { recipient_id, body, client_temp_id, message_type = 'text', media_url } = request.body as {
       recipient_id: number
-      body: string
+      body?: string | null
       client_temp_id?: string
+      message_type?: 'text' | 'image'
+      media_url?: string
     }
     const sender_id = request.user.id
+
+    // Validate content based on message type
+    if (message_type === 'text') {
+      if (!body || body.trim() === '') {
+        return reply.status(400).send({ error: 'body is required for text messages' })
+      }
+    } else if (message_type === 'image') {
+      if (!media_url) {
+        return reply.status(400).send({ error: 'media_url is required for image messages' })
+      }
+      // Ownership check: media_url must match the sender's own upload path
+      const mediaUrlPattern = new RegExp(`^/uploads/messages/${sender_id}-\\d{10,16}\\.jpg$`)
+      if (!mediaUrlPattern.test(media_url)) {
+        return reply.status(400).send({ error: 'Invalid media_url' })
+      }
+    }
 
     // Verify friendship
     const friendCheck = await fastify.pool.query(
@@ -68,8 +88,8 @@ const messageRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       const msgResult = await client.query(
-        'INSERT INTO messages (conversation_id, sender_id, body) VALUES ($1, $2, $3) RETURNING *',
-        [conversation_id, sender_id, body]
+        'INSERT INTO messages (conversation_id, sender_id, body, message_type, media_url) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+        [conversation_id, sender_id, body ?? null, message_type, media_url ?? null]
       )
       msgRow = msgResult.rows[0]
 
