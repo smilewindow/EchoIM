@@ -61,7 +61,8 @@
     "uploadHint": "JPG, PNG, GIF, WebP · Max 10MB"
   },
   "common": {
-    "yesterday": "Yesterday"
+    "yesterday": "Yesterday",
+    "close": "Close"
   },
   "chat": {
     "today": "Today",

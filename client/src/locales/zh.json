@@ -61,7 +61,8 @@
     "uploadHint": "支持 JPG、PNG、GIF、WebP，最大 10MB"
   },
   "common": {
-    "yesterday": "昨天"
+    "yesterday": "昨天",
+    "close": "关闭"
   },
   "chat": {
     "today": "今天",
