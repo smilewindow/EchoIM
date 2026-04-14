@@ -15,7 +15,7 @@ const messageRoutes: FastifyPluginAsync = async (fastify) => {
           body: { type: ['string', 'null'] },
           client_temp_id: { type: 'string', minLength: 1 },
           message_type: { type: 'string', enum: ['text', 'image'], default: 'text' },
-          media_url: { type: 'string' },
+          media_url: { type: 'string', minLength: 1 },
         },
       },
     },
@@ -89,7 +89,13 @@ const messageRoutes: FastifyPluginAsync = async (fastify) => {
 
       const msgResult = await client.query(
         'INSERT INTO messages (conversation_id, sender_id, body, message_type, media_url) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-        [conversation_id, sender_id, body ?? null, message_type, media_url ?? null]
+        [
+          conversation_id,
+          sender_id,
+          message_type === 'text' ? (body ?? null) : null,
+          message_type,
+          message_type === 'image' ? (media_url ?? null) : null,
+        ]
       )
       msgRow = msgResult.rows[0]
 
