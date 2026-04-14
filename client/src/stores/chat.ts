@@ -416,7 +416,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
             recipientId,
           )
         ) {
-          set({ messages: replaceOrAppendMessage(currentState.messages, tempId, result) })
+          const wasNewConv = msg.conversation_id === -1
+          set({
+            messages: replaceOrAppendMessage(currentState.messages, tempId, result),
+            activeConversationId: wasNewConv ? result.conversation_id : currentState.activeConversationId,
+            activePeer: wasNewConv ? null : currentState.activePeer,
+          })
         }
         if (localMediaUrl) URL.revokeObjectURL(localMediaUrl)
         // 更新会话列表预览
@@ -439,6 +444,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
               ),
             ),
           })
+        } else if (msg.conversation_id === -1) {
+          // New conversation created via retry — fetch full list to get peer info
+          void get().fetchConversations()
         }
       } catch {
         set({
@@ -470,6 +478,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return
     }
 
+    // Capture context before any async operation — prevents race condition
+    // if user switches conversations during compression
+    const initialState = get()
+    const requestConversationId = initialState.activeConversationId
+    const requestPeerId = initialState.activePeer?.id ?? null
+    const wasNewConversation = requestConversationId === null
+
     let blob: Blob
     try {
       blob = await compressImage(file, { maxDimension: 1600, targetSizeBytes: 2 * 1024 * 1024, minDimension: 400 })
@@ -481,10 +496,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
     // 2. 创建本地 blob URL
     const objectUrl = URL.createObjectURL(blob)
     const tempId = createTempMessageId()
-    const initialState = get()
-    const requestConversationId = initialState.activeConversationId
-    const requestPeerId = initialState.activePeer?.id ?? null
-    const wasNewConversation = requestConversationId === null
 
     // 3. 插入乐观气泡
     const optimistic: Message = {
