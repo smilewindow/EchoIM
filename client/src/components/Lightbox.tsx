@@ -49,7 +49,7 @@ export function Lightbox({ src, onClose }: LightboxProps) {
         ref={closeBtnRef}
         className="echo-lightbox-close"
         aria-label={t('common.close')}
-        onClick={onClose}
+        onClick={(e) => { e.stopPropagation(); onClose() }}
       >
         ✕
       </button>
