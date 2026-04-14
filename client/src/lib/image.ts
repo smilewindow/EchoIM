@@ -1,9 +1,11 @@
-const MAX_DIMENSION = 800
-const TARGET_SIZE_BYTES = 500 * 1024 // 500KB target
-const MIN_QUALITY = 0.4
-const MIN_DIMENSION = 200
-
 export type ImageValidationError = 'INVALID_TYPE' | 'FILE_TOO_LARGE'
+
+export interface CompressOptions {
+  maxDimension?: number // default: 800
+  targetSizeBytes?: number // default: 500 * 1024
+  minDimension?: number // default: 200
+  minQuality?: number // default: 0.4
+}
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
 const MAX_INPUT_SIZE = 10 * 1024 * 1024 // 10MB
@@ -20,10 +22,17 @@ export function validateImageFile(file: File): ImageValidationError | null {
   return null
 }
 
-export async function compressImage(file: File): Promise<Blob> {
+export async function compressImage(file: File, opts?: CompressOptions): Promise<Blob> {
+  const {
+    maxDimension = 800,
+    targetSizeBytes = 500 * 1024,
+    minDimension = 200,
+    minQuality = 0.4,
+  } = opts ?? {}
+
   const img = await createImageBitmap(file)
 
-  let dimension = MAX_DIMENSION
+  let dimension = maxDimension
   let quality = 0.85
 
   // Adaptive compression loop
@@ -46,17 +55,17 @@ export async function compressImage(file: File): Promise<Blob> {
 
     // If within target size or we've hit minimum limits, return
     if (
-      blob.size <= TARGET_SIZE_BYTES ||
-      (quality <= MIN_QUALITY && dimension <= MIN_DIMENSION)
+      blob.size <= targetSizeBytes ||
+      (quality <= minQuality && dimension <= minDimension)
     ) {
       return blob
     }
 
     // First reduce quality, then reduce dimension
-    if (quality > MIN_QUALITY) {
-      quality = Math.max(MIN_QUALITY, quality - 0.15)
-    } else if (dimension > MIN_DIMENSION) {
-      dimension = Math.max(MIN_DIMENSION, dimension - 200)
+    if (quality > minQuality) {
+      quality = Math.max(minQuality, quality - 0.15)
+    } else if (dimension > minDimension) {
+      dimension = Math.max(minDimension, dimension - 200)
       quality = 0.7 // Reset quality for smaller dimension
     } else {
       // Shouldn't reach here, but return anyway
