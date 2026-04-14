@@ -371,7 +371,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       let mediaUrl = msg.media_url ?? null
 
       // 阶段 1：如果还没有上传成功的 URL，重新上传
-      if (!mediaUrl && msg._localBlob) {
+      if (msg._uploadStage === 'uploading' && msg._localBlob) {
         mediaUrl = await uploadImageBlob(msg._localBlob)
         if (!mediaUrl) {
           set({
@@ -462,7 +462,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
     // 1. 校验并压缩
     const validationError = validateImageFile(file)
     if (validationError) {
-      toast.error(i18n.t(`image.error.${validationError}`))
+      if (validationError === 'INVALID_TYPE') {
+        toast.error(i18n.t('profile.invalidFileType'))
+      } else {
+        toast.error(i18n.t('profile.fileTooLarge'))
+      }
       return
     }
 
@@ -550,8 +554,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
             : state.activeConversationId,
           activePeer: wasNewConversation ? null : state.activePeer,
         })
-        URL.revokeObjectURL(objectUrl)
       }
+      URL.revokeObjectURL(objectUrl)
 
       // 更新会话列表预览
       const convId = result.conversation_id
