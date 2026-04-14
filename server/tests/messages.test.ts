@@ -215,6 +215,24 @@ describe('POST /api/messages', () => {
     expect(body.media_url).toBe(validMediaUrl)
     expect(body.body).toBeNull()
   })
+
+  // Known limitation: server only validates media_url ownership pattern, not file existence.
+  // A client can reference a path that was never uploaded — the server will accept it (201)
+  // and broadcast the message; recipients will see a broken image.
+  // Fixing this would require an fs.access() check on every send, which is not worth the
+  // I/O cost for a portfolio-scale project.
+  it('accepts image message with non-existent file (known limitation: no file existence check)', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const fakeMediaUrl = `/uploads/messages/${alice.user.id}-9999999999999.jpg`
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/messages',
+      headers: { authorization: `Bearer ${alice.token}` },
+      payload: { recipient_id: bob.user.id, message_type: 'image', media_url: fakeMediaUrl },
+    })
+    expect(res.statusCode).toBe(201)
+    expect(res.json().media_url).toBe(fakeMediaUrl)
+  })
 })
 
 // ─── GET /api/conversations ───────────────────────────────────────────────────
