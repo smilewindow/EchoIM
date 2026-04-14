@@ -365,6 +365,14 @@ export function ChatView({ onBack }: Props) {
     }
   }, [loadOlderMessages])
 
+  // When an image bubble finishes loading, scroll to bottom if we were already near it.
+  // This compensates for the img element having zero height at the time scrollIntoView ran.
+  const handleImageLoaded = useCallback(() => {
+    if (wasNearBottomRef.current) {
+      scrollToBottom('smooth')
+    }
+  }, [scrollToBottom])
+
   const handleImageSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -460,10 +468,12 @@ export function ChatView({ onBack }: Props) {
           isSelf={isSelf}
           isGroupStart={isGroupStart}
           isGroupEnd={isGroupEnd}
+          isLastMessage={i === messages.length - 1}
           peer={peer}
           currentUser={user}
           retryMessage={retryMessage}
           onOpenLightbox={setLightboxSrc}
+          onImageLoaded={handleImageLoaded}
         />,
       )
     })
@@ -604,13 +614,15 @@ interface BubbleProps {
   isSelf: boolean
   isGroupStart: boolean
   isGroupEnd: boolean
+  isLastMessage: boolean
   peer: { id: number; username: string; display_name: string | null; avatar_url: string | null } | null | undefined
   currentUser: { username: string; display_name: string | null; avatar_url: string | null } | null
   retryMessage: (tempId: string) => void
   onOpenLightbox: (src: string) => void
+  onImageLoaded: () => void
 }
 
-function MessageBubble({ msg, isSelf, isGroupStart, isGroupEnd, peer, currentUser, retryMessage, onOpenLightbox }: BubbleProps) {
+function MessageBubble({ msg, isSelf, isGroupStart, isGroupEnd, isLastMessage, peer, currentUser, retryMessage, onOpenLightbox, onImageLoaded }: BubbleProps) {
   const { t, i18n } = useTranslation()
   const formatTime = (dateStr: string) =>
     new Date(dateStr).toLocaleTimeString(i18n.resolvedLanguage, { hour: '2-digit', minute: '2-digit', hour12: false })
@@ -671,6 +683,7 @@ function MessageBubble({ msg, isSelf, isGroupStart, isGroupEnd, peer, currentUse
               className="echo-bubble-image"
               alt=""
               draggable={false}
+              onLoad={isLastMessage ? onImageLoaded : undefined}
               onClick={() => {
                 if (isPending) return
                 const url = msg.media_url ?? msg._localMediaUrl
