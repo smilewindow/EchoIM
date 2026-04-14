@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { toast } from 'sonner'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, uploadImageBlob } from '@/lib/api'
+import { compressImage, validateImageFile } from '@/lib/image'
 import i18n from '@/lib/i18n'
 import { useAuthStore } from '@/stores/auth'
 import { isWsConnected } from '@/lib/wsConnection'
@@ -11,6 +12,7 @@ export interface Conversation {
   last_read_message_id: number | null
   unread_count: number
   last_message_body: string | null
+  last_message_type?: string
   last_message_sender_id: number | null
   last_message_at: string | null
   peer_id: number
@@ -23,11 +25,16 @@ export interface Message {
   id: number | string
   conversation_id: number
   sender_id: number
-  body: string
+  body: string | null
   created_at: string
   client_temp_id?: string
+  message_type?: 'text' | 'image'
+  media_url?: string | null
   _status?: 'pending' | 'failed'
   _tempId?: string
+  _localMediaUrl?: string
+  _localBlob?: Blob
+  _uploadStage?: 'uploading' | 'sending'
 }
 
 export interface PeerInfo {
@@ -53,7 +60,8 @@ interface ChatState {
   selectPeer: (peer: PeerInfo) => void
   loadOlderMessages: () => Promise<void>
   sendMessage: (recipientId: number, body: string) => boolean
-  retryMessage: (tempId: string, recipientId: number, body: string) => void
+  retryMessage: (tempId: string) => void
+  sendImageMessage: (recipientId: number, file: File) => Promise<void>
   markRead: (convId: number, lastReadMessageId: number) => Promise<void>
   clearChat: () => void
   handleIncomingMessage: (message: Message) => void
@@ -333,9 +341,250 @@ export const useChatStore = create<ChatState>((set, get) => ({
     return true
   },
 
-  retryMessage: (tempId: string, recipientId: number, body: string) => {
-    set({ messages: get().messages.filter((m) => m._tempId !== tempId) })
-    get().sendMessage(recipientId, body)
+  retryMessage: (tempId: string) => {
+    const state = get()
+    const msg = state.messages.find((m) => m._tempId === tempId)
+    if (!msg) return
+
+    const recipientId =
+      state.activePeer?.id ??
+      state.conversations.find((c) => c.id === state.activeConversationId)?.peer_id ??
+      0
+    if (!recipientId) return
+
+    // 立即翻转为 pending — 移除重试按钮，防止重复点击
+    set({
+      messages: get().messages.map((m) =>
+        m._tempId === tempId ? { ...m, _status: 'pending' } : m,
+      ),
+    })
+
+    if (msg.message_type !== 'image') {
+      // 文字消息重试：删除失败气泡，重新发送
+      set({ messages: get().messages.filter((m) => m._tempId !== tempId) })
+      if (msg.body) get().sendMessage(recipientId, msg.body)
+      return
+    }
+
+    // 图片消息重试
+    void (async () => {
+      let mediaUrl = msg.media_url ?? null
+
+      // 阶段 1：如果还没有上传成功的 URL，重新上传
+      if (!mediaUrl && msg._localBlob) {
+        mediaUrl = await uploadImageBlob(msg._localBlob)
+        if (!mediaUrl) {
+          set({
+            messages: get().messages.map((m) =>
+              m._tempId === tempId
+                ? { ...m, _status: 'failed', _uploadStage: 'uploading' }
+                : m,
+            ),
+          })
+          return
+        }
+        set({
+          messages: get().messages.map((m) =>
+            m._tempId === tempId
+              ? { ...m, _uploadStage: 'sending', media_url: mediaUrl }
+              : m,
+          ),
+        })
+      }
+
+      if (!mediaUrl) return
+
+      // 阶段 2：发送消息
+      try {
+        const result = normalizeIncomingMessage(
+          await apiFetch<Message>('/messages', {
+            method: 'POST',
+            body: JSON.stringify({
+              recipient_id: recipientId,
+              message_type: 'image',
+              media_url: mediaUrl,
+              client_temp_id: tempId,
+            }),
+          }),
+        )
+        const currentState = get()
+        if (
+          isSameChatContext(
+            currentState,
+            msg.conversation_id === -1 ? null : msg.conversation_id,
+            recipientId,
+          )
+        ) {
+          const localMediaUrl = currentState.messages.find((m) => m._tempId === tempId)?._localMediaUrl
+          set({ messages: replaceOrAppendMessage(currentState.messages, tempId, result) })
+          if (localMediaUrl) URL.revokeObjectURL(localMediaUrl)
+        }
+        // 更新会话列表预览
+        const convId = result.conversation_id
+        const convState = get()
+        const existing = convState.conversations.find((c) => c.id === convId)
+        if (existing) {
+          set({
+            conversations: sortConversationsByActivity(
+              convState.conversations.map((c) =>
+                c.id === convId
+                  ? {
+                      ...c,
+                      last_message_body: result.body,
+                      last_message_type: result.message_type,
+                      last_message_at: result.created_at,
+                      last_message_sender_id: result.sender_id,
+                    }
+                  : c,
+              ),
+            ),
+          })
+        }
+      } catch {
+        set({
+          messages: get().messages.map((m) =>
+            m._tempId === tempId
+              ? { ...m, _status: 'failed', _uploadStage: 'sending' }
+              : m,
+          ),
+        })
+      }
+    })()
+  },
+
+  sendImageMessage: async (recipientId: number, file: File) => {
+    const { user } = useAuthStore.getState()
+    if (!user) {
+      toast.error(i18n.t('chat.sendFailed'))
+      return
+    }
+
+    // 1. 校验并压缩
+    const validationError = validateImageFile(file)
+    if (validationError) {
+      toast.error(i18n.t(`image.error.${validationError}`))
+      return
+    }
+
+    let blob: Blob
+    try {
+      blob = await compressImage(file, { maxDimension: 1600, targetSizeBytes: 2 * 1024 * 1024, minDimension: 400 })
+    } catch {
+      toast.error(i18n.t('chat.sendFailed'))
+      return
+    }
+
+    // 2. 创建本地 blob URL
+    const objectUrl = URL.createObjectURL(blob)
+    const tempId = createTempMessageId()
+    const initialState = get()
+    const requestConversationId = initialState.activeConversationId
+    const requestPeerId = initialState.activePeer?.id ?? null
+    const wasNewConversation = requestConversationId === null
+
+    // 3. 插入乐观气泡
+    const optimistic: Message = {
+      id: tempId,
+      conversation_id: requestConversationId ?? -1,
+      sender_id: user.id,
+      body: null,
+      created_at: new Date().toISOString(),
+      message_type: 'image',
+      _status: 'pending',
+      _uploadStage: 'uploading',
+      _localMediaUrl: objectUrl,
+      _localBlob: blob,
+      _tempId: tempId,
+    }
+    set({ messages: [...initialState.messages, optimistic] })
+
+    // 4. 上传图片
+    const mediaUrl = await uploadImageBlob(blob)
+    if (!mediaUrl) {
+      set({
+        messages: get().messages.map((m) =>
+          m._tempId === tempId
+            ? { ...m, _status: 'failed', _uploadStage: 'uploading' }
+            : m,
+        ),
+      })
+      toast.error(i18n.t('chat.sendFailed'))
+      return
+    }
+
+    // 更新气泡进入 sending 阶段
+    set({
+      messages: get().messages.map((m) =>
+        m._tempId === tempId
+          ? { ...m, _uploadStage: 'sending', media_url: mediaUrl }
+          : m,
+      ),
+    })
+
+    // 5. 发送消息
+    try {
+      const result = normalizeIncomingMessage(
+        await apiFetch<Message>('/messages', {
+          method: 'POST',
+          body: JSON.stringify({
+            recipient_id: recipientId,
+            message_type: 'image',
+            media_url: mediaUrl,
+            client_temp_id: tempId,
+          }),
+        }),
+      )
+
+      const state = get()
+      const shouldUpdateActiveMessages = isSameChatContext(
+        state,
+        requestConversationId,
+        requestPeerId,
+      )
+
+      if (shouldUpdateActiveMessages) {
+        set({
+          messages: replaceOrAppendMessage(state.messages, tempId, result),
+          activeConversationId: wasNewConversation
+            ? result.conversation_id
+            : state.activeConversationId,
+          activePeer: wasNewConversation ? null : state.activePeer,
+        })
+        URL.revokeObjectURL(objectUrl)
+      }
+
+      // 更新会话列表预览
+      const convId = result.conversation_id
+      const existing = get().conversations.find((c) => c.id === convId)
+      if (existing) {
+        set({
+          conversations: sortConversationsByActivity(
+            get().conversations.map((c) =>
+              c.id === convId
+                ? {
+                    ...c,
+                    last_message_body: result.body,
+                    last_message_type: result.message_type,
+                    last_message_at: result.created_at,
+                    last_message_sender_id: result.sender_id,
+                  }
+                : c,
+            ),
+          ),
+        })
+      } else if (wasNewConversation) {
+        void get().fetchConversations()
+      }
+    } catch {
+      set({
+        messages: get().messages.map((m) =>
+          m._tempId === tempId
+            ? { ...m, _status: 'failed', _uploadStage: 'sending' }
+            : m,
+        ),
+      })
+      toast.error(i18n.t('chat.sendFailed'))
+    }
   },
 
   markRead: async (convId: number, lastReadMessageId: number) => {
@@ -396,6 +645,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
               ? {
                   ...c,
                   last_message_body: incoming.body,
+                  last_message_type: incoming.message_type,
                   last_message_sender_id: incoming.sender_id,
                   last_message_at: incoming.created_at,
                   // 只把真正越过已读游标的对方消息计入未读，避免旧回执把边界冲回去。

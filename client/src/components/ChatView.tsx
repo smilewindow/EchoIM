@@ -437,7 +437,6 @@ export function ChatView({ onBack }: Props) {
           isGroupEnd={isGroupEnd}
           peer={peer}
           currentUser={user}
-          recipientId={recipientId}
           retryMessage={retryMessage}
         />,
       )
@@ -560,11 +559,10 @@ interface BubbleProps {
   isGroupEnd: boolean
   peer: { id: number; username: string; display_name: string | null; avatar_url: string | null } | null | undefined
   currentUser: { username: string; display_name: string | null; avatar_url: string | null } | null
-  recipientId: number
-  retryMessage: (tempId: string, recipientId: number, body: string) => void
+  retryMessage: (tempId: string) => void
 }
 
-function MessageBubble({ msg, isSelf, isGroupStart, isGroupEnd, peer, currentUser, recipientId, retryMessage }: BubbleProps) {
+function MessageBubble({ msg, isSelf, isGroupStart, isGroupEnd, peer, currentUser, retryMessage }: BubbleProps) {
   const { t, i18n } = useTranslation()
   const formatTime = (dateStr: string) =>
     new Date(dateStr).toLocaleTimeString(i18n.resolvedLanguage, { hour: '2-digit', minute: '2-digit', hour12: false })
@@ -637,7 +635,7 @@ function MessageBubble({ msg, isSelf, isGroupStart, isGroupEnd, peer, currentUse
         {isFailed && msg._tempId && (
           <button
             className="echo-retry-btn"
-            onClick={() => retryMessage(msg._tempId!, recipientId, msg.body)}
+            onClick={() => retryMessage(msg._tempId!)}
           >
             <RefreshCw size={11} />
             {t('chat.retry')}

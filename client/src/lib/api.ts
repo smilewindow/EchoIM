@@ -54,3 +54,24 @@ export async function uploadAvatar(blob: Blob): Promise<{ avatar_url: string }> 
 
   return (await res.json()) as { avatar_url: string }
 }
+
+export async function uploadImageBlob(blob: Blob): Promise<string | null> {
+  const token = localStorage.getItem('token')
+  const formData = new FormData()
+  formData.append('file', blob, 'image.jpg')
+
+  try {
+    const res = await fetch(`${API_BASE}/upload/message-image`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    })
+
+    if (!res.ok) return null
+
+    const data = (await res.json()) as { media_url?: string }
+    return data.media_url ?? null
+  } catch {
+    return null
+  }
+}
