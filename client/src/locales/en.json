@@ -75,7 +75,9 @@
     "goBack": "Go back",
     "send": "Send message",
     "retry": "Retry",
-    "sendFailed": "Failed to send message"
+    "sendFailed": "Failed to send message",
+    "imageMessage": "[Image]",
+    "imagePreview": "Image preview"
   },
   "conversations": {
     "label": "Chats",
