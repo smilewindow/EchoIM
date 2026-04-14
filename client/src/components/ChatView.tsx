@@ -1,11 +1,14 @@
 /* eslint-disable react-hooks/preserve-manual-memoization */
 import { useEffect, useLayoutEffect, useRef, useCallback, useState } from 'react'
-import { Send, ArrowLeft, AlertCircle, RefreshCw, MessageSquare, ChevronDown } from 'lucide-react'
+import { Send, ArrowLeft, AlertCircle, RefreshCw, MessageSquare, ChevronDown, Image as ImageIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { useChatStore, type Message } from '@/stores/chat'
 import { useAuthStore } from '@/stores/auth'
 import { usePresenceStore } from '@/stores/presence'
 import { sendWsMessage } from '@/hooks/useWebSocket'
+import { Lightbox } from './Lightbox'
+import { validateImageFile } from '@/lib/image'
 
 /* ── Helpers ── */
 
@@ -68,6 +71,7 @@ export function ChatView({ onBack }: Props) {
     hasMore,
     typingConversationIds,
     sendMessage,
+    sendImageMessage,
     retryMessage,
     loadOlderMessages,
     markRead,
@@ -82,7 +86,9 @@ export function ChatView({ onBack }: Props) {
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const footerRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [body, setBody] = useState('')
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [newMessageAlert, setNewMessageAlert] = useState(false)
   const [footerHeight, setFooterHeight] = useState(DEFAULT_CHAT_FOOTER_HEIGHT_PX)
@@ -359,6 +365,25 @@ export function ChatView({ onBack }: Props) {
     }
   }, [loadOlderMessages])
 
+  const handleImageSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    // Reset so selecting same file again works
+    e.target.value = ''
+
+    const error = validateImageFile(file)
+    if (error) {
+      if (error === 'INVALID_TYPE') {
+        toast.error(t('profile.invalidFileType'))
+      } else {
+        toast.error(t('profile.fileTooLarge'))
+      }
+      return
+    }
+
+    void sendImageMessage(recipientId, file)
+  }, [recipientId, sendImageMessage, t])
+
   // Build message groups with date dividers
   const renderMessages = () => {
     if (messagesLoading) {
@@ -438,6 +463,7 @@ export function ChatView({ onBack }: Props) {
           peer={peer}
           currentUser={user}
           retryMessage={retryMessage}
+          onOpenLightbox={setLightboxSrc}
         />,
       )
     })
@@ -520,6 +546,23 @@ export function ChatView({ onBack }: Props) {
 
         {/* Input */}
         <div className="echo-message-input-wrap">
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            style={{ display: 'none' }}
+            onChange={handleImageSelect}
+          />
+          {/* Image button */}
+          <button
+            className="echo-message-image-btn"
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            aria-label="Send image"
+          >
+            <ImageIcon size={18} />
+          </button>
           <div className="echo-message-textarea-wrap">
             <textarea
               ref={textareaRef}
@@ -546,6 +589,10 @@ export function ChatView({ onBack }: Props) {
           </button>
         </div>
       </div>
+
+      {lightboxSrc && (
+        <Lightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
+      )}
     </div>
   )
 }
@@ -560,9 +607,10 @@ interface BubbleProps {
   peer: { id: number; username: string; display_name: string | null; avatar_url: string | null } | null | undefined
   currentUser: { username: string; display_name: string | null; avatar_url: string | null } | null
   retryMessage: (tempId: string) => void
+  onOpenLightbox: (src: string) => void
 }
 
-function MessageBubble({ msg, isSelf, isGroupStart, isGroupEnd, peer, currentUser, retryMessage }: BubbleProps) {
+function MessageBubble({ msg, isSelf, isGroupStart, isGroupEnd, peer, currentUser, retryMessage, onOpenLightbox }: BubbleProps) {
   const { t, i18n } = useTranslation()
   const formatTime = (dateStr: string) =>
     new Date(dateStr).toLocaleTimeString(i18n.resolvedLanguage, { hour: '2-digit', minute: '2-digit', hour12: false })
@@ -617,7 +665,21 @@ function MessageBubble({ msg, isSelf, isGroupStart, isGroupEnd, peer, currentUse
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: isSelf ? 'flex-end' : 'flex-start', maxWidth: '65%', minWidth: 0 }}>
         <div className={bubbleClass}>
-          <p className="echo-bubble-body">{msg.body}</p>
+          {msg.message_type === 'image' ? (
+            <img
+              src={msg._localMediaUrl ?? msg.media_url ?? ''}
+              className="echo-bubble-image"
+              alt=""
+              draggable={false}
+              onClick={() => {
+                if (isPending) return
+                const url = msg.media_url ?? msg._localMediaUrl
+                if (url) onOpenLightbox(url)
+              }}
+            />
+          ) : (
+            <p className="echo-bubble-body">{msg.body}</p>
+          )}
           <div className="echo-bubble-footer">
             <span className="echo-bubble-time">{formatTime(msg.created_at)}</span>
             {isPending && (

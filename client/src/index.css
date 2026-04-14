@@ -1029,12 +1029,43 @@
   outline-offset: 2px;
 }
 
+/* ── Bubble image ── */
+.echo-bubble-image {
+  max-width: 300px;
+  max-height: 300px;
+  width: auto;
+  height: auto;
+  border-radius: 8px;
+  cursor: pointer;
+  display: block;
+}
+
+/* ── Image upload button ── */
+.echo-message-image-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--echo-text-secondary, #888);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.15s ease;
+}
+.echo-message-image-btn:hover {
+  color: var(--echo-accent, #6366f1);
+}
+
 /* ── Focus-visible rings ── */
 .echo-action-btn:focus-visible,
 .echo-message-send-btn:focus-visible,
 .echo-logout-btn:focus-visible,
 .echo-icon-btn:focus-visible,
-.echo-chat-back-btn:focus-visible {
+.echo-chat-back-btn:focus-visible,
+.echo-message-image-btn:focus-visible {
   outline: 2px solid rgba(var(--echo-accent-rgb), 0.5);
   outline-offset: 2px;
 }
