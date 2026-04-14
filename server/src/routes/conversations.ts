@@ -15,11 +15,12 @@ const conversationRoutes: FastifyPluginAsync = async (fastify) => {
         last_msg.body AS last_message_body,
         last_msg.sender_id AS last_message_sender_id,
         last_msg.created_at AS last_message_at,
+        last_msg.message_type AS last_message_type,
         peer.id AS peer_id, peer.username AS peer_username, peer.display_name AS peer_display_name, peer.avatar_url AS peer_avatar_url
        FROM conversation_members cm
        JOIN conversations c ON c.id = cm.conversation_id
        LEFT JOIN LATERAL (
-         SELECT body, sender_id, created_at FROM messages WHERE conversation_id = c.id ORDER BY id DESC LIMIT 1
+         SELECT body, sender_id, created_at, message_type FROM messages WHERE conversation_id = c.id ORDER BY id DESC LIMIT 1
        ) last_msg ON true
        JOIN conversation_members cm2 ON cm2.conversation_id = c.id AND cm2.user_id != $1
        JOIN users peer ON peer.id = cm2.user_id
