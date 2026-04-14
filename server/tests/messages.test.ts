@@ -122,6 +122,99 @@ describe('POST /api/messages', () => {
     })
     expect(res.statusCode).toBe(401)
   })
+
+  it('returns 400 when text message has empty body', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/messages',
+      headers: { authorization: `Bearer ${alice.token}` },
+      payload: { recipient_id: bob.user.id, message_type: 'text', body: '' },
+    })
+    expect(res.statusCode).toBe(400)
+  })
+
+  it('returns 400 when text message has null body', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/messages',
+      headers: { authorization: `Bearer ${alice.token}` },
+      payload: { recipient_id: bob.user.id, message_type: 'text', body: null },
+    })
+    expect(res.statusCode).toBe(400)
+  })
+
+  it('returns 400 when image message has no media_url', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/messages',
+      headers: { authorization: `Bearer ${alice.token}` },
+      payload: { recipient_id: bob.user.id, message_type: 'image' },
+    })
+    expect(res.statusCode).toBe(400)
+  })
+
+  it('returns 400 when image message has media_url from another user', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/messages',
+      headers: { authorization: `Bearer ${alice.token}` },
+      payload: { recipient_id: bob.user.id, message_type: 'image', media_url: `/uploads/messages/${bob.user.id}-1234567890123.jpg` },
+    })
+    expect(res.statusCode).toBe(400)
+  })
+
+  it('returns 400 when image message has media_url pointing to avatars directory', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/messages',
+      headers: { authorization: `Bearer ${alice.token}` },
+      payload: { recipient_id: bob.user.id, message_type: 'image', media_url: `/uploads/avatars/${alice.user.id}-1234567890123.jpg` },
+    })
+    expect(res.statusCode).toBe(400)
+  })
+
+  it('returns 400 when image message has external URL as media_url', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/messages',
+      headers: { authorization: `Bearer ${alice.token}` },
+      payload: { recipient_id: bob.user.id, message_type: 'image', media_url: 'https://evil.com/x.jpg' },
+    })
+    expect(res.statusCode).toBe(400)
+  })
+
+  it('returns 400 when image message has media_url with single-digit timestamp', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/messages',
+      headers: { authorization: `Bearer ${alice.token}` },
+      payload: { recipient_id: bob.user.id, message_type: 'image', media_url: `/uploads/messages/${alice.user.id}-1.jpg` },
+    })
+    expect(res.statusCode).toBe(400)
+  })
+
+  it('returns 201 for valid image message with correct media_url', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const validMediaUrl = `/uploads/messages/${alice.user.id}-1234567890123.jpg`
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/messages',
+      headers: { authorization: `Bearer ${alice.token}` },
+      payload: { recipient_id: bob.user.id, message_type: 'image', media_url: validMediaUrl },
+    })
+    expect(res.statusCode).toBe(201)
+    const body = res.json()
+    expect(body.message_type).toBe('image')
+    expect(body.media_url).toBe(validMediaUrl)
+    expect(body.body).toBeNull()
+  })
 })
 
 // ─── GET /api/conversations ───────────────────────────────────────────────────
@@ -239,6 +332,38 @@ describe('GET /api/conversations', () => {
   it('returns 401 when unauthenticated', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/conversations' })
     expect(res.statusCode).toBe(401)
+  })
+
+  it('returns last_message_type reflecting the latest message type', async () => {
+    const { alice, bob } = await setupFriends(app)
+
+    // Send a text message first
+    await sendMessage(app, alice.token, bob.user.id, 'Hello')
+
+    const convRes1 = await app.inject({
+      method: 'GET',
+      url: '/api/conversations',
+      headers: { authorization: `Bearer ${alice.token}` },
+    })
+    expect(convRes1.statusCode).toBe(200)
+    expect(convRes1.json<Array<{ last_message_type: string }>>()[0].last_message_type).toBe('text')
+
+    // Send an image message
+    const validMediaUrl = `/uploads/messages/${alice.user.id}-1234567890123.jpg`
+    await app.inject({
+      method: 'POST',
+      url: '/api/messages',
+      headers: { authorization: `Bearer ${alice.token}` },
+      payload: { recipient_id: bob.user.id, message_type: 'image', media_url: validMediaUrl },
+    })
+
+    const convRes2 = await app.inject({
+      method: 'GET',
+      url: '/api/conversations',
+      headers: { authorization: `Bearer ${alice.token}` },
+    })
+    expect(convRes2.statusCode).toBe(200)
+    expect(convRes2.json<Array<{ last_message_type: string }>>()[0].last_message_type).toBe('image')
   })
 })
 

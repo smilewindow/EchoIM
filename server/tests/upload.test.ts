@@ -247,6 +247,136 @@ describe('POST /api/upload/avatar', () => {
   })
 })
 
+describe('POST /api/upload/message-image', () => {
+  let app: App
+  let token: string
+  let userId: number
+  const messagesUploadsDir = join(process.cwd(), 'uploads', 'messages')
+
+  beforeAll(async () => {
+    app = await getApp()
+  })
+
+  afterAll(async () => {
+    await app.close()
+  })
+
+  beforeEach(async () => {
+    await truncateAll(app)
+    const result = await registerUser(app)
+    token = result.token
+    userId = result.user.id
+    // Clean up test uploads
+    const files = await readdir(messagesUploadsDir).catch(() => [])
+    for (const file of files) {
+      if (file !== '.gitkeep') {
+        await rm(join(messagesUploadsDir, file), { force: true })
+      }
+    }
+  })
+
+  it('returns 401 when unauthenticated', async () => {
+    const form = createMultipartForm('file', Buffer.from('fake'), 'test.png', 'image/png')
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/upload/message-image',
+      headers: form.headers,
+      payload: form.body,
+    })
+    expect(res.statusCode).toBe(401)
+  })
+
+  it('returns 400 when no file provided (empty multipart)', async () => {
+    const form = createEmptyMultipartForm()
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/upload/message-image',
+      headers: {
+        authorization: `Bearer ${token}`,
+        ...form.headers,
+      },
+      payload: form.body,
+    })
+    expect(res.statusCode).toBe(400)
+    expect(res.json().error).toBe('No file provided')
+  })
+
+  it('returns 400 for invalid image (not decodable by sharp)', async () => {
+    const form = createMultipartForm('file', Buffer.from('not an image'), 'test.png', 'image/png')
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/upload/message-image',
+      headers: {
+        authorization: `Bearer ${token}`,
+        ...form.headers,
+      },
+      payload: form.body,
+    })
+    expect(res.statusCode).toBe(400)
+    expect(res.json().error).toContain('Invalid image')
+  })
+
+  it('returns 200 with media_url matching expected pattern for valid PNG', async () => {
+    const pngBuffer = Buffer.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+      0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+      0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+      0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4,
+      0x89, 0x00, 0x00, 0x00, 0x0a, 0x49, 0x44, 0x41,
+      0x54, 0x78, 0x9c, 0x63, 0x00, 0x01, 0x00, 0x00,
+      0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00,
+      0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae,
+      0x42, 0x60, 0x82,
+    ])
+    const form = createMultipartForm('file', pngBuffer, 'image.png', 'image/png')
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/upload/message-image',
+      headers: {
+        authorization: `Bearer ${token}`,
+        ...form.headers,
+      },
+      payload: form.body,
+    })
+    expect(res.statusCode).toBe(200)
+    const data = res.json<{ media_url: string }>()
+    expect(data.media_url).toMatch(new RegExp(`^/uploads/messages/${userId}-\\d{10,16}\\.jpg$`))
+  })
+
+  it('saves file to disk on successful upload', async () => {
+    const pngBuffer = Buffer.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+      0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+      0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+      0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4,
+      0x89, 0x00, 0x00, 0x00, 0x0a, 0x49, 0x44, 0x41,
+      0x54, 0x78, 0x9c, 0x63, 0x00, 0x01, 0x00, 0x00,
+      0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00,
+      0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae,
+      0x42, 0x60, 0x82,
+    ])
+    const form = createMultipartForm('file', pngBuffer, 'image.png', 'image/png')
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/upload/message-image',
+      headers: {
+        authorization: `Bearer ${token}`,
+        ...form.headers,
+      },
+      payload: form.body,
+    })
+    expect(res.statusCode).toBe(200)
+    const { media_url } = res.json<{ media_url: string }>()
+    const filename = media_url.split('/').pop()!
+    const filepath = join(messagesUploadsDir, filename)
+
+    // File should be JPEG (magic bytes: FF D8)
+    const fileBuffer = await readFile(filepath)
+    expect(fileBuffer[0]).toBe(0xff)
+    expect(fileBuffer[1]).toBe(0xd8)
+  })
+})
+
 function createMultipartForm(
   fieldName: string,
   fileContent: Buffer,
