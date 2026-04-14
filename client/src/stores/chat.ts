@@ -408,6 +408,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           }),
         )
         const currentState = get()
+        const localMediaUrl = currentState.messages.find((m) => m._tempId === tempId)?._localMediaUrl
         if (
           isSameChatContext(
             currentState,
@@ -415,10 +416,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
             recipientId,
           )
         ) {
-          const localMediaUrl = currentState.messages.find((m) => m._tempId === tempId)?._localMediaUrl
           set({ messages: replaceOrAppendMessage(currentState.messages, tempId, result) })
-          if (localMediaUrl) URL.revokeObjectURL(localMediaUrl)
         }
+        if (localMediaUrl) URL.revokeObjectURL(localMediaUrl)
         // 更新会话列表预览
         const convId = result.conversation_id
         const convState = get()
