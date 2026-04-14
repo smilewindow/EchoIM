@@ -118,7 +118,8 @@ export function ConversationList() {
                 {conv.peer_display_name || conv.peer_username}
               </p>
               <p className="echo-conversation-preview">
-                {conv.last_message_body ?? t('conversations.noMessages')}
+                {conv.last_message_body
+                  ?? (conv.last_message_type === 'image' ? t('chat.imageMessage') : t('conversations.noMessages'))}
               </p>
             </div>
 
