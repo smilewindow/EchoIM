@@ -478,11 +478,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return
     }
 
-    // Capture context before any async operation — prevents race condition
-    // if user switches conversations during compression
-    const initialState = get()
-    const requestConversationId = initialState.activeConversationId
-    const requestPeerId = initialState.activePeer?.id ?? null
+    // Capture only context variables before the async operation — prevents race condition
+    // if user switches conversations during compression.
+    // Do NOT snapshot messages here: compressImage can take hundreds of ms for large
+    // images, during which new messages may arrive. Using a stale messages snapshot
+    // would drop those messages when the optimistic bubble is inserted.
+    const requestConversationId = get().activeConversationId
+    const requestPeerId = get().activePeer?.id ?? null
     const wasNewConversation = requestConversationId === null
 
     let blob: Blob
@@ -497,7 +499,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const objectUrl = URL.createObjectURL(blob)
     const tempId = createTempMessageId()
 
-    // 3. 插入乐观气泡
+    // 3. 插入乐观气泡 — 先确认用户还在同一会话，再用最新 messages 追加
+    const stateAfterCompress = get()
+    if (!isSameChatContext(stateAfterCompress, requestConversationId, requestPeerId)) {
+      // 用户在压缩期间切走了，静默放弃（不插气泡也不上传）
+      URL.revokeObjectURL(objectUrl)
+      return
+    }
+
     const optimistic: Message = {
       id: tempId,
       conversation_id: requestConversationId ?? -1,
@@ -511,7 +520,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       _localBlob: blob,
       _tempId: tempId,
     }
-    set({ messages: [...initialState.messages, optimistic] })
+    set({ messages: [...stateAfterCompress.messages, optimistic] })
 
     // 4. 上传图片
     const mediaUrl = await uploadImageBlob(blob)
