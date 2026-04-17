@@ -1,0 +1,54 @@
+# macOS
+.DS_Store
+
+# Xcode 用户本地状态
+xcuserdata/
+*.xcuserdatad/
+*.xcuserstate
+*.xccheckout
+*.xcscmblueprint
+*.moved-aside
+
+# 构建产物与调试符号
+build/
+DerivedData/
+.build/
+*.hmap
+*.ipa
+*.dSYM
+*.dSYM.zip
+*.bcsymbolmap
+*.xcarchive
+
+# 测试与覆盖率输出
+*.profdata
+*.xccovreport
+*.xccovarchive
+
+# Swift Package Manager
+Packages/
+Package.pins
+.swiftpm/
+
+# CocoaPods
+Pods/
+
+# Carthage
+Carthage/Build/
+Carthage/Checkouts/
+
+# Accio
+Dependencies/
+.accio/
+
+# fastlane 生成文件
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+
+# Ruby / Bundler
+vendor/bundle/
+
+# JetBrains / AppCode
+.idea/
