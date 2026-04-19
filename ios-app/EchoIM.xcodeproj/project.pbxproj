@@ -12,6 +12,23 @@
 		B200000000000000000000003 /* NukeUI in Frameworks */ = {isa = PBXBuildFile; productRef = B200000000000000000000013 /* NukeUI */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		B100000000000000000000013 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AD6671062F91E6CC003730FB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AD66710D2F91E6CC003730FB;
+			remoteInfo = EchoIM;
+		};
+		B100000000000000000000014 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AD6671062F91E6CC003730FB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AD66710D2F91E6CC003730FB;
+			remoteInfo = EchoIM;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		AD66710E2F91E6CC003730FB /* EchoIM.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EchoIM.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B100000000000000000000001 /* EchoIMTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EchoIMTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -62,23 +79,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
-
-/* Begin PBXContainerItemProxy section */
-		B100000000000000000000013 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = AD6671062F91E6CC003730FB /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = AD66710D2F91E6CC003730FB;
-			remoteInfo = EchoIM;
-		};
-		B100000000000000000000014 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = AD6671062F91E6CC003730FB /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = AD66710D2F91E6CC003730FB;
-			remoteInfo = EchoIM;
-		};
-/* End PBXContainerItemProxy section */
 
 /* Begin PBXGroup section */
 		AD6671052F91E6CC003730FB = {
@@ -283,43 +283,6 @@
 		};
 /* End PBXTargetDependency section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		B200000000000000000000021 /* XCRemoteSwiftPackageReference "KeychainAccess" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/kishikawakatsumi/KeychainAccess";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 4.2.2;
-			};
-		};
-		B200000000000000000000022 /* XCRemoteSwiftPackageReference "Nuke" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/kean/Nuke";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 12.9.0;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		B200000000000000000000011 /* KeychainAccess */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = B200000000000000000000021 /* XCRemoteSwiftPackageReference "KeychainAccess" */;
-			productName = KeychainAccess;
-		};
-		B200000000000000000000012 /* Nuke */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = B200000000000000000000022 /* XCRemoteSwiftPackageReference "Nuke" */;
-			productName = Nuke;
-		};
-		B200000000000000000000013 /* NukeUI */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = B200000000000000000000022 /* XCRemoteSwiftPackageReference "Nuke" */;
-			productName = NukeUI;
-		};
-/* End XCSwiftPackageProductDependency section */
-
 /* Begin XCBuildConfiguration section */
 		AD6671172F91E6CE003730FB /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -451,7 +414,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 8EBXK3P5A5;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -483,7 +447,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 8EBXK3P5A5;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -648,6 +613,43 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		B200000000000000000000021 /* XCRemoteSwiftPackageReference "KeychainAccess" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/kishikawakatsumi/KeychainAccess";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.2.2;
+			};
+		};
+		B200000000000000000000022 /* XCRemoteSwiftPackageReference "Nuke" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/kean/Nuke";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.9.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B200000000000000000000011 /* KeychainAccess */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B200000000000000000000021 /* XCRemoteSwiftPackageReference "KeychainAccess" */;
+			productName = KeychainAccess;
+		};
+		B200000000000000000000012 /* Nuke */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B200000000000000000000022 /* XCRemoteSwiftPackageReference "Nuke" */;
+			productName = Nuke;
+		};
+		B200000000000000000000013 /* NukeUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B200000000000000000000022 /* XCRemoteSwiftPackageReference "Nuke" */;
+			productName = NukeUI;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = AD6671062F91E6CC003730FB /* Project object */;
 }
