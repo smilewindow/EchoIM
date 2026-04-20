@@ -4,7 +4,7 @@ struct RootView: View {
     @State private var container: AppContainer = {
         let shouldResetKeychain = CommandLine.arguments.contains("-uitest-reset-keychain")
         let container = AppContainer(resetKeychainOnLaunch: shouldResetKeychain)
-        // 需要在首帧前同步恢复登录态，避免先闪登录页再切 Home。
+        // 与 P1 保持一致：首帧同步恢复登录占位，无闪烁。
         container.bootstrap()
         return container
     }()
@@ -14,9 +14,8 @@ struct RootView: View {
     var body: some View {
         Group {
             if container.currentUser != nil {
-                MeView(container: container) {
+                MainTabView(container: container) {
                     await container.logout()
-                    // 登出后统一回登录页，不保留注册页残留状态。
                     showRegister = false
                 }
                 .task {
