@@ -23,6 +23,8 @@ No automated test runner is configured yet. Until one is added, every PR should 
 
 **WS / presence / cross-instance behavior verification must run against the client production build** (`npm run build --prefix client && npm run preview --prefix client`, port 4173), not the Vite dev server on port 5173. React `<StrictMode>` double-invokes `useEffect` in dev, creating a short-lived shadow WebSocket on every mount that pollutes server logs and, under the multi-instance `docker compose --profile multi` setup, lands on a different backend than the "real" connection. See `CLAUDE.md` §本地验证 for details.
 
+For `xcodebuild`, prefer the default `DerivedData`. Only set `-derivedDataPath` when parallel runs or isolated artifacts are necessary, and reuse one stable path instead of creating per-task paths.
+
 ## Commit & Pull Request Guidelines
 Recent commits use short, prefixed subjects such as `docs: add Claude Code repository guide`. Follow that pattern with focused, imperative messages like `feat:`, `fix:`, `docs:`, or `refactor:`. PRs should include a short summary, note which areas changed (`client`, `server`, or infra), call out env or schema updates, and attach screenshots for UI work or example requests/responses for API changes.
 
