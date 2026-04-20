@@ -35,20 +35,20 @@
 # 编译（Debug）
 xcodebuild -project ios-app/EchoIM.xcodeproj \
   -scheme EchoIM \
-  -destination 'platform=iOS Simulator,name=iPhone 15' \
+  -destination 'platform=iOS Simulator,name=iPhone 17' \
   -configuration Debug build
 
 # 单测
 xcodebuild -project ios-app/EchoIM.xcodeproj \
   -scheme EchoIM \
-  -destination 'platform=iOS Simulator,name=iPhone 15' \
-  test
+  -destination 'platform=iOS Simulator,name=iPhone 17' \
+  test -only-testing:EchoIMTests
 
 # UI 测
 xcodebuild -project ios-app/EchoIM.xcodeproj \
   -scheme EchoIM \
-  -destination 'platform=iOS Simulator,name=iPhone 15' \
-  -only-testing:EchoIMUITests test
+  -destination 'platform=iOS Simulator,name=iPhone 17' \
+  test -only-testing:EchoIMUITests
 ```
 
 记为 `$BUILD` / `$TEST` / `$UITEST`。
@@ -2812,7 +2812,7 @@ struct MeView: View {
 }
 ```
 
-**注意：** `accessibilityIdentifier("homeUsername")` / `"homeLogout"` 与 P1 的 `HomePlaceholderView` 保持一致，避免 P1 遗留的 `LoginSmokeTests` 挂掉。
+**注意：** `accessibilityIdentifier("homeUsername")` / `"homeLogout"` 与 P1 的 `HomePlaceholderView` 保持一致。Task 12 接入 `MainTabView` 后，`LoginSmokeTests` 仍会复用这两个锚点，只是需要先切到“我”tab（见 Task 13）。
 
 - [ ] **Step 2：删除 HomePlaceholderView**
 
@@ -2981,11 +2981,87 @@ git commit -m "feat(ios): route authenticated state to MainTabView"
 ## Task 13：XCUITest 扩展——Tab 导航 smoke
 
 **Files:**
+- Modify: `ios-app/EchoIMUITests/LoginSmokeTests.swift`
+- Modify: `ios-app/EchoIM/Features/Contacts/FriendsListView.swift`
 - Create: `ios-app/EchoIMUITests/TabNavigationSmokeTests.swift`
 
-既有 `LoginSmokeTests` 已经覆盖"登录进 Home"。本 Task 验证登录后能看到 MainTabView 并切到 Contacts。
+Task 12 之后，登录成功默认落在 `MainTabView` 的“聊天”tab，不再是 P1 的 Home / Me 单页。因此本 Task 先把既有 `LoginSmokeTests` 更新成“登录 → MainTabView → 切到我”，再补一条 Contacts 导航 smoke。
 
-- [ ] **Step 1：写测试**
+- [ ] **Step 1：更新 LoginSmokeTests**
+
+`ios-app/EchoIMUITests/LoginSmokeTests.swift`：
+
+```swift
+import XCTest
+
+final class LoginSmokeTests: XCTestCase {
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+    }
+
+    override func tearDownWithError() throws {
+        let app = XCUIApplication()
+        // 复用测试专用启动参数，让 smoke 跑完后把模拟器恢复回未登录态，
+        // 避免后续手工验证被残留 Keychain 污染。
+        app.launchArguments += ["-uitest-reset-keychain"]
+        app.launch()
+        app.terminate()
+    }
+
+    @MainActor
+    func testLoginHappyPath() throws {
+        let app = XCUIApplication()
+        app.launchArguments += ["-uitest-reset-keychain"]
+        app.launch()
+
+        let email = app.textFields["loginEmail"]
+        XCTAssertTrue(email.waitForExistence(timeout: 5))
+        email.tap()
+        email.typeText("smoke@test.local")
+
+        let password = app.secureTextFields["loginPassword"]
+        XCTAssertTrue(password.waitForExistence(timeout: 5))
+        password.tap()
+        password.typeText("password123")
+
+        app.buttons["loginSubmit"].tap()
+
+        let tabView = app.otherElements["mainTabView"]
+        XCTAssertTrue(tabView.waitForExistence(timeout: 10))
+
+        let meTab = app.tabBars.buttons["我"]
+        XCTAssertTrue(meTab.waitForExistence(timeout: 3))
+        meTab.tap()
+
+        let username = app.staticTexts["homeUsername"]
+        XCTAssertTrue(username.waitForExistence(timeout: 10))
+    }
+}
+```
+
+- [ ] **Step 2：稳定 Contacts accessibility 锚点**
+
+为了让 XCUITest 稳定命中 SwiftUI 的空态 / 列表容器，给 `FriendsListView` 的两个根容器补 `.accessibilityElement(children: .contain)`：
+
+```swift
+if friends.isEmpty {
+    VStack(spacing: 8) {
+        // ...
+    }
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .accessibilityElement(children: .contain)
+    .accessibilityIdentifier("friendsEmpty")
+} else {
+    List(friends) { friend in
+        // ...
+    }
+    .listStyle(.plain)
+    .accessibilityElement(children: .contain)
+    .accessibilityIdentifier("friendsList")
+}
+```
+
+- [ ] **Step 3：写 TabNavigationSmokeTests**
 
 `ios-app/EchoIMUITests/TabNavigationSmokeTests.swift`：
 
@@ -3017,9 +3093,12 @@ final class TabNavigationSmokeTests: XCTestCase {
         XCTAssertTrue(contactsTab.waitForExistence(timeout: 3))
         contactsTab.tap()
 
+        let searchButton = app.buttons["openUserSearch"]
+        XCTAssertTrue(searchButton.waitForExistence(timeout: 5))
+
         // 要么看到好友列表，要么看到空态——两者之一必出现
-        let friendsList = app.otherElements["friendsList"]
-        let friendsEmpty = app.otherElements["friendsEmpty"]
+        let friendsList = app.descendants(matching: .any)["friendsList"]
+        let friendsEmpty = app.descendants(matching: .any)["friendsEmpty"]
         let deadline = Date().addingTimeInterval(5)
         while Date() < deadline {
             if friendsList.exists || friendsEmpty.exists { return }
@@ -3030,7 +3109,7 @@ final class TabNavigationSmokeTests: XCTestCase {
 }
 ```
 
-- [ ] **Step 2：跑 UI 测试**
+- [ ] **Step 4：跑 UI 测试**
 
 后端 + `smoke@test.local / password123` 账号就绪。
 
@@ -3038,12 +3117,14 @@ final class TabNavigationSmokeTests: XCTestCase {
 $UITEST
 ```
 
-预期：`LoginSmokeTests` + `TabNavigationSmokeTests` 两个测试都绿。如果 `accessibilityIdentifier` 对不上，先 `$BUILD` 后用 Xcode 的 Accessibility Inspector 验证 identifier。
+预期：`LoginSmokeTests`（登录 → MainTabView → 我）+ `TabNavigationSmokeTests`（登录 → MainTabView → 联系人）两个测试都绿。如果 `accessibilityIdentifier` 对不上，先 `$BUILD` 后用 Xcode 的 Accessibility Inspector 验证 identifier。
 
-- [ ] **Step 3：提交**
+- [ ] **Step 5：提交**
 
 ```bash
-git add ios-app/EchoIMUITests/TabNavigationSmokeTests.swift
+git add ios-app/EchoIM/Features/Contacts/FriendsListView.swift \
+        ios-app/EchoIMUITests/LoginSmokeTests.swift \
+        ios-app/EchoIMUITests/TabNavigationSmokeTests.swift
 git commit -m "test(ios): add tab navigation smoke test"
 ```
 
@@ -3060,11 +3141,13 @@ git commit -m "test(ios): add tab navigation smoke test"
 
 1. 对齐测试命令里的模拟器目标。当前 README 的 `## Test` 块还是 P1 初稿时代的 `iPhone 17,OS=26.0`，与设计文档要求的 iOS 17+ 前提 + 本计划统一用的 `iPhone 15` 脱节，会误导后续执行者。
 
+当前开发机实际可用并已验证通过的是 `iPhone 17`，同时去掉显式 `OS=26.0`，避免 Xcode / Simulator 小版本变化造成命令脆弱。
+
 把 `ios-app/README.md` 的 `## Test` 块的 xcodebuild 命令改成：
 
 ```bash
 xcodebuild -project EchoIM.xcodeproj -scheme EchoIM \
-  -destination 'platform=iOS Simulator,name=iPhone 15' test
+  -destination 'platform=iOS Simulator,name=iPhone 17' test
 ```
 
 2. 更新 `## Status` 块为：
@@ -3136,7 +3219,10 @@ git commit -m "docs(ios): note P2 completion in README"
 - [ ] **测试 import**：所有带 `Data` / `UUID` / `JSONSerialization` 的测试文件含 `import Foundation`。
 - [ ] **辅助文件**：`Data(reading: InputStream)` 扩展只用于 `FriendRequestRepositoryTests`；如果其它 suite 也需要，提成独立辅助文件 `ios-app/EchoIMTests/TestURLBody.swift`（本计划未提取，避免目录膨胀——如果后续 Task 要用再抽）
 - [ ] **Nuke 首次真正 import**：`AvatarView` 里 `import NukeUI`。P1 已在 SPM 引入、未 import 任何文件；本阶段落地。
-- [ ] **UI smoke**：`LoginSmokeTests` 依赖 `accessibilityIdentifier("homeUsername")` / `"homeLogout")`——MeView 保留了这两个 identifier，不需要改 P1 测试。
+- [ ] **UI smoke**：
+  - `LoginSmokeTests` 在 Task 12 后已更新为：登录成功 → 断言 `mainTabView` 出现 → 切到“我”tab → 再断言 `homeUsername`
+  - `TabNavigationSmokeTests`：登录成功 → 切到“联系人”tab → 断言 `openUserSearch` 出现，再等待 `friendsList` / `friendsEmpty`
+  - `MeView` 保留 `homeUsername` / `homeLogout`，`FriendsListView` 对 `friendsList` / `friendsEmpty` 补 `.accessibilityElement(children: .contain)`，保证 UI smoke 锚点稳定
 
 ---
 
