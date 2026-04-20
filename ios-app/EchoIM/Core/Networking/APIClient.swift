@@ -68,7 +68,11 @@ final class APIClient {
         token: String? = nil,
         body: Encodable? = nil
     ) async throws -> Response {
-        var request = URLRequest(url: Endpoints.url(path))
+        guard let url = URL(string: path, relativeTo: Endpoints.baseURL)?.absoluteURL else {
+            throw APIError.invalidResponse
+        }
+
+        var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 

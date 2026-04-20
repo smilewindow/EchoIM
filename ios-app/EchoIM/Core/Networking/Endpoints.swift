@@ -12,7 +12,11 @@ enum Endpoints {
     }()
 
     static func url(_ path: String) -> URL {
-        baseURL.appendingPathComponent(path)
+        guard let url = URL(string: path, relativeTo: baseURL)?.absoluteURL else {
+            preconditionFailure("invalid endpoint path: \(path) relative to \(baseURL)")
+        }
+
+        return url
     }
 
     enum Auth {
