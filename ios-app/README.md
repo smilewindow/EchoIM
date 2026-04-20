@@ -19,7 +19,7 @@ To point at a different backend, set `EchoIMBaseURL` in `Info.plist`, for exampl
 
 ```bash
 xcodebuild -project EchoIM.xcodeproj -scheme EchoIM \
-  -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.0' test
+  -destination 'platform=iOS Simulator,name=iPhone 17' test
 ```
 
 UI smoke tests require:
@@ -27,6 +27,6 @@ UI smoke tests require:
 - seeded account `smoke@test.local / password123`
 
 ## Status
-P1 done: scaffold + login/register/home.
-
-Later phases are tracked in `docs/superpowers/specs/2026-04-17-ios-app-design.md` section 8.
+- P1 done: scaffold + login/register/home.
+- P2 done: main TabView (Chats / Contacts / Me), friends list, friend requests, user search, conversation list with unread badges, avatar caching via Nuke.
+- P3-P8 tracked in `docs/superpowers/specs/2026-04-17-ios-app-design.md` section 8.
