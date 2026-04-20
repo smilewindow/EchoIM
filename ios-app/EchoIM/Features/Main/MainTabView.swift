@@ -1,0 +1,47 @@
+import SwiftUI
+
+struct MainTabView: View {
+    let container: AppContainer
+    var onLogout: () async -> Void
+
+    @State private var selection: MainTab = .chats
+
+    var body: some View {
+        TabView(selection: $selection) {
+            chatsTab
+                .tabItem {
+                    Label("聊天", systemImage: MainTab.chats.systemImage)
+                }
+                .tag(MainTab.chats)
+
+            contactsTab
+                .tabItem {
+                    Label("联系人", systemImage: MainTab.contacts.systemImage)
+                }
+                .tag(MainTab.contacts)
+
+            meTab
+                .tabItem {
+                    Label("我", systemImage: MainTab.me.systemImage)
+                }
+                .tag(MainTab.me)
+        }
+        .accessibilityIdentifier("mainTabView")
+    }
+
+    // 后续任务会把这三个占位页替换成真实内容，当前只负责搭好导航骨架。
+    private var chatsTab: some View {
+        Text("Chats placeholder")
+            .accessibilityIdentifier("tabChatsPlaceholder")
+    }
+
+    private var contactsTab: some View {
+        Text("Contacts placeholder")
+            .accessibilityIdentifier("tabContactsPlaceholder")
+    }
+
+    private var meTab: some View {
+        Text("Me placeholder")
+            .accessibilityIdentifier("tabMePlaceholder")
+    }
+}
