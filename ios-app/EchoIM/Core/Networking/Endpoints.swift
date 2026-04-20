@@ -19,4 +19,27 @@ enum Endpoints {
         static let login = "api/auth/login"
         static let register = "api/auth/register"
     }
+
+    enum Users {
+        static let me = "api/users/me"
+        static let search = "api/users/search"
+    }
+
+    enum Friends {
+        static let list = "api/friends"
+    }
+
+    enum FriendRequests {
+        static let base = "api/friend-requests"
+        static let sent = "api/friend-requests/sent"
+        static let history = "api/friend-requests/history"
+
+        static func respond(id: Int) -> String {
+            "api/friend-requests/\(id)"
+        }
+    }
+
+    enum Conversations {
+        static let list = "api/conversations"
+    }
 }
