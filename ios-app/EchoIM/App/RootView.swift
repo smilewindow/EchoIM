@@ -13,8 +13,8 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            if let user = container.currentUser {
-                HomePlaceholderView(user: user) {
+            if container.currentUser != nil {
+                MeView(container: container) {
                     await container.logout()
                     // 登出后统一回登录页，不保留注册页残留状态。
                     showRegister = false

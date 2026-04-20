@@ -50,7 +50,6 @@ struct MainTabView: View {
     }
 
     private var meTab: some View {
-        Text("Me placeholder")
-            .accessibilityIdentifier("tabMePlaceholder")
+        MeView(container: container, onLogout: onLogout)
     }
 }
