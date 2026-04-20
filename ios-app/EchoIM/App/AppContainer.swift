@@ -8,7 +8,8 @@ final class AppContainer {
     let apiClient: APIClient
     var currentUser: AuthenticatedUser?
 
-    /// 仅 UI 测试传 true，让每次启动都从未登录态开始。
+    /// 仅 `-uitest-reset-keychain` 这类 UI 测试启动参数会传 true，
+    /// 让每次启动都从未登录态开始，避免前一次登录态污染 smoke case。
     private let resetKeychainOnLaunch: Bool
 
     init(
