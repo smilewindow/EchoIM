@@ -30,6 +30,10 @@ final class AppContainer {
         UserRepositoryImpl(api: apiClient)
     }
 
+    func makeFriendRepository() -> FriendRepository {
+        FriendRepositoryImpl(api: apiClient)
+    }
+
     /// P1 阶段只要 Keychain 里还留着 token，就先把用户视为已登录。
     /// 真实用户资料的补全留到后续阶段通过 `/api/users/me` 拉取。
     func bootstrap() {
