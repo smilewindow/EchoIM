@@ -39,8 +39,14 @@ struct MainTabView: View {
     }
 
     private var contactsTab: some View {
-        Text("Contacts placeholder")
-            .accessibilityIdentifier("tabContactsPlaceholder")
+        ContactsView(
+            friendRepo: container.makeFriendRepository(),
+            requestRepo: container.makeFriendRequestRepository(),
+            userRepo: container.makeUserRepository(),
+            tokenProvider: { [tokenStore = container.tokenStore] in
+                (try? tokenStore.load())?.token
+            }
+        )
     }
 
     private var meTab: some View {
