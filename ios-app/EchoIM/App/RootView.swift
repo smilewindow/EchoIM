@@ -19,6 +19,9 @@ struct RootView: View {
                     // 登出后统一回登录页，不保留注册页残留状态。
                     showRegister = false
                 }
+                .task {
+                    await container.refreshCurrentUser()
+                }
             } else if showRegister {
                 RegisterView(vm: makeRegisterViewModel()) {
                     showRegister = false

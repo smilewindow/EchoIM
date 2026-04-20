@@ -26,6 +26,10 @@ final class AppContainer {
         AuthRepositoryImpl(api: apiClient, tokenStore: tokenStore)
     }
 
+    func makeUserRepository() -> UserRepository {
+        UserRepositoryImpl(api: apiClient)
+    }
+
     /// P1 阶段只要 Keychain 里还留着 token，就先把用户视为已登录。
     /// 真实用户资料的补全留到后续阶段通过 `/api/users/me` 拉取。
     func bootstrap() {
@@ -51,6 +55,24 @@ final class AppContainer {
 
     func handleLoginSuccess(_ response: AuthResponse) {
         currentUser = response.user
+    }
+
+    /// 启动后异步补全真实用户资料；只有 token 失效才回到登录页。
+    /// 网络抖动或服务端临时异常都保留占位态，避免无意义地把用户踢下线。
+    func refreshCurrentUser() async {
+        guard let stored = try? tokenStore.load() else {
+            return
+        }
+
+        do {
+            let user = try await makeUserRepository().fetchMe(token: stored.token)
+            currentUser = user
+        } catch APIError.unauthorized {
+            try? tokenStore.clear()
+            currentUser = nil
+        } catch {
+            // 保留占位态，等待后续重新进入页面或下次启动时再刷新。
+        }
     }
 
     func logout() async {
