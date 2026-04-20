@@ -32,6 +32,13 @@ final class LoginSmokeTests: XCTestCase {
 
         app.buttons["loginSubmit"].tap()
 
+        let tabView = app.otherElements["mainTabView"]
+        XCTAssertTrue(tabView.waitForExistence(timeout: 10))
+
+        let meTab = app.tabBars.buttons["我"]
+        XCTAssertTrue(meTab.waitForExistence(timeout: 3))
+        meTab.tap()
+
         let username = app.staticTexts["homeUsername"]
         XCTAssertTrue(username.waitForExistence(timeout: 10))
     }

@@ -16,6 +16,7 @@ struct FriendsListView: View {
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("friendsEmpty")
         } else {
             List(friends) { friend in
@@ -38,6 +39,7 @@ struct FriendsListView: View {
                 .listRowSeparator(.hidden)
             }
             .listStyle(.plain)
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("friendsList")
         }
     }
