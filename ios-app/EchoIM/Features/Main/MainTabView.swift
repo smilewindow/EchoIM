@@ -29,10 +29,13 @@ struct MainTabView: View {
         .accessibilityIdentifier("mainTabView")
     }
 
-    // 后续任务会把这三个占位页替换成真实内容，当前只负责搭好导航骨架。
     private var chatsTab: some View {
-        Text("Chats placeholder")
-            .accessibilityIdentifier("tabChatsPlaceholder")
+        ConversationsListView(
+            repository: container.makeConversationRepository(),
+            tokenProvider: { [tokenStore = container.tokenStore] in
+                (try? tokenStore.load())?.token
+            }
+        )
     }
 
     private var contactsTab: some View {
