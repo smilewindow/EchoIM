@@ -19,6 +19,20 @@ enum Endpoints {
         return url
     }
 
+    /// 服务端返回的头像/媒体地址通常是 `/uploads/...` 这种相对根路径，
+    /// 这里统一补齐成绝对 URL，避免视图层重复处理。
+    static func absolute(_ raw: String?) -> URL? {
+        guard let raw, !raw.isEmpty else {
+            return nil
+        }
+
+        if raw.hasPrefix("http://") || raw.hasPrefix("https://") {
+            return URL(string: raw)
+        }
+
+        return URL(string: raw, relativeTo: baseURL)?.absoluteURL
+    }
+
     enum Auth {
         static let login = "api/auth/login"
         static let register = "api/auth/register"
