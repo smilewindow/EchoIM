@@ -23,7 +23,7 @@ final class ChatViewModel {
     /// 当前会话 id；从联系人进入未聊过的好友时先保持 nil，首条消息成功后再回填。
     private(set) var conversationId: Int?
     let peer: UserProfile
-    private let currentUserId: Int
+    let currentUserId: Int
 
     // MARK: - Dependencies
     private let messageRepo: MessageRepository

@@ -32,6 +32,9 @@ struct MainTabView: View {
     private var chatsTab: some View {
         ConversationsListView(
             repository: container.makeConversationRepository(),
+            messageRepo: container.makeMessageRepository(),
+            wsClient: container.wsClient,
+            currentUserId: container.currentUser?.id ?? 0,
             tokenProvider: { [tokenStore = container.tokenStore] in
                 (try? tokenStore.load())?.token
             }
@@ -43,6 +46,10 @@ struct MainTabView: View {
             friendRepo: container.makeFriendRepository(),
             requestRepo: container.makeFriendRequestRepository(),
             userRepo: container.makeUserRepository(),
+            messageRepo: container.makeMessageRepository(),
+            conversationRepo: container.makeConversationRepository(),
+            wsClient: container.wsClient,
+            currentUserId: container.currentUser?.id ?? 0,
             tokenProvider: { [tokenStore = container.tokenStore] in
                 (try? tokenStore.load())?.token
             }

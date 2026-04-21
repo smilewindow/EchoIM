@@ -2,10 +2,18 @@ import SwiftUI
 
 struct ConversationsListView: View {
     @State private var vm: ConversationsListViewModel
+    private let conversationRepo: ConversationRepository
+    private let messageRepo: MessageRepository
+    private let wsClient: WebSocketClient?
+    private let currentUserId: Int
+    private let tokenProvider: () -> String?
 
     /// VM 由列表页自己持有，避免 MainTabView 因容器状态变化重算时重复创建。
     init(
         repository: ConversationRepository,
+        messageRepo: MessageRepository,
+        wsClient: WebSocketClient?,
+        currentUserId: Int,
         tokenProvider: @escaping () -> String?
     ) {
         _vm = State(
@@ -14,6 +22,11 @@ struct ConversationsListView: View {
                 tokenProvider: tokenProvider
             )
         )
+        self.conversationRepo = repository
+        self.messageRepo = messageRepo
+        self.wsClient = wsClient
+        self.currentUserId = currentUserId
+        self.tokenProvider = tokenProvider
     }
 
     var body: some View {
@@ -25,6 +38,9 @@ struct ConversationsListView: View {
                 }
                 .task {
                     await vm.load()
+                }
+                .navigationDestination(for: ChatRoute.self) { route in
+                    destination(for: route)
                 }
         }
     }
@@ -63,7 +79,9 @@ struct ConversationsListView: View {
 
     private var list: some View {
         List(vm.conversations) { conversation in
-            ConversationRow(conversation: conversation)
+            NavigationLink(value: ChatRoute.conversation(conversation)) {
+                ConversationRow(conversation: conversation)
+            }
                 .listRowSeparator(.hidden)
                 .listRowInsets(
                     EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12)
@@ -104,6 +122,19 @@ struct ConversationsListView: View {
             .buttonStyle(.bordered)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func destination(for route: ChatRoute) -> some View {
+        ChatView(
+            route: route,
+            currentUserId: currentUserId,
+            messageRepo: messageRepo,
+            wsClient: wsClient,
+            conversationRepository: conversationRepo,
+            tokenProvider: {
+                tokenProvider()
+            }
+        )
     }
 }
 

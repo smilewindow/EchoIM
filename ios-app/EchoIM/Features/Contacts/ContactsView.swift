@@ -3,6 +3,10 @@ import SwiftUI
 struct ContactsView: View {
     @State private var vm: ContactsViewModel
     private let userRepo: UserRepository
+    private let messageRepo: MessageRepository
+    private let conversationRepo: ConversationRepository
+    private let wsClient: WebSocketClient?
+    private let currentUserId: Int
     private let tokenProvider: () -> String?
 
     @State private var showRequests = false
@@ -13,6 +17,10 @@ struct ContactsView: View {
         friendRepo: FriendRepository,
         requestRepo: FriendRequestRepository,
         userRepo: UserRepository,
+        messageRepo: MessageRepository,
+        conversationRepo: ConversationRepository,
+        wsClient: WebSocketClient?,
+        currentUserId: Int,
         tokenProvider: @escaping () -> String?
     ) {
         _vm = State(
@@ -23,6 +31,10 @@ struct ContactsView: View {
             )
         )
         self.userRepo = userRepo
+        self.messageRepo = messageRepo
+        self.conversationRepo = conversationRepo
+        self.wsClient = wsClient
+        self.currentUserId = currentUserId
         self.tokenProvider = tokenProvider
     }
 
@@ -66,6 +78,18 @@ struct ContactsView: View {
                 }
                 .refreshable {
                     await vm.refresh()
+                }
+                .navigationDestination(for: ChatRoute.self) { route in
+                    ChatView(
+                        route: route,
+                        currentUserId: currentUserId,
+                        messageRepo: messageRepo,
+                        wsClient: wsClient,
+                        conversationRepository: conversationRepo,
+                        tokenProvider: {
+                            tokenProvider()
+                        }
+                    )
                 }
                 .sheet(isPresented: $showRequests, onDismiss: refreshAfterSheet) {
                     FriendRequestsSheetView(vm: vm) {

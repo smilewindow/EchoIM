@@ -20,21 +20,23 @@ struct FriendsListView: View {
             .accessibilityIdentifier("friendsEmpty")
         } else {
             List(friends) { friend in
-                HStack(spacing: 12) {
-                    AvatarView(profile: friend, size: 40)
+                NavigationLink(value: ChatRoute.peer(friend)) {
+                    HStack(spacing: 12) {
+                        AvatarView(profile: friend, size: 40)
 
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(friend.displayName ?? friend.username)
-                            .font(.subheadline.weight(.medium))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(friend.displayName ?? friend.username)
+                                .font(.subheadline.weight(.medium))
 
-                        if friend.displayName != nil {
-                            Text("@\(friend.username)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                            if friend.displayName != nil {
+                                Text("@\(friend.username)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
-                    }
 
-                    Spacer()
+                        Spacer()
+                    }
                 }
                 .listRowSeparator(.hidden)
             }
