@@ -16,6 +16,8 @@ final class ChatViewModel {
     private(set) var phase: ChatPhase = .idle
     private(set) var isLoadingOlder = false
     private(set) var hasMoreOlder = true
+    /// 服务端已确认的 last_read_message_id；P3 只同步游标，不在消息列表里计算未读。
+    private(set) var lastReadMessageId: Int?
 
     // MARK: - Identity
     /// 当前会话 id；从联系人进入未聊过的好友时先保持 nil，首条消息成功后再回填。
@@ -28,6 +30,11 @@ final class ChatViewModel {
     private let conversationRepository: ConversationRepository?
     weak var wsClient: WebSocketClient?
     private let tokenProvider: @MainActor () -> String?
+
+    // MARK: - WS subscriptions
+
+    private var subscription: WSSubscription?
+    private var readySubscription: WSSubscription?
 
     // MARK: - Tempid seq
     private var tempSeq = 0
@@ -44,6 +51,7 @@ final class ChatViewModel {
         case .conversation(let conversation):
             self.conversationId = conversation.id
             self.peer = conversation.peer
+            self.lastReadMessageId = conversation.lastReadMessageId
         case .peer(let peer):
             self.conversationId = nil
             self.peer = peer
@@ -184,6 +192,123 @@ final class ChatViewModel {
     private func markFailed(tempId: String, error: Error) {
         guard let index = messages.firstIndex(where: { $0.localId == tempId }) else { return }
         messages[index].sendState = .failed(String(describing: error))
+    }
+
+    // MARK: - WS
+
+    func attachWSSubscription() {
+        guard subscription == nil, let wsClient else { return }
+        subscription = wsClient.subscribe { [weak self] event in
+            self?.handleWSEvent(event)
+        }
+        readySubscription = wsClient.onReady { [weak self] in
+            Task { await self?.handleWSReady() }
+        }
+    }
+
+    func detachWSSubscription() {
+        subscription?.cancel()
+        subscription = nil
+        readySubscription?.cancel()
+        readySubscription = nil
+    }
+
+    func handleWSEvent(_ event: WSEvent) {
+        switch event {
+        case .messageNew(let message):
+            handleIncomingMessage(message)
+        case .conversationUpdated(let payload):
+            handleConversationUpdated(payload)
+        default:
+            return
+        }
+    }
+
+    private func handleIncomingMessage(_ incoming: Message) {
+        if conversationId == nil {
+            if incoming.senderId == peer.id {
+                conversationId = incoming.conversationId
+            } else {
+                // 草稿态只认当前 peer 激活的会话；其他会话或自己别处发出的 echo 先忽略。
+                return
+            }
+        }
+
+        guard incoming.conversationId == conversationId else { return }
+
+        if let tempId = incoming.clientTempId, incoming.senderId == currentUserId {
+            mergeServerResult(incoming, tempId: tempId)
+            return
+        }
+
+        guard !messages.contains(where: { $0.message.id == incoming.id }) else { return }
+        messages.append(.confirmed(incoming))
+    }
+
+    private func handleConversationUpdated(_ payload: ConversationUpdatedPayload) {
+        guard payload.conversationId == conversationId else { return }
+        let current = lastReadMessageId ?? 0
+        if payload.lastReadMessageId > current {
+            lastReadMessageId = payload.lastReadMessageId
+        }
+    }
+
+    private func handleWSReady() async {
+        if conversationId == nil {
+            guard let token = tokenProvider(), let conversationRepository else { return }
+            do {
+                let conversations = try await conversationRepository.list(token: token)
+                await reconcileAfterReconnect(conversations: conversations)
+            } catch {
+                // 草稿 promote 失败不影响当前聊天页，下一次 ready / 重进页面会再补。
+            }
+        } else {
+            await refetchMissedMessages()
+        }
+    }
+
+    // MARK: - Reconnect hook
+
+    /// connection.ready 后，如果草稿态的 peer 已经有会话，回填 conversationId 并补拉最新。
+    func reconcileAfterReconnect(conversations: [Conversation]) async {
+        guard conversationId == nil else {
+            await refetchMissedMessages()
+            return
+        }
+
+        if let match = conversations.first(where: { $0.peer.id == peer.id }) {
+            conversationId = match.id
+            await load()
+        }
+    }
+
+    /// §5.3 场景 C 的 P3 精简版：从当前最大 confirmed id 之后补拉一次。
+    func refetchMissedMessages() async {
+        guard let conversationId else { return }
+        guard let token = tokenProvider() else { return }
+
+        let newest = messages.reduce(into: 0) { result, localMessage in
+            if case .confirmed = localMessage.sendState {
+                result = max(result, localMessage.message.id)
+            }
+        }
+        guard newest > 0 else {
+            await load()
+            return
+        }
+
+        do {
+            let rows = try await messageRepo.list(
+                conversationId: conversationId,
+                cursor: .after(newest),
+                token: token
+            )
+            for message in rows where !messages.contains(where: { $0.message.id == message.id }) {
+                messages.append(.confirmed(message))
+            }
+        } catch {
+            // 补拉失败保持现有消息；下一次 reconnect 或重进页面会再尝试。
+        }
     }
 
     // MARK: - Tempid helper（Task 9/10 会用）
