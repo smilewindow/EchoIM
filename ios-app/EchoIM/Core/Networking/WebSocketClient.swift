@@ -373,8 +373,20 @@ extension WebSocketClient: URLSessionWebSocketDelegate, URLSessionTaskDelegate {
         task: URLSessionTask,
         didCompleteWithError error: Error?
     ) {
-        // Task 6 会在这里加 401 分支；本 Task 只走通用重连。
+        let httpStatus = (task.response as? HTTPURLResponse)?.statusCode
         Task { @MainActor in
+            if httpStatus == 401 {
+                // WS upgrade 401 能在 didComplete 里拿到；此时 token 已失效，不再重连。
+                self.shouldReconnect = false
+                self.stopHeartbeat()
+                self.reconnectTimer?.cancel()
+                self.reconnectTimer = nil
+                self.closeTaskLocally()
+                self.state = .disconnected
+                self.onUnauthorized()
+                return
+            }
+
             switch self.state {
             case .disconnected, .reconnecting:
                 return
