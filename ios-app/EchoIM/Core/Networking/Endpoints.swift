@@ -33,6 +33,26 @@ enum Endpoints {
         return URL(string: raw, relativeTo: baseURL)?.absoluteURL
     }
 
+    /// 把 baseURL 的 http/https scheme 换成 ws/wss，拼出带 token 的 /ws url。
+    static func webSocketURL(token: String) -> URL? {
+        guard var comps = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
+            return nil
+        }
+
+        // baseURL 的 path 通常是 "/"；WS 走固定 /ws。
+        comps.path = "/ws"
+        switch comps.scheme?.lowercased() {
+        case "https":
+            comps.scheme = "wss"
+        case "http":
+            comps.scheme = "ws"
+        default:
+            return nil
+        }
+        comps.queryItems = [URLQueryItem(name: "token", value: token)]
+        return comps.url
+    }
+
     enum Auth {
         static let login = "api/auth/login"
         static let register = "api/auth/register"
