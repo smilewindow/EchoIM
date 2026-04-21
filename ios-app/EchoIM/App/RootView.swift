@@ -10,6 +10,7 @@ struct RootView: View {
     }()
 
     @State private var showRegister = false
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         Group {
@@ -19,6 +20,7 @@ struct RootView: View {
                     showRegister = false
                 }
                 .task {
+                    container.connectWebSocketIfNeeded()
                     await container.refreshCurrentUser()
                 }
             } else if showRegister {
@@ -33,6 +35,21 @@ struct RootView: View {
         }
         .animation(.default, value: container.currentUser?.id)
         .animation(.default, value: showRegister)
+        .onChange(of: scenePhase) { _, newPhase in
+            guard container.currentUser != nil else { return }
+            switch newPhase {
+            case .active:
+                container.connectWebSocketIfNeeded()
+                container.wsClient?.connectIfNeeded()
+            case .background:
+                container.wsClient?.disconnect(reason: .userInitiated)
+            case .inactive:
+                // 通知中心 / 锁屏瞬间等过渡态，保持当前连接状态。
+                break
+            @unknown default:
+                break
+            }
+        }
     }
 
     private func makeLoginViewModel() -> LoginViewModel {

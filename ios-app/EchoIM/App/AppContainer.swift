@@ -72,11 +72,14 @@ final class AppContainer {
             displayName: nil,
             avatarUrl: nil
         )
-        ensureWSClient()
     }
 
     func handleLoginSuccess(_ response: AuthResponse) {
         currentUser = response.user
+        ensureWSClient()
+    }
+
+    func connectWebSocketIfNeeded() {
         ensureWSClient()
     }
 
