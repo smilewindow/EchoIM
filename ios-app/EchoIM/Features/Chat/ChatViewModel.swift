@@ -109,6 +109,83 @@ final class ChatViewModel {
         }
     }
 
+    // MARK: - Send
+
+    func sendText(_ body: String) async {
+        let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        guard let token = tokenProvider() else { return }
+
+        let tempId = makeTempId()
+        let optimistic = Message(
+            id: -Int.random(in: 1...Int.max),
+            conversationId: conversationId ?? -1,
+            senderId: currentUserId,
+            body: trimmed,
+            messageType: "text",
+            mediaUrl: nil,
+            createdAt: Date(),
+            clientTempId: tempId
+        )
+        messages.append(
+            LocalMessage(
+                localId: tempId,
+                message: optimistic,
+                sendState: .pending,
+                localImageData: nil
+            )
+        )
+
+        await performSend(body: trimmed, tempId: tempId, token: token)
+    }
+
+    func retry(localId: String) async {
+        guard let index = messages.firstIndex(where: { $0.localId == localId }) else { return }
+        guard case .failed = messages[index].sendState else { return }
+        guard let body = messages[index].message.body else { return }
+        guard let token = tokenProvider() else { return }
+
+        messages[index].sendState = .pending
+        await performSend(body: body, tempId: localId, token: token)
+    }
+
+    private func performSend(body: String, tempId: String, token: String) async {
+        do {
+            let result = try await messageRepo.sendText(
+                recipientId: peer.id,
+                body: body,
+                clientTempId: tempId,
+                token: token
+            )
+            mergeServerResult(result, tempId: tempId)
+        } catch {
+            markFailed(tempId: tempId, error: error)
+        }
+    }
+
+    /// REST 201 与后续 WS echo 都按 clientTempId 走同一条合并路径。
+    fileprivate func mergeServerResult(_ message: Message, tempId: String) {
+        if conversationId == nil {
+            conversationId = message.conversationId
+        }
+
+        if let index = messages.firstIndex(where: { $0.localId == tempId }) {
+            messages[index] = LocalMessage(
+                localId: "id-\(message.id)",
+                message: message,
+                sendState: .confirmed,
+                localImageData: messages[index].localImageData
+            )
+        } else if !messages.contains(where: { $0.message.id == message.id }) {
+            messages.append(LocalMessage.confirmed(message))
+        }
+    }
+
+    private func markFailed(tempId: String, error: Error) {
+        guard let index = messages.firstIndex(where: { $0.localId == tempId }) else { return }
+        messages[index].sendState = .failed(String(describing: error))
+    }
+
     // MARK: - Tempid helper（Task 9/10 会用）
 
     fileprivate func makeTempId() -> String {
