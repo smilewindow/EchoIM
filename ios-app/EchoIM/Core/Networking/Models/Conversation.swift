@@ -2,7 +2,7 @@ import Foundation
 
 /// 一对一会话。服务端返回的是扁平 peer_* 字段，这里统一聚合成 UserProfile，
 /// 这样 ViewModel 和视图层只面对稳定的嵌套结构。
-struct Conversation: Identifiable, Equatable, Sendable {
+struct Conversation: Identifiable, Equatable, Sendable, Hashable {
     let id: Int
     let createdAt: Date
     let peer: UserProfile
