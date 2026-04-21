@@ -3644,13 +3644,28 @@ git commit -m "feat(ios): wire WS events and ready refresh into conversations li
 
 **Files:**
 - Create: `ios-app/EchoIMUITests/ChatSmokeTests.swift`
+- Modify: `ios-app/EchoIM/Features/Chat/ChatView.swift`（为 UI smoke 暴露稳定 accessibility identifiers）
 - Modify: `ios-app/README.md`
 
 **动机：** 一个最低限度的端到端 smoke——登录 → 会话列表（需有一条 A↔B 的会话）→ 点进 → 输入一条文字 → 点发送 → 列表预览更新。用于防止 P4+ 改动把 P3 路径打坏。
 
-**前提**：后端 + 测试账号 A（`smoke@test.local` / `password123`）且 A 与某个 B 用户已互为好友且已有至少一条历史消息。如果本地环境没有，新注册一个 `smoke2@test.local` 账号互加并发一条，然后回到 A 账号跑 smoke。
+**前提**：后端 + 测试账号 A（`smoke@test.local` / `password123`）且 A 与某个 B 用户已互为好友且已有至少一条历史消息。如果本地环境没有，新注册一个 `smoke2@test.local` 账号互加并发一条，然后回到 A 账号跑 smoke；或在本地开发 DB 里给 `smoke@test.local` seed 一条 accepted friend + conversation + message。CI 环境要固定准备这条 seed 数据。
 
-- [ ] **Step 1：写 ChatSmokeTests**
+- [ ] **Step 1：给 ChatView 输入框和发送按钮加稳定 UI 测试标识**
+
+编辑 `ios-app/EchoIM/Features/Chat/ChatView.swift`，在输入框和发送按钮上追加：
+
+```swift
+.accessibilityIdentifier("chatInput")
+```
+
+```swift
+.accessibilityIdentifier("chatSend")
+```
+
+**注意**：`TextField(..., axis: .vertical)` 在 XCUITest 里可能暴露为 `TextView` 而不是普通 `TextField`，所以 smoke 里不要用 `app.textFields["chatInput"]` 定位。
+
+- [ ] **Step 2：写 ChatSmokeTests**
 
 `ios-app/EchoIMUITests/ChatSmokeTests.swift`：
 
@@ -3671,9 +3686,14 @@ final class ChatSmokeTests: XCTestCase {
         // 登录
         let email = app.textFields["loginEmail"]
         XCTAssertTrue(email.waitForExistence(timeout: 5))
-        email.tap(); email.typeText("smoke@test.local")
+        email.tap()
+        email.typeText("smoke@test.local")
+
         let password = app.secureTextFields["loginPassword"]
-        password.tap(); password.typeText("password123")
+        XCTAssertTrue(password.waitForExistence(timeout: 5))
+        password.tap()
+        password.typeText("password123")
+
         app.buttons["loginSubmit"].tap()
 
         // 落在聊天 tab
@@ -3688,10 +3708,11 @@ final class ChatSmokeTests: XCTestCase {
         XCTAssertTrue(firstRow.waitForExistence(timeout: 5))
         firstRow.tap()
 
-        // ChatView 出现
-        let input = app.textFields["chatInput"]
+        // ChatView 出现。vertical TextField 在 XCTest 里可能是 TextView，所以用 any descendants。
+        let input = app.descendants(matching: .any)["chatInput"]
         XCTAssertTrue(input.waitForExistence(timeout: 5))
         input.tap()
+
         let msg = "smoke-\(Int(Date().timeIntervalSince1970))"
         input.typeText(msg)
         app.buttons["chatSend"].tap()
@@ -3706,7 +3727,7 @@ final class ChatSmokeTests: XCTestCase {
 }
 ```
 
-- [ ] **Step 2：跑 smoke**
+- [ ] **Step 3：跑 smoke**
 
 后端需在跑；数据库需有至少 smoke@test.local 与另一账号之间的 conversation：
 
@@ -3718,7 +3739,7 @@ $UITEST
 
 **如果 `firstRow.tap()` 因为 List 的 cell identifier 不稳定找不到**：fallback 查找方式是通过 peer 名字的 staticText。本 smoke 最易碎的是"List 会话一定存在"的前提；CI 环境要专门准备这条 seed 数据。
 
-- [ ] **Step 3：更新 README**
+- [ ] **Step 4：更新 README**
 
 编辑 `ios-app/README.md` 的 `## Status` 块：
 
@@ -3730,7 +3751,7 @@ $UITEST
 - P4-P8 tracked in `docs/superpowers/specs/2026-04-17-ios-app-design.md` §8.
 ```
 
-- [ ] **Step 4：全量跑一轮**
+- [ ] **Step 5：全量跑一轮**
 
 ```bash
 $BUILD
@@ -3740,16 +3761,18 @@ $UITEST
 
 三项全绿。
 
-- [ ] **Step 5：最终提交**
+- [ ] **Step 6：最终提交**
 
 ```bash
-git add ios-app/EchoIMUITests/ChatSmokeTests.swift ios-app/README.md
-git commit -m "test(ios): add chat send smoke and note P3 completion in README"
+git add ios-app/EchoIMUITests/ChatSmokeTests.swift \
+        ios-app/EchoIM/Features/Chat/ChatView.swift \
+        ios-app/README.md
+git commit -m "test(ios): add chat send smoke and note P3 completion"
 ```
 
 ---
 
-## 模拟器联调清单（P3 全流程验收，跑完四项 task 之后必做）
+## 模拟器联调清单（P3 全流程验收，跑完 14 项 task 之后必做）
 
 后端 + 两个账号 A、B 互为好友。真机或模拟器各开一个登录 A、一个登录 B（或用 Web 客户端扮演 B）。
 
