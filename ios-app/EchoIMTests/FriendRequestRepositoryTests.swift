@@ -135,7 +135,7 @@ struct FriendRequestRepositoryTests {
     }
 }
 
-private extension Data {
+extension Data {
     init(reading input: InputStream) {
         self.init()
         input.open()

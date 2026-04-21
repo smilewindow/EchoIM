@@ -59,5 +59,19 @@ enum Endpoints {
 
     enum Conversations {
         static let list = "api/conversations"
+
+        /// GET /api/conversations/:id/messages?before|after=...
+        static func messages(conversationId: Int) -> String {
+            "api/conversations/\(conversationId)/messages"
+        }
+
+        /// PUT /api/conversations/:id/read
+        static func read(conversationId: Int) -> String {
+            "api/conversations/\(conversationId)/read"
+        }
+    }
+
+    enum Messages {
+        static let base = "api/messages"
     }
 }
