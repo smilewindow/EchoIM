@@ -27,6 +27,8 @@ struct ChatViewModelSendTests {
             }
             return try sendResult.get()
         }
+
+        func markRead(conversationId: Int, lastReadMessageId: Int, token: String) async throws {}
     }
 
     private let peer = UserProfile(id: 9, username: "alice", displayName: nil, avatarUrl: nil)

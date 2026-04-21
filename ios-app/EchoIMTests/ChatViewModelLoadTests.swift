@@ -22,6 +22,8 @@ struct ChatViewModelLoadTests {
         ) async throws -> Message {
             throw APIError.invalidResponse
         }
+
+        func markRead(conversationId: Int, lastReadMessageId: Int, token: String) async throws {}
     }
 
     private func makeMessage(id: Int, body: String) -> Message {

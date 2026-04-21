@@ -36,6 +36,8 @@ struct ChatViewModelWSTests {
                 clientTempId: clientTempId
             )
         }
+
+        func markRead(conversationId: Int, lastReadMessageId: Int, token: String) async throws {}
     }
 
     private func msg(

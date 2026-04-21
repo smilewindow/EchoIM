@@ -106,4 +106,27 @@ struct MessageRepositoryTests {
         #expect(result.id == 500)
         #expect(result.clientTempId == "pending-1")
     }
+
+    @Test func markReadPutsSnakeCaseBody() async throws {
+        var capturedMethod: String?
+        var capturedPath: String?
+        var capturedBody: Data?
+        let (config, _) = MockURLProtocol.configure { req in
+            capturedMethod = req.httpMethod
+            capturedPath = req.url?.path
+            if let stream = req.httpBodyStream { capturedBody = Data(reading: stream) }
+            else { capturedBody = req.httpBody }
+            return (
+                HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
+                "{\"last_read_message_id\":200}".data(using: .utf8)!
+            )
+        }
+        let repo = MessageRepositoryImpl(api: APIClient(session: URLSession(configuration: config)))
+        try await repo.markRead(conversationId: 5, lastReadMessageId: 200, token: "jwt")
+
+        #expect(capturedMethod == "PUT")
+        #expect(capturedPath == "/api/conversations/5/read")
+        let dict = try JSONSerialization.jsonObject(with: capturedBody ?? Data()) as? [String: Any]
+        #expect(dict?["last_read_message_id"] as? Int == 200)
+    }
 }

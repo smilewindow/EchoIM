@@ -12,6 +12,7 @@ protocol MessageRepository {
     /// .after → 更新 50 条（ASC）
     func list(conversationId: Int, cursor: MessageCursor?, token: String) async throws -> [Message]
     func sendText(recipientId: Int, body: String, clientTempId: String, token: String) async throws -> Message
+    func markRead(conversationId: Int, lastReadMessageId: Int, token: String) async throws
 }
 
 private struct SendTextBody: Encodable {
@@ -23,6 +24,14 @@ private struct SendTextBody: Encodable {
         case recipientId = "recipient_id"
         case body
         case clientTempId = "client_temp_id"
+    }
+}
+
+private struct MarkReadBody: Encodable {
+    let lastReadMessageId: Int
+
+    enum CodingKeys: String, CodingKey {
+        case lastReadMessageId = "last_read_message_id"
     }
 }
 
@@ -60,6 +69,15 @@ final class MessageRepositoryImpl: MessageRepository {
             method: "POST",
             token: token,
             body: SendTextBody(recipientId: recipientId, body: body, clientTempId: clientTempId)
+        )
+    }
+
+    func markRead(conversationId: Int, lastReadMessageId: Int, token: String) async throws {
+        let _: EmptyResponse = try await api.request(
+            Endpoints.Conversations.read(conversationId: conversationId),
+            method: "PUT",
+            token: token,
+            body: MarkReadBody(lastReadMessageId: lastReadMessageId)
         )
     }
 }

@@ -90,6 +90,7 @@ final class ChatViewModel {
             messages = rows.reversed().map(LocalMessage.confirmed)
             hasMoreOlder = rows.count == 50
             phase = .loaded
+            await markReadIfNeeded()
         } catch {
             phase = .error(String(describing: error))
         }
@@ -194,6 +195,33 @@ final class ChatViewModel {
         messages[index].sendState = .failed(String(describing: error))
     }
 
+    // MARK: - Mark read
+
+    func markReadIfNeeded() async {
+        guard let conversationId else { return }
+        guard let token = tokenProvider() else { return }
+
+        let latest = messages.reduce(into: 0) { result, localMessage in
+            if case .confirmed = localMessage.sendState {
+                result = max(result, localMessage.message.id)
+            }
+        }
+        guard latest > 0 else { return }
+        guard latest > (lastReadMessageId ?? 0) else { return }
+
+        do {
+            try await messageRepo.markRead(
+                conversationId: conversationId,
+                lastReadMessageId: latest,
+                token: token
+            )
+            // 服务端也会通过 conversation.updated 推进；本地先乐观推进，避免重复 PUT。
+            lastReadMessageId = latest
+        } catch {
+            // 静默失败；下一次进入页面或收到新消息时重试。
+        }
+    }
+
     // MARK: - WS
 
     func attachWSSubscription() {
@@ -243,6 +271,12 @@ final class ChatViewModel {
 
         guard !messages.contains(where: { $0.message.id == incoming.id }) else { return }
         messages.append(.confirmed(incoming))
+
+        if incoming.senderId != currentUserId {
+            Task { [weak self] in
+                await self?.markReadIfNeeded()
+            }
+        }
     }
 
     private func handleConversationUpdated(_ payload: ConversationUpdatedPayload) {
