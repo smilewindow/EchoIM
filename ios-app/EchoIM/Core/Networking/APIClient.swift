@@ -1,16 +1,5 @@
 import Foundation
 
-struct Message: Codable, Identifiable, Equatable {
-    let id: Int
-    let conversationId: Int
-    let senderId: Int
-    let body: String?
-    let messageType: String
-    let mediaUrl: String?
-    let createdAt: Date
-    let clientTempId: String?
-}
-
 struct AuthenticatedUser: Codable, Equatable {
     let id: Int
     let username: String
