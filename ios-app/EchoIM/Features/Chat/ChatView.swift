@@ -99,6 +99,7 @@ struct ChatView: View {
                 .textFieldStyle(.roundedBorder)
                 .lineLimit(1...5)
                 .submitLabel(.send)
+                .accessibilityIdentifier("chatInput")
 
             Button {
                 let text = draft
@@ -114,6 +115,7 @@ struct ChatView: View {
             .controlSize(.large)
             .disabled(!canSend)
             .accessibilityLabel("发送")
+            .accessibilityIdentifier("chatSend")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
