@@ -1,4 +1,5 @@
 import Foundation
+import Network
 import Observation
 
 /// WS 生命周期状态机。设计文档 §7.4。
@@ -62,6 +63,20 @@ final class WebSocketClient: NSObject {
     // MARK: - Reconnect
 
     private var reconnectTimer: Task<Void, Never>?
+
+    // MARK: - Heartbeat
+
+    private var heartbeatTask: Task<Void, Never>?
+    private var pendingPongContinuation: CheckedContinuation<Void, Error>?
+    private var pendingPongID: UUID?
+    private let heartbeatInterval: TimeInterval = 30.0
+    private let pongTimeout: TimeInterval = 10.0
+
+    // MARK: - Network monitor
+
+    private let pathMonitor = NWPathMonitor()
+    private var networkMonitorStarted = false
+
     private var shouldReconnect = false
 
     init(
@@ -72,6 +87,7 @@ final class WebSocketClient: NSObject {
         self.onUnauthorized = onUnauthorized
         self.reconnectPolicy = ReconnectPolicy()
         super.init()
+        startNetworkMonitorIfNeeded()
     }
 
     init(
@@ -83,6 +99,7 @@ final class WebSocketClient: NSObject {
         self.onUnauthorized = onUnauthorized
         self.reconnectPolicy = reconnectPolicy
         super.init()
+        startNetworkMonitorIfNeeded()
     }
 
     // MARK: - Public lifecycle
@@ -155,10 +172,98 @@ final class WebSocketClient: NSObject {
     }
 
     private func closeTaskLocally() {
+        stopHeartbeat()
+        if let continuation = pendingPongContinuation {
+            pendingPongContinuation = nil
+            pendingPongID = nil
+            continuation.resume(throwing: CancellationError())
+        }
         task?.cancel(with: .normalClosure, reason: nil)
         task = nil
         urlSession?.invalidateAndCancel()
         urlSession = nil
+    }
+
+    private func startHeartbeat() {
+        stopHeartbeat()
+        heartbeatTask = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+                try? await Task.sleep(nanoseconds: UInt64(self.heartbeatInterval * 1_000_000_000))
+                if Task.isCancelled { return }
+                await self.sendPingWithTimeout()
+            }
+        }
+    }
+
+    private func stopHeartbeat() {
+        heartbeatTask?.cancel()
+        heartbeatTask = nil
+    }
+
+    private func sendPingWithTimeout() async {
+        guard let task, case .ready = state, pendingPongContinuation == nil else { return }
+
+        do {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                let pongID = UUID()
+                self.pendingPongContinuation = continuation
+                self.pendingPongID = pongID
+
+                DispatchQueue.main.asyncAfter(deadline: .now() + self.pongTimeout) { [weak self] in
+                    Task { @MainActor in
+                        guard let self,
+                              self.pendingPongID == pongID,
+                              let continuation = self.pendingPongContinuation else { return }
+                        self.pendingPongContinuation = nil
+                        self.pendingPongID = nil
+                        continuation.resume(throwing: URLError(.timedOut))
+                    }
+                }
+
+                task.sendPing { [weak self] error in
+                    Task { @MainActor in
+                        guard let self,
+                              self.pendingPongID == pongID,
+                              let continuation = self.pendingPongContinuation else { return }
+                        self.pendingPongContinuation = nil
+                        self.pendingPongID = nil
+                        if let error {
+                            continuation.resume(throwing: error)
+                        } else {
+                            continuation.resume()
+                        }
+                    }
+                }
+            }
+        } catch {
+            scheduleReconnect()
+        }
+    }
+
+    private func startNetworkMonitorIfNeeded() {
+        guard !networkMonitorStarted else { return }
+        networkMonitorStarted = true
+
+        pathMonitor.pathUpdateHandler = { [weak self] path in
+            Task { @MainActor in
+                guard let self else { return }
+                if path.status == .satisfied {
+                    // 网络恢复时只唤醒重连态；主动断开的状态不能被偷偷拉起。
+                    switch self.state {
+                    case .reconnecting where self.shouldReconnect:
+                        self.reconnectTimer?.cancel()
+                        self.reconnectTimer = nil
+                        self.reconnectPolicy.reset()
+                        self.openSocket()
+                    default:
+                        break
+                    }
+                }
+                // 网络断开交给 URLSession delegate 收敛，避免主动 close 制造重复状态变化。
+            }
+        }
+        pathMonitor.start(queue: DispatchQueue(label: "WebSocketClient.path"))
     }
 
     private func scheduleReconnect() {
@@ -218,6 +323,7 @@ final class WebSocketClient: NSObject {
             if case .handshaking = state {
                 state = .ready
                 reconnectPolicy.reset()
+                startHeartbeat()
                 for handler in Array(readyHandlers.values) {
                     handler()
                 }
