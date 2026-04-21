@@ -6,7 +6,7 @@ struct ConversationsListView: View {
     private let messageRepo: MessageRepository
     private let wsClient: WebSocketClient?
     private let currentUserId: Int
-    private let tokenProvider: () -> String?
+    private let tokenProvider: @MainActor () -> String?
 
     /// VM 由列表页自己持有，避免 MainTabView 因容器状态变化重算时重复创建。
     init(
@@ -14,12 +14,14 @@ struct ConversationsListView: View {
         messageRepo: MessageRepository,
         wsClient: WebSocketClient?,
         currentUserId: Int,
-        tokenProvider: @escaping () -> String?
+        tokenProvider: @escaping @MainActor () -> String?
     ) {
         _vm = State(
             wrappedValue: ConversationsListViewModel(
                 repository: repository,
-                tokenProvider: tokenProvider
+                tokenProvider: tokenProvider,
+                currentUserId: { currentUserId },
+                wsClient: wsClient
             )
         )
         self.conversationRepo = repository
@@ -37,7 +39,11 @@ struct ConversationsListView: View {
                     await vm.refresh()
                 }
                 .task {
+                    vm.attachWSSubscription()
                     await vm.load()
+                }
+                .onDisappear {
+                    vm.detachWSSubscription()
                 }
                 .navigationDestination(for: ChatRoute.self) { route in
                     destination(for: route)
