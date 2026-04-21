@@ -22,7 +22,7 @@
 动工前确认：
 - Xcode 26+ 已安装且能打开 `ios-app/EchoIM.xcodeproj`
 - 后端能在本机跑（`docker compose up` 或 `npm --prefix server run dev`）；默认 `http://localhost:3000`
-- 模拟器选择 iPhone 17（或任意 iOS 17+ 设备），**不要**选 iPad
+- 模拟器选择 iPhone 15（或任意 iOS 17+ 设备），**不要**选 iPad
 - 已有至少一个测试用户（可用 `POST /api/auth/register` 提前建）
 
 **约定命令**（后文直接引用）：
@@ -31,19 +31,19 @@
 # 编译（Debug）
 xcodebuild -project ios-app/EchoIM.xcodeproj \
   -scheme EchoIM \
-  -destination 'platform=iOS Simulator,name=iPhone 17' \
+  -destination 'platform=iOS Simulator,name=iPhone 15' \
   -configuration Debug build
 
 # 单测
 xcodebuild -project ios-app/EchoIM.xcodeproj \
   -scheme EchoIM \
-  -destination 'platform=iOS Simulator,name=iPhone 17' \
+  -destination 'platform=iOS Simulator,name=iPhone 15' \
   test
 
 # UI 测
 xcodebuild -project ios-app/EchoIM.xcodeproj \
   -scheme EchoIM \
-  -destination 'platform=iOS Simulator,name=iPhone 17' \
+  -destination 'platform=iOS Simulator,name=iPhone 15' \
   -only-testing:EchoIMUITests test
 ```
 
@@ -2221,14 +2221,14 @@ git commit -m "test(ios): add login smoke UI test"
 - Backend running at `http://localhost:3000` (see root `docker compose up`)
 
 ## Run
-Open `EchoIM.xcodeproj`, choose iPhone 17 simulator, Cmd+R.
+Open `EchoIM.xcodeproj`, choose iPhone 15 simulator, Cmd+R.
 
 To point at a different backend, set `EchoIMBaseURL` in Info.plist (e.g. `http://192.168.1.10:3000`).
 
 ## Test
 ```
 xcodebuild -project EchoIM.xcodeproj -scheme EchoIM \
-  -destination 'platform=iOS Simulator,name=iPhone 17' test
+  -destination 'platform=iOS Simulator,name=iPhone 15' test
 ```
 
 UI smoke tests require backend running + a seeded account `smoke@test.local / password123`.

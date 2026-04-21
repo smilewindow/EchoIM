@@ -35,19 +35,19 @@
 # 编译（Debug）
 xcodebuild -project ios-app/EchoIM.xcodeproj \
   -scheme EchoIM \
-  -destination 'platform=iOS Simulator,name=iPhone 17' \
+  -destination 'platform=iOS Simulator,name=iPhone 15' \
   -configuration Debug build
 
 # 单测
 xcodebuild -project ios-app/EchoIM.xcodeproj \
   -scheme EchoIM \
-  -destination 'platform=iOS Simulator,name=iPhone 17' \
+  -destination 'platform=iOS Simulator,name=iPhone 15' \
   test -only-testing:EchoIMTests
 
 # UI 测
 xcodebuild -project ios-app/EchoIM.xcodeproj \
   -scheme EchoIM \
-  -destination 'platform=iOS Simulator,name=iPhone 17' \
+  -destination 'platform=iOS Simulator,name=iPhone 15' \
   test -only-testing:EchoIMUITests
 ```
 
@@ -3139,15 +3139,15 @@ git commit -m "test(ios): add tab navigation smoke test"
 
 两处改动（**都必须改**，不要只改 Status）：
 
-1. 对齐测试命令里的模拟器目标。当前 README 的 `## Test` 块还是 P1 初稿时代的 `iPhone 17,OS=26.0`，与设计文档要求的 iOS 17+ 前提 + 本计划统一用的 `iPhone 15` 脱节，会误导后续执行者。
+1. 对齐测试命令里的模拟器目标。当前 README 的 `## Test` 块还是 P1 初稿时代的旧模拟器目标，与设计文档要求的 iOS 17+ 前提 + 本计划统一用的 `iPhone 15` 脱节，会误导后续执行者。
 
-当前开发机实际可用并已验证通过的是 `iPhone 17`，同时去掉显式 `OS=26.0`，避免 Xcode / Simulator 小版本变化造成命令脆弱。
+当前开发机实际可用并已验证通过的是 `iPhone 15`，同时去掉显式 `OS=26.0`，避免 Xcode / Simulator 小版本变化造成命令脆弱。
 
 把 `ios-app/README.md` 的 `## Test` 块的 xcodebuild 命令改成：
 
 ```bash
 xcodebuild -project EchoIM.xcodeproj -scheme EchoIM \
-  -destination 'platform=iOS Simulator,name=iPhone 17' test
+  -destination 'platform=iOS Simulator,name=iPhone 15' test
 ```
 
 2. 更新 `## Status` 块为：
