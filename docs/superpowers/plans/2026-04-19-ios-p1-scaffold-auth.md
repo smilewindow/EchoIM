@@ -31,19 +31,19 @@
 # 编译（Debug）
 xcodebuild -project ios-app/EchoIM.xcodeproj \
   -scheme EchoIM \
-  -destination 'platform=iOS Simulator,name=iPhone 15' \
+  -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5,arch=arm64' \
   -configuration Debug build
 
 # 单测
 xcodebuild -project ios-app/EchoIM.xcodeproj \
   -scheme EchoIM \
-  -destination 'platform=iOS Simulator,name=iPhone 15' \
+  -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5,arch=arm64' \
   test
 
 # UI 测
 xcodebuild -project ios-app/EchoIM.xcodeproj \
   -scheme EchoIM \
-  -destination 'platform=iOS Simulator,name=iPhone 15' \
+  -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5,arch=arm64' \
   -only-testing:EchoIMUITests test
 ```
 
@@ -2228,7 +2228,7 @@ To point at a different backend, set `EchoIMBaseURL` in Info.plist (e.g. `http:/
 ## Test
 ```
 xcodebuild -project EchoIM.xcodeproj -scheme EchoIM \
-  -destination 'platform=iOS Simulator,name=iPhone 15' test
+  -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5,arch=arm64' test
 ```
 
 UI smoke tests require backend running + a seeded account `smoke@test.local / password123`.

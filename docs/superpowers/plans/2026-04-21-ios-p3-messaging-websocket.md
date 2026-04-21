@@ -39,19 +39,19 @@
 # 编译（Debug）
 xcodebuild -project ios-app/EchoIM.xcodeproj \
   -scheme EchoIM \
-  -destination 'platform=iOS Simulator,name=iPhone 15' \
+  -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5,arch=arm64' \
   -configuration Debug build
 
 # 单测
 xcodebuild -project ios-app/EchoIM.xcodeproj \
   -scheme EchoIM \
-  -destination 'platform=iOS Simulator,name=iPhone 15' \
+  -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5,arch=arm64' \
   test -only-testing:EchoIMTests
 
 # UI 测
 xcodebuild -project ios-app/EchoIM.xcodeproj \
   -scheme EchoIM \
-  -destination 'platform=iOS Simulator,name=iPhone 15' \
+  -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5,arch=arm64' \
   test -only-testing:EchoIMUITests
 ```
 
