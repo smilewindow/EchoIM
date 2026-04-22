@@ -24,6 +24,7 @@ npm-debug.log*
 .vscode/
 .idea/
 .claude/
+.agents/
 
 # Docker
 postgres-data/
