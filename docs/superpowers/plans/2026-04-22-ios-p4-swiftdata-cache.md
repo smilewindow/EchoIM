@@ -2961,7 +2961,7 @@ git commit -m "feat(ios): loadOlder reads local cache first, supplements missing
 - Modify: `ios-app/EchoIM/Features/Me/MeView.swift:36-50`
 - Create: `ios-app/EchoIMUITests/ClearCacheSmokeTests.swift`
 
-- [ ] **Step 1：改 MeView 加按钮**
+- [x] **Step 1：改 MeView 加按钮**
 
 在登出按钮之前插入一个新 `Section`：
 
@@ -3021,7 +3021,7 @@ struct MeView: View {
 
 （`container.clearChatCache()` 已在 Task 7 实现。）
 
-- [ ] **Step 2：编译**
+- [x] **Step 2：编译**
 
 ```bash
 $BUILD
@@ -3029,7 +3029,17 @@ $BUILD
 
 预期：编译通过。
 
-- [ ] **Step 3：UI smoke**
+执行结果：
+
+```bash
+xcodebuild -project ios-app/EchoIM.xcodeproj -scheme EchoIM \
+  -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5,arch=arm64' \
+  build
+```
+
+结果：`BUILD SUCCEEDED`。
+
+- [x] **Step 3：UI smoke**
 
 创建 `ios-app/EchoIMUITests/ClearCacheSmokeTests.swift`：
 
@@ -3076,7 +3086,9 @@ final class ClearCacheSmokeTests: XCTestCase {
 }
 ```
 
-- [ ] **Step 4：跑 smoke**
+实现对齐：UI smoke 里普通 `meTab.tap()` 在当前模拟器上没有稳定切到 Me 页（失败层级仍显示“聊天”tab selected），因此改为中心坐标点击，并在查找 `meClearCache` 前先等待 `homeUsername`，确保页面已经切换完成。
+
+- [x] **Step 4：跑 smoke**
 
 ```bash
 $UITEST -only-testing:EchoIMUITests/ClearCacheSmokeTests
@@ -3084,13 +3096,25 @@ $UITEST -only-testing:EchoIMUITests/ClearCacheSmokeTests
 
 预期：绿。
 
-- [ ] **Step 5：提交**
+执行结果：
+
+```bash
+xcodebuild -project ios-app/EchoIM.xcodeproj -scheme EchoIM \
+  -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5,arch=arm64' \
+  test -only-testing:EchoIMUITests/ClearCacheSmokeTests
+```
+
+第一次运行失败在 `meClearCache` 查找，原因是 UI test 的普通 tab `tap()` 未切页；修正 smoke 后重跑 `TEST SUCCEEDED`。
+
+- [x] **Step 5：提交**
 
 ```bash
 git add ios-app/EchoIM/Features/Me/MeView.swift \
         ios-app/EchoIMUITests/ClearCacheSmokeTests.swift
 git commit -m "feat(ios): Me tab clear-chat-cache button with confirm dialog"
 ```
+
+执行结果：实现提交为 `f64e7ff feat(ios): Me tab clear-chat-cache button with confirm dialog`。
 
 ---
 
