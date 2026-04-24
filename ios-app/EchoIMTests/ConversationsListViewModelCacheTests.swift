@@ -56,15 +56,47 @@ struct ConversationsListViewModelCacheTests {
             )
         )
 
-        final class DelayedRepo: ConversationRepository {
+        actor BlockingRepo: ConversationRepository {
+            private var started = false
+            private var startWaiters: [CheckedContinuation<Void, Never>] = []
+            private var releaseWaiter: CheckedContinuation<Void, Never>?
+            private var released = false
+
             func list(token: String) async throws -> [Conversation] {
-                try await Task.sleep(nanoseconds: 200_000_000)
+                started = true
+                startWaiters.forEach { $0.resume() }
+                startWaiters.removeAll()
+
+                await withCheckedContinuation { continuation in
+                    if released {
+                        continuation.resume()
+                    } else {
+                        releaseWaiter = continuation
+                    }
+                }
                 return []
+            }
+
+            func waitUntilStarted() async {
+                if started {
+                    return
+                }
+
+                await withCheckedContinuation { continuation in
+                    startWaiters.append(continuation)
+                }
+            }
+
+            func release() {
+                released = true
+                releaseWaiter?.resume()
+                releaseWaiter = nil
             }
         }
 
+        let repo = BlockingRepo()
         let vm = ConversationsListViewModel(
-            repository: DelayedRepo(),
+            repository: repo,
             metaStore: metaStore,
             tokenProvider: { "t" },
             currentUserId: { 10 }
@@ -72,11 +104,12 @@ struct ConversationsListViewModelCacheTests {
 
         async let loading: Void = vm.load()
 
-        try await Task.sleep(nanoseconds: 50_000_000)
+        await repo.waitUntilStarted()
         #expect(vm.conversations.count == 1)
         #expect(vm.conversations.first?.lastMessageBody == "cached")
         #expect(vm.conversations.first?.peer.username == "peer99")
 
+        await repo.release()
         await loading
         #expect(vm.conversations.isEmpty)
     }
