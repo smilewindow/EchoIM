@@ -292,7 +292,7 @@ git commit -m "feat(server): add ?limit= query param to GET conversations messag
 - Modify: `ios-app/EchoIM/Features/Chat/MessageRepository.swift:9-59`
 - Modify: `ios-app/EchoIMTests/MessageRepositoryTests.swift`
 
-- [ ] **Step 1：先写失败的测试**
+- [x] **Step 1：先写失败的测试**
 
 在 `ios-app/EchoIMTests/MessageRepositoryTests.swift` 末尾（最后一个 `}` 前，最后一个测试方法之后）追加一个新用例，校验 URL 拼装时 `limit` 正确放入 querystring：
 
@@ -317,7 +317,7 @@ func listAppendsLimitQueryParam() async throws {
 
 （如果 `MessageRepositoryTests` 里已有一个 `@Test func listBuildsCorrectURL` 之类的基础用例，参考它的 stub 风格追加本用例；`MockURLProtocol.stub` 与 `MockURLProtocol.makeSession()` 的 API 以 `ios-app/EchoIMTests/MockURLProtocol.swift` 里现有实现为准。）
 
-- [ ] **Step 2：跑失败的测试**
+- [x] **Step 2：跑失败的测试**
 
 ```bash
 $TEST -only-testing:EchoIMTests/MessageRepositoryTests
@@ -325,7 +325,9 @@ $TEST -only-testing:EchoIMTests/MessageRepositoryTests
 
 预期：编译失败——`list(conversationId:cursor:limit:token:)` 签名不存在。
 
-- [ ] **Step 3：给协议 + impl 加 `limit` 参数**
+执行结果：`xcodebuild ... test -only-testing:EchoIMTests/MessageRepositoryTests` 编译失败，报 `extra argument 'limit' in call`，符合预期。
+
+- [x] **Step 3：给协议 + impl 加 `limit` 参数**
 
 编辑 `ios-app/EchoIM/Features/Chat/MessageRepository.swift`：
 
@@ -374,7 +376,7 @@ final class MessageRepositoryImpl: MessageRepository {
 }
 ```
 
-- [ ] **Step 4：修所有 `list(conversationId:cursor:token:)` 调用处加 `limit:`**
+- [x] **Step 4：修所有 `list(conversationId:cursor:token:)` 调用处加 `limit:`**
 
 `ChatViewModel.swift` 里三处调用（`load`、`loadOlder`、`refetchMissedMessages`）先临时传 `limit: nil`——等 Task 11/12 再把 limit 真正用起来。这一步只保持编译通过：
 
@@ -399,7 +401,7 @@ grep -rn "list(conversationId:" ios-app/EchoIM ios-app/EchoIMTests | grep -v ".b
 
 把 mock 实现（例如 `class MockMessageRepository: MessageRepository { ... func list(...) }`）都加上 `limit: Int?` 参数；mock 内部可以忽略。
 
-- [ ] **Step 5：跑所有 iOS 单测**
+- [x] **Step 5：跑所有 iOS 单测**
 
 ```bash
 $TEST
@@ -407,7 +409,9 @@ $TEST
 
 预期：新 case 通过；所有 P3 遗留测试通过（因为 mock 签名和真实签名都对齐了）。
 
-- [ ] **Step 6：提交**
+执行结果：`xcodebuild ... test -only-testing:EchoIMTests/MessageRepositoryTests` 通过；`xcodebuild ... test -only-testing:EchoIMTests` 全量 iOS 单测通过。
+
+- [x] **Step 6：提交**
 
 ```bash
 git add ios-app/EchoIM/Features/Chat/MessageRepository.swift \
@@ -416,6 +420,8 @@ git add ios-app/EchoIM/Features/Chat/MessageRepository.swift \
         $(grep -rln "class Mock.*MessageRepository" ios-app/EchoIMTests)
 git commit -m "feat(ios): thread limit parameter through MessageRepository.list"
 ```
+
+执行结果：实现提交为 `f40e8a5 feat(ios): thread limit parameter through MessageRepository.list`。
 
 ---
 
