@@ -2670,7 +2670,7 @@ git commit -m "feat(ios): loop paginate refetchMissedMessages with 20-page safet
 - Modify: `ios-app/EchoIM/Features/Chat/ChatViewModel.swift:99-119`（`loadOlder` 方法）
 - Modify: `ios-app/EchoIMTests/ChatViewModelCacheTests.swift`（追加 2 用例）
 
-- [ ] **Step 1：先写失败的测试**
+- [x] **Step 1：先写失败的测试**
 
 在 `ChatViewModelCacheTests.swift` 末尾追加：
 
@@ -2829,7 +2829,7 @@ func loadOlderPartialCacheHitsSupplementsFromRemote() async throws {
 }
 ```
 
-- [ ] **Step 2：跑失败的测试**
+- [x] **Step 2：跑失败的测试**
 
 ```bash
 $TEST -only-testing:EchoIMTests/ChatViewModelCacheTests
@@ -2837,7 +2837,17 @@ $TEST -only-testing:EchoIMTests/ChatViewModelCacheTests
 
 预期：两个新用例都 FAIL——P3 `loadOlder` 不看缓存、也不会把 `limit` 透出为 `50 - cacheHits`。
 
-- [ ] **Step 3：改 `loadOlder`**
+执行结果：
+
+```bash
+xcodebuild -project ios-app/EchoIM.xcodeproj -scheme EchoIM \
+  -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5,arch=arm64' \
+  test -only-testing:EchoIMTests/ChatViewModelCacheTests
+```
+
+红灯结果：`loadOlderFullyServedByCacheSkipsNetwork()` 与 `loadOlderPartialCacheHitsSupplementsFromRemote()` failed；既有缓存用例 passed。
+
+- [x] **Step 3：改 `loadOlder`**
 
 ```swift
 /// §5.3 上滑段：本地优先 + 远端补缺。
@@ -2909,7 +2919,7 @@ func loadOlder() async {
 }
 ```
 
-- [ ] **Step 4：跑测试**
+- [x] **Step 4：跑测试**
 
 ```bash
 $TEST -only-testing:EchoIMTests/ChatViewModelCacheTests
@@ -2919,13 +2929,29 @@ $TEST -only-testing:EchoIMTests/ChatViewModelCacheTests
 
 如果 P3 里的 mock repo 没 expect `limit` 字段，加一个 wildcard（`_ limit:`）就行。
 
-- [ ] **Step 5：提交**
+执行结果：
+
+```bash
+xcodebuild -project ios-app/EchoIM.xcodeproj -scheme EchoIM \
+  -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5,arch=arm64' \
+  test -only-testing:EchoIMTests/ChatViewModelCacheTests
+
+xcodebuild -project ios-app/EchoIM.xcodeproj -scheme EchoIM \
+  -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5,arch=arm64' \
+  test -only-testing:EchoIMTests/ChatViewModelLoadTests
+```
+
+两组测试均 `TEST SUCCEEDED`。实现按 `pageSize=50` 先读本地旧消息；本地够 50 条时零网络；本地不足时用 `ConversationMetaStore.oldestCachedMessageId` 作为远端 before 游标，并把 `limit` 收窄为缺口数量。
+
+- [x] **Step 5：提交**
 
 ```bash
 git add ios-app/EchoIM/Features/Chat/ChatViewModel.swift \
         ios-app/EchoIMTests/ChatViewModelCacheTests.swift
 git commit -m "feat(ios): loadOlder reads local cache first, supplements missing count from remote"
 ```
+
+执行结果：实现提交为 `e58540d feat(ios): loadOlder reads local cache first, supplements missing count from remote`。
 
 ---
 
