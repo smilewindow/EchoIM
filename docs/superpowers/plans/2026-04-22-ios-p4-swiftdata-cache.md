@@ -1051,7 +1051,7 @@ git commit -m "feat(ios): add ConversationMetaStore @ModelActor"
 - Create: `ios-app/EchoIM/App/UserSession.swift`
 - Create: `ios-app/EchoIMTests/UserSessionTests.swift`
 
-- [ ] **Step 1：先写失败的测试**
+- [x] **Step 1：先写失败的测试**
 
 创建 `ios-app/EchoIMTests/UserSessionTests.swift`：
 
@@ -1128,7 +1128,7 @@ struct UserSessionTests {
 }
 ```
 
-- [ ] **Step 2：跑失败的测试**
+- [x] **Step 2：跑失败的测试**
 
 ```bash
 $TEST -only-testing:EchoIMTests/UserSessionTests
@@ -1136,19 +1136,18 @@ $TEST -only-testing:EchoIMTests/UserSessionTests
 
 预期：编译失败——`UserSession` 不存在。
 
-- [ ] **Step 3：实现 `UserSession`**
+执行结果：`xcodebuild ... test -only-testing:EchoIMTests/UserSessionTests` 编译失败，报 `Cannot find type 'UserSession' in scope`，符合预期。
+
+- [x] **Step 3：实现 `UserSession`**
 
 创建 `ios-app/EchoIM/App/UserSession.swift`：
 
 ```swift
 import Foundation
-import Observation
 import SwiftData
 
-/// 一个登录用户对应一个 UserSession。不同用户彼此隔离（按 userId 分库），
-/// 登出时整体释放（设计 §2.2、§5.5）。
-///
-/// 不暴露"自清理"方法：删自己 store 文件的时序悖论由 `AppContainer.tearDownSession` 统一接管。
+/// 一个登录用户对应一个 UserSession。P4 起，按 userId 分库的 SwiftData cache、
+/// WebSocketClient，以及会话相关 repository 都挂在这里。
 @MainActor
 final class UserSession {
     let userId: Int
@@ -1156,14 +1155,14 @@ final class UserSession {
     private(set) var wsClient: WebSocketClient
 
     private let apiClient: APIClient
-    private let onUnauthorized: () async -> Void
     private let tokenLoader: @MainActor () -> String?
+    private let onUnauthorized: @MainActor () async -> Void
 
     init(
         userId: Int,
         apiClient: APIClient,
         tokenLoader: @escaping @MainActor () -> String?,
-        onUnauthorized: @escaping () async -> Void
+        onUnauthorized: @escaping @MainActor () async -> Void
     ) throws {
         self.userId = userId
         self.apiClient = apiClient
@@ -1174,24 +1173,21 @@ final class UserSession {
             .appendingPathComponent("EchoIM/users/\(userId)/cache.sqlite")
         let storeDir = storeURL.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: storeDir, withIntermediateDirectories: true)
-        var resourceValues = URLResourceValues()
-        resourceValues.isExcludedFromBackup = true
-        var dirURL = storeDir
-        try dirURL.setResourceValues(resourceValues)
+        try Self.excludeFromBackup(storeDir)
 
         let schema = Schema([CachedMessage.self, ConversationMeta.self])
         let config = ModelConfiguration(url: storeURL)
         do {
-            self.modelContainer = try ModelContainer(for: schema, configurations: config)
+            modelContainer = try ModelContainer(for: schema, configurations: config)
         } catch {
-            // schema 对不上（开发中 @Model 改了字段）→ 兜底删库重建。
+            // P4 是首次建库，不做迁移；开发期 schema 不匹配时删库重建。
             try? FileManager.default.removeItem(at: storeDir)
             try FileManager.default.createDirectory(at: storeDir, withIntermediateDirectories: true)
-            try dirURL.setResourceValues(resourceValues)
-            self.modelContainer = try ModelContainer(for: schema, configurations: config)
+            try Self.excludeFromBackup(storeDir)
+            modelContainer = try ModelContainer(for: schema, configurations: config)
         }
 
-        self.wsClient = WebSocketClient(
+        wsClient = WebSocketClient(
             tokenProvider: tokenLoader,
             onUnauthorized: { Task { await onUnauthorized() } }
         )
@@ -1226,12 +1222,19 @@ final class UserSession {
     func disconnectWebSocket(reason: WSDisconnectReason) {
         wsClient.disconnect(reason: reason)
     }
+
+    private static func excludeFromBackup(_ url: URL) throws {
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        var mutableURL = url
+        try mutableURL.setResourceValues(values)
+    }
 }
 ```
 
 > `WSDisconnectReason` 是 `WebSocketClient.swift` 顶层枚举（非嵌套类型，P3 已存在）；`AppContainer.tearDownSession` 调用时写 `.userInitiated` 仍可（Swift 靠参数类型推断枚举 case），但函数签名里必须显式写全名。
 
-- [ ] **Step 4：跑测试**
+- [x] **Step 4：跑测试**
 
 ```bash
 $TEST -only-testing:EchoIMTests/UserSessionTests
@@ -1239,7 +1242,9 @@ $TEST -only-testing:EchoIMTests/UserSessionTests
 
 预期：2 个 case 全绿。
 
-- [ ] **Step 5：提交**
+执行结果：`xcodebuild ... test -only-testing:EchoIMTests/UserSessionTests` 通过，2 条用例全绿。
+
+- [x] **Step 5：提交**
 
 ```bash
 git add ios-app/EchoIM/App/UserSession.swift \
@@ -1247,6 +1252,8 @@ git add ios-app/EchoIM/App/UserSession.swift \
         ios-app/EchoIM.xcodeproj/project.pbxproj
 git commit -m "feat(ios): add UserSession (per-user ModelContainer + session repositories)"
 ```
+
+执行结果：实现提交为 `ee622ee feat(ios): add UserSession (per-user ModelContainer + session repositories)`；工程使用文件系统同步分组，无 `project.pbxproj` 变更。
 
 ---
 
