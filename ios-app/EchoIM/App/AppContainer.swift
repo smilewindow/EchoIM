@@ -1,6 +1,9 @@
 import Foundation
+import Nuke
 import Observation
 
+/// 登录态无关的资源（token、API client）+ 指向当前登录用户的 `UserSession`。
+/// 登出 / token 失效时整体释放 session（设计 §2.2）。
 @MainActor
 @Observable
 final class AppContainer {
@@ -8,12 +11,11 @@ final class AppContainer {
     let apiClient: APIClient
     var currentUser: AuthenticatedUser?
 
-    /// 仅 `-uitest-reset-keychain` 等 UI 测试参数会把它设为 true；每次启动都从未登录态开始。
-    private let resetKeychainOnLaunch: Bool
+    /// 当前登录用户的会话。未登录时 nil。P4 起 wsClient / 会话相关 repo 都从这里取。
+    private(set) var session: UserSession?
 
-    /// 懒构造：只有登录后（有 token）才创建；登出时释放（见 tearDownSession）。
-    /// 这样无登录态时完全不占用 URLSession / NWPathMonitor 资源。
-    private(set) var wsClient: WebSocketClient?
+    /// 仅 UI 测试参数 `-uitest-reset-keychain` 会把它设为 true。
+    private let resetKeychainOnLaunch: Bool
 
     init(
         tokenStore: KeychainTokenStore? = nil,
@@ -25,7 +27,7 @@ final class AppContainer {
         self.resetKeychainOnLaunch = resetKeychainOnLaunch
     }
 
-    // MARK: - Repositories（P2/P3 既有）
+    // MARK: - Stateless repositories（不绑定 session）
 
     func makeAuthRepository() -> AuthRepository {
         AuthRepositoryImpl(api: apiClient, tokenStore: tokenStore)
@@ -43,25 +45,19 @@ final class AppContainer {
         FriendRequestRepositoryImpl(api: apiClient)
     }
 
-    func makeConversationRepository() -> ConversationRepository {
-        ConversationRepositoryImpl(api: apiClient)
-    }
-
-    func makeMessageRepository() -> MessageRepository {
-        MessageRepositoryImpl(api: apiClient)
-    }
-
     // MARK: - Session lifecycle
 
     func bootstrap() {
         if resetKeychainOnLaunch {
             try? tokenStore.clear()
             currentUser = nil
+            session = nil
             return
         }
 
         guard let stored = try? tokenStore.load() else {
             currentUser = nil
+            session = nil
             return
         }
 
@@ -72,15 +68,17 @@ final class AppContainer {
             displayName: nil,
             avatarUrl: nil
         )
+        try? bootstrapSession(userId: stored.userId)
     }
 
     func handleLoginSuccess(_ response: AuthResponse) {
         currentUser = response.user
-        ensureWSClient()
+        try? bootstrapSession(userId: response.user.id)
+        session?.connectWebSocketIfNeeded()
     }
 
     func connectWebSocketIfNeeded() {
-        ensureWSClient()
+        session?.connectWebSocketIfNeeded()
     }
 
     func refreshCurrentUser() async {
@@ -108,29 +106,47 @@ final class AppContainer {
         await tearDownSession()
     }
 
-    /// 设计 §2.2 的 tearDownSession（P3 精简版）：本阶段只断 WS + 清 currentUser；
-    /// Nuke 与 SwiftData 的清理 P4/P5 接入各自机制时再补。
+    /// 设计 §5.5 的三阶段清理。必须按顺序：
+    /// 1. Nuke 独立清（与 SwiftData 无关）
+    /// 2. 放掉 session（含 ModelContainer）+ yield 一次让 actor 排空
+    /// 3. 删按 userId 的 store 目录
     func tearDownSession() async {
-        wsClient?.disconnect(reason: .userInitiated)
-        wsClient = nil
+        let userId = session?.userId
+
+        ImagePipeline.shared.cache.removeAll()
+
+        session?.disconnectWebSocket(reason: .userInitiated)
+        session = nil
         currentUser = nil
+        await Task.yield()
+
+        if let userId {
+            let dir = URL.applicationSupportDirectory
+                .appendingPathComponent("EchoIM/users/\(userId)")
+            try? FileManager.default.removeItem(at: dir)
+        }
+    }
+
+    /// Me 页“清除聊天缓存”按钮入口。保留 session / token，只清 SwiftData + Nuke。
+    func clearChatCache() async {
+        ImagePipeline.shared.cache.removeAll()
+        guard let session else { return }
+        try? await session.messageStore().deleteAll()
+        try? await session.conversationMetaStore().deleteAll()
     }
 
     // MARK: - Internal
 
-    private func ensureWSClient() {
-        guard wsClient == nil, (try? tokenStore.load()) != nil else { return }
-        let client = WebSocketClient(
-            tokenProvider: { [tokenStore = self.tokenStore] in
+    private func bootstrapSession(userId: Int) throws {
+        session = try UserSession(
+            userId: userId,
+            apiClient: apiClient,
+            tokenLoader: { [tokenStore = self.tokenStore] in
                 (try? tokenStore.load())?.token
             },
             onUnauthorized: { [weak self] in
-                Task { @MainActor in
-                    await self?.handleUnauthorized()
-                }
+                await self?.handleUnauthorized()
             }
         )
-        wsClient = client
-        client.connectIfNeeded()
     }
 }
