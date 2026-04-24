@@ -1524,7 +1524,7 @@ git commit -m "refactor(ios): delegate per-user resources to UserSession; three-
 
 P3 里 `wsClient` 读自 `container.wsClient`。P4 起改读 `container.session?.wsClient`；repositories 也从 session 拿。
 
-- [ ] **Step 1：改 `RootView.swift` scenePhase 联动**
+- [x] **Step 1：改 `RootView.swift` scenePhase 联动**
 
 把当前：
 
@@ -1563,7 +1563,7 @@ P3 里 `wsClient` 读自 `container.wsClient`。P4 起改读 `container.session?
 }
 ```
 
-- [ ] **Step 2：改 `MainTabView.swift`**
+- [x] **Step 2：改 `MainTabView.swift`**
 
 ```swift
 private var chatsTab: some View {
@@ -1610,17 +1610,19 @@ private var contactsTab: some View {
 
 （同步把 `MainTabView.body` 里的 `chatsTab` / `contactsTab` 外层 `some View` 改成 `@ViewBuilder`，如果原来就已经是 `@ViewBuilder` 直接用 `if let` + `else` 结构。）
 
-- [ ] **Step 3：继续执行 Task 9 / Task 10，把视图入参一次接完**
+- [x] **Step 3：继续执行 Task 9 / Task 10，把视图入参一次接完**
 
 Task 8 只改 `MainTabView` 调用点，`ConversationsListView` / `ContactsView` / `ChatView`
 还没接住 `messageStore` / `metaStore`，所以这里**不要单独提交，也不要把失败编译当作可交付状态**。
 继续执行 Task 9 / Task 10，把 init 签名、字段存储、下传路径一起补齐后，在 Task 10 Step 6 跑 `$BUILD`。
 
-- [ ] **Step 4：提交策略**
+- [x] **Step 4：提交策略**
 
 Task 8 / 9 / 10 是一个不可中断的接线切片：不要在 Task 8 之后 commit。
 实际执行时把三者合并成 Task 10 Step 7 的一个 commit，主干是
 "wire UserSession through to views and stores"。
+
+执行结果：`RootView` 已改为通过 `container.session` 控制 WS 生命周期；`MainTabView` 已用 `@ViewBuilder` + `if let session` 从 `UserSession` 取得会话 repo、WS、`MessageStore`、`ConversationMetaStore`。本 Task 未单独提交，按计划继续并入 Task 10。
 
 ---
 
@@ -1632,7 +1634,7 @@ Task 8 / 9 / 10 是一个不可中断的接线切片：不要在 Task 8 之后 c
 - Create: `ios-app/EchoIMTests/ConversationsListViewModelCacheTests.swift`
 - Modify: `ios-app/EchoIMTests/ConversationsListViewModelTests.swift`（所有 `ConversationsListViewModel(...)` 构造处加 `metaStore: nil`）
 
-- [ ] **Step 1：先写失败的测试**
+- [x] **Step 1：先写失败的测试**
 
 创建 `ios-app/EchoIMTests/ConversationsListViewModelCacheTests.swift`：
 
@@ -1753,7 +1755,7 @@ struct ConversationsListViewModelCacheTests {
 
 `UserProfile` / `Conversation` 构造参数以 `ios-app/EchoIM/Core/Networking/Models/Conversation.swift` / `UserProfile.swift` 里实际 `init` 为准；如果没有 memberwise `init`（大概率 `Conversation` 只给了 `Decodable` 的 `init(from:)`），需要给 `Conversation` 加一个 `internal init(...)`（Task 3/已有）或用专用 `makeConversationForTest` 工厂。**优先方案**：走 JSON 字符串 decode 生成 `Conversation` 对象，避开 init 歧义。
 
-- [ ] **Step 2：跑失败的测试**
+- [x] **Step 2：跑失败的测试**
 
 ```bash
 $TEST -only-testing:EchoIMTests/ConversationsListViewModelCacheTests
@@ -1761,7 +1763,9 @@ $TEST -only-testing:EchoIMTests/ConversationsListViewModelCacheTests
 
 预期：编译失败——`ConversationsListViewModel` 构造不接受 `metaStore`。
 
-- [ ] **Step 3：改 `ConversationsListViewModel`**
+执行结果：`xcodebuild ... test -only-testing:EchoIMTests/ConversationsListViewModelCacheTests` 编译失败；由于 Task 8 已先把 store 参数往下传，失败首先暴露为 `ConversationsListView` / `ContactsView` 尚未接收 store 参数，仍符合“接线切片尚未接完”的红灯预期。
+
+- [x] **Step 3：改 `ConversationsListViewModel`**
 
 覆盖：
 
@@ -1884,7 +1888,7 @@ extension Conversation {
 
 > 这里展示的是 meta-first 的核心改造。`writeBack` 只写服务端刚回的 conversations，**不写 WS `message.new` 增量更新**——增量更新在 `applyIncomingMessage` 里只改内存，持久化由下一次 `refresh` 兜底，避免 WS 风暴写盘。
 
-- [ ] **Step 4：改 `ConversationsListView.swift`**
+- [x] **Step 4：改 `ConversationsListView.swift`**
 
 把 `init` 加上 `metaStore` 参数：
 
@@ -1941,7 +1945,7 @@ private func destination(for route: ChatRoute) -> some View {
 }
 ```
 
-- [ ] **Step 5：改 `ConversationsListViewModelTests` 里所有构造处**
+- [x] **Step 5：改 `ConversationsListViewModelTests` 里所有构造处**
 
 批量加 `metaStore: nil`：
 
@@ -1951,7 +1955,7 @@ grep -rn "ConversationsListViewModel(" ios-app/EchoIMTests
 
 把没有 `metaStore:` 的改为加上 `metaStore: nil,`（放在 `repository:` 之后）。
 
-- [ ] **Step 6：跑测试**
+- [x] **Step 6：跑测试**
 
 ```bash
 $TEST -only-testing:EchoIMTests/ConversationsListViewModelCacheTests
@@ -1960,7 +1964,13 @@ $TEST -only-testing:EchoIMTests/ConversationsListViewModelTests
 
 预期：缓存用例 2 条通过；P3 既有用例不回归。
 
-- [ ] **Step 7：暂不 commit**——ChatView 侧参数还没接入（Task 10），编译整体仍失败。执行时与 Task 10 合并提交。
+执行结果：
+- `xcodebuild ... test -only-testing:EchoIMTests/ConversationsListViewModelCacheTests -only-testing:EchoIMTests/ChatViewModelCacheTests` 通过，其中 `ConversationsListViewModelCacheTests` 2 条全绿。
+- `xcodebuild ... test -only-testing:EchoIMTests/ConversationsListViewModelTests ...` 通过，既有 4 条列表 VM 用例不回归。
+
+- [x] **Step 7：暂不 commit**——ChatView 侧参数还没接入（Task 10），编译整体仍失败。执行时与 Task 10 合并提交。
+
+执行结果：未在 Task 9 单独提交，继续完成 Task 10 后合并提交。
 
 ---
 
@@ -1973,7 +1983,7 @@ $TEST -only-testing:EchoIMTests/ConversationsListViewModelTests
 
 本 task 只做"注入 stores + write-through + 场景 A 改造"。场景 C 循环翻页 + 20 页安全阀放 Task 11；`loadOlder` 本地优先放 Task 12。
 
-- [ ] **Step 1：先写失败的测试**
+- [x] **Step 1：先写失败的测试**
 
 创建 `ios-app/EchoIMTests/ChatViewModelCacheTests.swift`：
 
@@ -2131,7 +2141,7 @@ struct ChatViewModelCacheTests {
 
 （循环翻页 / loadOlder 本地优先的测试留给 Task 11 / 12。）
 
-- [ ] **Step 2：跑失败的测试**
+- [x] **Step 2：跑失败的测试**
 
 ```bash
 $TEST -only-testing:EchoIMTests/ChatViewModelCacheTests
@@ -2139,7 +2149,9 @@ $TEST -only-testing:EchoIMTests/ChatViewModelCacheTests
 
 预期：编译失败——`ChatViewModel` 构造不接 `messageStore` / `metaStore`。
 
-- [ ] **Step 3：改 `ChatViewModel`**
+执行结果：`xcodebuild ... test -only-testing:EchoIMTests/ChatViewModelCacheTests` 编译失败；红灯落在 `ContactsView` 尚未接收 `messageStore` / `metaStore` 参数，说明 Task 8 的下传已进入下游视图，继续执行 Task 10 的配对端修复。
+
+- [x] **Step 3：改 `ChatViewModel`**
 
 核心改动：
 
@@ -2328,7 +2340,7 @@ func markReadIfNeeded() async {
 }
 ```
 
-- [ ] **Step 4：改 `ChatView.swift` init**
+- [x] **Step 4：改 `ChatView.swift` init**
 
 ```swift
 init(
@@ -2356,7 +2368,7 @@ init(
 }
 ```
 
-- [ ] **Step 4b：改 `ContactsView.swift` 接住 store 并下传到 ChatView**
+- [x] **Step 4b：改 `ContactsView.swift` 接住 store 并下传到 ChatView**
 
 `ContactsView` 自己 `navigationDestination(for:)` 里构造 ChatView（`ios-app/EchoIM/Features/Contacts/ContactsView.swift:82`），必须也拿到 `messageStore` / `metaStore`，否则从"联系人 → 点好友 → 进聊天"这条路径拿不到缓存。
 
@@ -2403,7 +2415,7 @@ init(
 
 （这一步是 Task 8 Step 2 里 `MainTabView.contactsTab` 已经传 `messageStore: session.messageStore(), metaStore: session.conversationMetaStore()` 的配对端——没有这一步编译会挂，因为 `ContactsView.init` 不接这两个参数。）
 
-- [ ] **Step 5：同步修所有现有测试构造处**
+- [x] **Step 5：同步修所有现有测试构造处**
 
 ```bash
 grep -rn "ChatViewModel(" ios-app/EchoIMTests
@@ -2411,7 +2423,7 @@ grep -rn "ChatViewModel(" ios-app/EchoIMTests
 
 每处加：`messageStore: nil, metaStore: nil,` （放在 `conversationRepository:` 之后 `tokenProvider:` 之前）。
 
-- [ ] **Step 6：编译 + 跑全量测试**
+- [x] **Step 6：编译 + 跑全量测试**
 
 ```bash
 $BUILD
@@ -2420,7 +2432,12 @@ $TEST
 
 预期：`ChatViewModelCacheTests` 2 条新用例通过；P3 既有 ChatViewModel / ConversationsListViewModel / AppContainer 相关测试不回归。
 
-- [ ] **Step 7：合并 Task 8/9/10 的改动一起提交**
+执行结果：
+- `xcodebuild ... build` 通过。
+- `xcodebuild ... test -only-testing:EchoIMTests` 通过，全部单元测试全绿。
+- 新增的 `ChatViewModelCacheTests` 2 条、`ConversationsListViewModelCacheTests` 2 条均通过。
+
+- [x] **Step 7：合并 Task 8/9/10 的改动一起提交**
 
 ```bash
 git add ios-app/EchoIM/App/RootView.swift \
@@ -2437,6 +2454,8 @@ git add ios-app/EchoIM/App/RootView.swift \
         ios-app/EchoIM.xcodeproj/project.pbxproj
 git commit -m "feat(ios): wire stores through views and write-through cache on load/WS/send"
 ```
+
+执行结果：合并实现提交为 `38cf407 feat(ios): wire stores through views and write-through cache on load/WS/send`；工程使用文件系统同步分组，无 `project.pbxproj` 变更。
 
 ---
 
