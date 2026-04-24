@@ -84,6 +84,7 @@ final class ChatViewModel {
             let rows = try await messageRepo.list(
                 conversationId: conversationId,
                 cursor: nil,
+                limit: nil,
                 token: token
             )
             // 服务端最新在前；聊天窗口内部统一保存为从旧到新的时间序。
@@ -108,6 +109,7 @@ final class ChatViewModel {
             let rows = try await messageRepo.list(
                 conversationId: conversationId,
                 cursor: .before(oldestMessageId),
+                limit: nil,
                 token: token
             )
             let older = rows.reversed().map(LocalMessage.confirmed)
@@ -335,6 +337,7 @@ final class ChatViewModel {
             let rows = try await messageRepo.list(
                 conversationId: conversationId,
                 cursor: .after(newest),
+                limit: nil,
                 token: token
             )
             for message in rows where !messages.contains(where: { $0.message.id == message.id }) {

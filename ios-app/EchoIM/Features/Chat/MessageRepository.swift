@@ -7,10 +7,16 @@ enum MessageCursor: Equatable, Sendable {
 }
 
 protocol MessageRepository {
-    /// 无 cursor → 最新 50 条（DESC）
-    /// .before → 更早 50 条（DESC）
-    /// .after → 更新 50 条（ASC）
-    func list(conversationId: Int, cursor: MessageCursor?, token: String) async throws -> [Message]
+    /// 无 cursor → 最新 limit 条（DESC）
+    /// .before → 更早 limit 条（DESC）
+    /// .after → 更新 limit 条（ASC）
+    /// limit 为 nil 时走服务端默认值；上限由服务端 schema 约束。
+    func list(
+        conversationId: Int,
+        cursor: MessageCursor?,
+        limit: Int?,
+        token: String
+    ) async throws -> [Message]
     func sendText(recipientId: Int, body: String, clientTempId: String, token: String) async throws -> Message
     func markRead(conversationId: Int, lastReadMessageId: Int, token: String) async throws
 }
@@ -43,16 +49,28 @@ final class MessageRepositoryImpl: MessageRepository {
         self.api = api
     }
 
-    func list(conversationId: Int, cursor: MessageCursor?, token: String) async throws -> [Message] {
+    func list(
+        conversationId: Int,
+        cursor: MessageCursor?,
+        limit: Int?,
+        token: String
+    ) async throws -> [Message] {
         var comps = URLComponents()
         comps.path = Endpoints.Conversations.messages(conversationId: conversationId)
+        var items: [URLQueryItem] = []
         switch cursor {
         case .before(let id):
-            comps.queryItems = [URLQueryItem(name: "before", value: String(id))]
+            items.append(URLQueryItem(name: "before", value: String(id)))
         case .after(let id):
-            comps.queryItems = [URLQueryItem(name: "after", value: String(id))]
+            items.append(URLQueryItem(name: "after", value: String(id)))
         case nil:
             break
+        }
+        if let limit {
+            items.append(URLQueryItem(name: "limit", value: String(limit)))
+        }
+        if !items.isEmpty {
+            comps.queryItems = items
         }
         let path = comps.path + (comps.percentEncodedQuery.map { "?" + $0 } ?? "")
         return try await api.request(path, token: token)

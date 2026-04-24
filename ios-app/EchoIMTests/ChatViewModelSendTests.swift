@@ -11,7 +11,12 @@ struct ChatViewModelSendTests {
         var sendDelay: TimeInterval = 0
         private(set) var sendCalls: [(recipientId: Int, body: String, tempId: String)] = []
 
-        func list(conversationId: Int, cursor: MessageCursor?, token: String) async throws -> [Message] {
+        func list(
+            conversationId: Int,
+            cursor: MessageCursor?,
+            limit: Int?,
+            token: String
+        ) async throws -> [Message] {
             try listResult.get()
         }
 

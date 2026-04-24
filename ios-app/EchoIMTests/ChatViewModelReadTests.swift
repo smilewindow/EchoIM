@@ -9,7 +9,12 @@ struct ChatViewModelReadTests {
         var listResult: Result<[Message], Error> = .success([])
         private(set) var markCalls: [(convId: Int, id: Int)] = []
 
-        func list(conversationId: Int, cursor: MessageCursor?, token: String) async throws -> [Message] {
+        func list(
+            conversationId: Int,
+            cursor: MessageCursor?,
+            limit: Int?,
+            token: String
+        ) async throws -> [Message] {
             try listResult.get()
         }
 

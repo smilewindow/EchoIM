@@ -11,7 +11,12 @@ struct ChatViewModelWSTests {
         var sendMessageId = 555
         private(set) var listCalls: [(Int, MessageCursor?)] = []
 
-        func list(conversationId: Int, cursor: MessageCursor?, token: String) async throws -> [Message] {
+        func list(
+            conversationId: Int,
+            cursor: MessageCursor?,
+            limit: Int?,
+            token: String
+        ) async throws -> [Message] {
             listCalls.append((conversationId, cursor))
             return try listResult.get()
         }

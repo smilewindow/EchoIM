@@ -27,7 +27,7 @@ struct MessageRepositoryTests {
             )
         }
         let repo = MessageRepositoryImpl(api: APIClient(session: URLSession(configuration: config)))
-        let msgs = try await repo.list(conversationId: 5, cursor: nil, token: "jwt")
+        let msgs = try await repo.list(conversationId: 5, cursor: nil, limit: nil, token: "jwt")
 
         #expect(capturedURL?.path == "/api/conversations/5/messages")
         #expect(capturedURL?.query == nil || capturedURL?.query?.isEmpty == true)
@@ -45,7 +45,7 @@ struct MessageRepositoryTests {
             )
         }
         let repo = MessageRepositoryImpl(api: APIClient(session: URLSession(configuration: config)))
-        _ = try await repo.list(conversationId: 5, cursor: .before(100), token: "jwt")
+        _ = try await repo.list(conversationId: 5, cursor: .before(100), limit: nil, token: "jwt")
 
         let comps = URLComponents(url: capturedURL!, resolvingAgainstBaseURL: false)!
         #expect(comps.path == "/api/conversations/5/messages")
@@ -63,11 +63,32 @@ struct MessageRepositoryTests {
             )
         }
         let repo = MessageRepositoryImpl(api: APIClient(session: URLSession(configuration: config)))
-        _ = try await repo.list(conversationId: 5, cursor: .after(200), token: "jwt")
+        _ = try await repo.list(conversationId: 5, cursor: .after(200), limit: nil, token: "jwt")
 
         let comps = URLComponents(url: capturedURL!, resolvingAgainstBaseURL: false)!
         let after = comps.queryItems?.first { $0.name == "after" }?.value
         #expect(after == "200")
+    }
+
+    @Test func listAppendsLimitQueryParam() async throws {
+        var capturedURL: URL?
+        let (config, _) = MockURLProtocol.configure { req in
+            capturedURL = req.url
+            return (
+                HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
+                mkBody("[]")
+            )
+        }
+        let repo = MessageRepositoryImpl(api: APIClient(session: URLSession(configuration: config)))
+
+        _ = try await repo.list(conversationId: 1, cursor: .after(10), limit: 25, token: "t")
+
+        let comps = URLComponents(url: capturedURL!, resolvingAgainstBaseURL: false)!
+        let queries = Dictionary(uniqueKeysWithValues: (comps.queryItems ?? []).map {
+            ($0.name, $0.value)
+        })
+        #expect(queries["after"] == "10")
+        #expect(queries["limit"] == "25")
     }
 
     @Test func sendTextPostsSnakeCaseBodyAndDecodesResponse() async throws {
