@@ -347,34 +347,56 @@ final class ChatViewModel {
         }
     }
 
-    /// §5.3 场景 C 的 P3 精简版：从当前最大 confirmed id 之后补拉一次。
+    /// §5.3 场景 C：重连后按页追赶缺失消息，避免长离线时一次请求过大。
     func refetchMissedMessages() async {
         guard let conversationId else { return }
         guard let token = tokenProvider() else { return }
 
-        let newest = messages.reduce(into: 0) { result, localMessage in
-            if case .confirmed = localMessage.sendState {
-                result = max(result, localMessage.message.id)
+        var cursor = 0
+        if let metaStore, let meta = try? await metaStore.load(conversationId: conversationId) {
+            cursor = meta.newestCachedMessageId ?? 0
+        }
+        if cursor == 0 {
+            cursor = messages.reduce(into: 0) { result, localMessage in
+                if case .confirmed = localMessage.sendState {
+                    result = max(result, localMessage.message.id)
+                }
             }
         }
-        guard newest > 0 else {
+        guard cursor > 0 else {
             await load()
             return
         }
 
-        do {
-            let rows = try await messageRepo.list(
-                conversationId: conversationId,
-                cursor: .after(newest),
-                limit: nil,
-                token: token
-            )
-            for message in rows where !messages.contains(where: { $0.message.id == message.id }) {
-                messages.append(.confirmed(message))
+        let pageSize = 50
+        let maxPages = 20
+        var pages = 0
+
+        while pages < maxPages {
+            pages += 1
+
+            do {
+                let rows = try await messageRepo.list(
+                    conversationId: conversationId,
+                    cursor: .after(cursor),
+                    limit: pageSize,
+                    token: token
+                )
+                guard !rows.isEmpty else { return }
+
+                for message in rows where !messages.contains(where: { $0.message.id == message.id }) {
+                    messages.append(.confirmed(message))
+                }
+                await writeThroughAndMeta(rows)
+
+                cursor = rows.reduce(cursor) { result, message in
+                    max(result, message.id)
+                }
+                guard rows.count == pageSize else { return }
+            } catch {
+                // 补拉失败保持现有消息；下一次 reconnect 或重进页面会再尝试。
+                return
             }
-            await writeThroughAndMeta(rows)
-        } catch {
-            // 补拉失败保持现有消息；下一次 reconnect 或重进页面会再尝试。
         }
     }
 
