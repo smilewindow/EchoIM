@@ -40,13 +40,18 @@ const conversationRoutes: FastifyPluginAsync = async (fastify) => {
         properties: {
           before: { type: 'integer', minimum: 1 },
           after: { type: 'integer', minimum: 1 },
+          limit: { type: 'integer', minimum: 1, maximum: 50, default: 50 },
         },
         additionalProperties: false,
       },
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string }
-    const { before, after } = request.query as { before?: number; after?: number }
+    const { before, after, limit } = request.query as {
+      before?: number
+      after?: number
+      limit: number
+    }
     const userId = request.user.id
 
     if (!/^\d+$/.test(id)) {
@@ -69,18 +74,18 @@ const conversationRoutes: FastifyPluginAsync = async (fastify) => {
     let result
     if (before) {
       result = await fastify.pool.query(
-        'SELECT * FROM messages WHERE conversation_id = $1 AND id < $2 ORDER BY id DESC LIMIT 50',
-        [convId, before]
+        'SELECT * FROM messages WHERE conversation_id = $1 AND id < $2 ORDER BY id DESC LIMIT $3',
+        [convId, before, limit]
       )
     } else if (after) {
       result = await fastify.pool.query(
-        'SELECT * FROM messages WHERE conversation_id = $1 AND id > $2 ORDER BY id ASC LIMIT 50',
-        [convId, after]
+        'SELECT * FROM messages WHERE conversation_id = $1 AND id > $2 ORDER BY id ASC LIMIT $3',
+        [convId, after, limit]
       )
     } else {
       result = await fastify.pool.query(
-        'SELECT * FROM messages WHERE conversation_id = $1 ORDER BY id DESC LIMIT 50',
-        [convId]
+        'SELECT * FROM messages WHERE conversation_id = $1 ORDER BY id DESC LIMIT $2',
+        [convId, limit]
       )
     }
 

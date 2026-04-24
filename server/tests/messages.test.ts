@@ -510,6 +510,64 @@ describe('GET /api/conversations/:id/messages', () => {
     const res = await app.inject({ method: 'GET', url: '/api/conversations/1/messages' })
     expect(res.statusCode).toBe(401)
   })
+
+  it('limits results when ?limit=N is provided', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const r1 = await sendMessage(app, alice.token, bob.user.id, 'First')
+    const convId = r1.json().conversation_id
+    await sendMessage(app, alice.token, bob.user.id, 'Second')
+    await sendMessage(app, alice.token, bob.user.id, 'Third')
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/conversations/${convId}/messages?limit=2`,
+      headers: { authorization: `Bearer ${alice.token}` },
+    })
+    expect(res.statusCode).toBe(200)
+    const msgs = res.json<Array<{ body: string }>>()
+    expect(msgs).toHaveLength(2)
+    expect(msgs[0].body).toBe('Third')
+    expect(msgs[1].body).toBe('Second')
+  })
+
+  it('rejects ?limit=0 and ?limit=51 with 400', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const r1 = await sendMessage(app, alice.token, bob.user.id, 'First')
+    const convId = r1.json().conversation_id
+
+    const tooLow = await app.inject({
+      method: 'GET',
+      url: `/api/conversations/${convId}/messages?limit=0`,
+      headers: { authorization: `Bearer ${alice.token}` },
+    })
+    expect(tooLow.statusCode).toBe(400)
+
+    const tooHigh = await app.inject({
+      method: 'GET',
+      url: `/api/conversations/${convId}/messages?limit=51`,
+      headers: { authorization: `Bearer ${alice.token}` },
+    })
+    expect(tooHigh.statusCode).toBe(400)
+  })
+
+  it('combines ?after= with ?limit= (ASC order, capped)', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const r1 = await sendMessage(app, alice.token, bob.user.id, 'First')
+    const firstId = r1.json().id
+    const convId = r1.json().conversation_id
+    await sendMessage(app, alice.token, bob.user.id, 'Second')
+    await sendMessage(app, alice.token, bob.user.id, 'Third')
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/conversations/${convId}/messages?after=${firstId}&limit=1`,
+      headers: { authorization: `Bearer ${alice.token}` },
+    })
+    expect(res.statusCode).toBe(200)
+    const msgs = res.json<Array<{ body: string }>>()
+    expect(msgs).toHaveLength(1)
+    expect(msgs[0].body).toBe('Second')
+  })
 })
 
 // ─── PUT /api/conversations/:id/read ─────────────────────────────────────────
