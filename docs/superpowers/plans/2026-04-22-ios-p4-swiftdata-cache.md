@@ -625,7 +625,7 @@ git commit -m "feat(ios): add CachedMessage / ConversationMeta @Model entities"
 - Create: `ios-app/EchoIM/Core/Storage/MessageStore.swift`
 - Create: `ios-app/EchoIMTests/MessageStoreTests.swift`
 
-- [ ] **Step 1：先写 4 个失败的测试**
+- [x] **Step 1：先写 4 个失败的测试**
 
 创建 `ios-app/EchoIMTests/MessageStoreTests.swift`：
 
@@ -716,7 +716,7 @@ struct MessageStoreTests {
 }
 ```
 
-- [ ] **Step 2：跑失败的测试**
+- [x] **Step 2：跑失败的测试**
 
 ```bash
 $TEST -only-testing:EchoIMTests/MessageStoreTests
@@ -724,7 +724,9 @@ $TEST -only-testing:EchoIMTests/MessageStoreTests
 
 预期：编译失败——`MessageStore` 类型不存在。
 
-- [ ] **Step 3：实现 `MessageStore`**
+执行结果：`xcodebuild ... test -only-testing:EchoIMTests/MessageStoreTests` 编译失败，报 `Cannot find 'MessageStore' in scope`，符合预期。
+
+- [x] **Step 3：实现 `MessageStore`**
 
 创建 `ios-app/EchoIM/Core/Storage/MessageStore.swift`：
 
@@ -797,7 +799,9 @@ actor MessageStore {
 }
 ```
 
-- [ ] **Step 4：跑测试**
+实现说明：实际代码为避免 `ids.contains(...)` 在 SwiftData predicate 宏里的兼容风险，采用逐条按 id fetch 判重；`deleteAll()` 采用 fetch 全部后逐条 delete，行为与计划一致。
+
+- [x] **Step 4：跑测试**
 
 ```bash
 $TEST -only-testing:EchoIMTests/MessageStoreTests
@@ -805,7 +809,9 @@ $TEST -only-testing:EchoIMTests/MessageStoreTests
 
 预期：4 个 case 全绿。
 
-- [ ] **Step 5：提交**
+执行结果：`xcodebuild ... test -only-testing:EchoIMTests/MessageStoreTests` 通过，4 条用例全绿。
+
+- [x] **Step 5：提交**
 
 ```bash
 git add ios-app/EchoIM/Core/Storage/MessageStore.swift \
@@ -813,6 +819,8 @@ git add ios-app/EchoIM/Core/Storage/MessageStore.swift \
         ios-app/EchoIM.xcodeproj/project.pbxproj
 git commit -m "feat(ios): add MessageStore @ModelActor with append/loadLatest/loadOlder"
 ```
+
+执行结果：实现提交为 `785c0d6 feat(ios): add MessageStore @ModelActor with append/loadLatest/loadOlder`；工程使用文件系统同步分组，无 `project.pbxproj` 变更。
 
 ---
 
