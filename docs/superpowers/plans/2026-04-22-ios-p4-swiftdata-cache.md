@@ -830,7 +830,7 @@ git commit -m "feat(ios): add MessageStore @ModelActor with append/loadLatest/lo
 - Create: `ios-app/EchoIM/Core/Storage/ConversationMetaStore.swift`
 - Create: `ios-app/EchoIMTests/ConversationMetaStoreTests.swift`
 
-- [ ] **Step 1：先写 3 个失败的测试**
+- [x] **Step 1：先写 3 个失败的测试**
 
 创建 `ios-app/EchoIMTests/ConversationMetaStoreTests.swift`：
 
@@ -940,7 +940,7 @@ struct ConversationMetaStoreTests {
 }
 ```
 
-- [ ] **Step 2：跑失败的测试**
+- [x] **Step 2：跑失败的测试**
 
 ```bash
 $TEST -only-testing:EchoIMTests/ConversationMetaStoreTests
@@ -948,7 +948,9 @@ $TEST -only-testing:EchoIMTests/ConversationMetaStoreTests
 
 预期：编译失败——`ConversationMetaStore` 不存在。
 
-- [ ] **Step 3：实现 `ConversationMetaStore`**
+执行结果：`xcodebuild ... test -only-testing:EchoIMTests/ConversationMetaStoreTests` 编译失败，报 `Cannot find 'ConversationMetaStore' in scope`，符合预期。
+
+- [x] **Step 3：实现 `ConversationMetaStore`**
 
 创建 `ios-app/EchoIM/Core/Storage/ConversationMetaStore.swift`：
 
@@ -1020,7 +1022,7 @@ actor ConversationMetaStore {
 }
 ```
 
-- [ ] **Step 4：跑测试**
+- [x] **Step 4：跑测试**
 
 ```bash
 $TEST -only-testing:EchoIMTests/ConversationMetaStoreTests
@@ -1028,7 +1030,9 @@ $TEST -only-testing:EchoIMTests/ConversationMetaStoreTests
 
 预期：3 个 case 全绿。
 
-- [ ] **Step 5：提交**
+执行结果：`xcodebuild ... test -only-testing:EchoIMTests/ConversationMetaStoreTests` 通过，3 条用例全绿。
+
+- [x] **Step 5：提交**
 
 ```bash
 git add ios-app/EchoIM/Core/Storage/ConversationMetaStore.swift \
@@ -1036,6 +1040,8 @@ git add ios-app/EchoIM/Core/Storage/ConversationMetaStore.swift \
         ios-app/EchoIM.xcodeproj/project.pbxproj
 git commit -m "feat(ios): add ConversationMetaStore @ModelActor"
 ```
+
+执行结果：实现提交为 `4586e13 feat(ios): add ConversationMetaStore @ModelActor`；工程使用文件系统同步分组，无 `project.pbxproj` 变更。
 
 ---
 
