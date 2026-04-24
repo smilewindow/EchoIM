@@ -434,7 +434,7 @@ git commit -m "feat(ios): thread limit parameter through MessageRepository.list"
 
 本任务只引入"死代码"——模型 + Sendable snapshot + 单向映射（`CachedMessage.asMessage()` / `ConversationMeta.snapshot()`），还没人用它们。Store 在 Task 4 / 5 包上。
 
-- [ ] **Step 1：创建 `CachedMessage.swift`**
+- [x] **Step 1：创建 `CachedMessage.swift`**
 
 内容：
 
@@ -489,7 +489,7 @@ final class CachedMessage {
 }
 ```
 
-- [ ] **Step 2：创建 `ConversationMeta.swift`**
+- [x] **Step 2：创建 `ConversationMeta.swift`**
 
 内容：
 
@@ -570,7 +570,7 @@ final class ConversationMeta {
 }
 ```
 
-- [ ] **Step 3：创建 `ConversationMetaSnapshot.swift`**
+- [x] **Step 3：创建 `ConversationMetaSnapshot.swift`**
 
 内容：
 
@@ -595,7 +595,7 @@ struct ConversationMetaSnapshot: Sendable, Equatable {
 }
 ```
 
-- [ ] **Step 4：编译通过**
+- [x] **Step 4：编译通过**
 
 ```bash
 $BUILD
@@ -603,7 +603,9 @@ $BUILD
 
 预期：编译通过（只是加了新文件）。`Xcode Build Phases` 对新建 Swift 文件会自动纳入 target（iOS 项目默认）；如果走 CLI + project generation 链路，确认 `EchoIM.xcodeproj/project.pbxproj` 里有新文件引用（打开 Xcode 一次让它自动加入，或手工编辑 pbxproj）。
 
-- [ ] **Step 5：提交**
+执行结果：`xcodebuild ... -configuration Debug build` 通过；当前 Xcode 工程使用 `PBXFileSystemSynchronizedRootGroup`，新 Swift 文件自动纳入 `EchoIM` target，无需修改 `project.pbxproj`。
+
+- [x] **Step 5：提交**
 
 ```bash
 git add ios-app/EchoIM/Core/Storage/Models/CachedMessage.swift \
@@ -612,6 +614,8 @@ git add ios-app/EchoIM/Core/Storage/Models/CachedMessage.swift \
         ios-app/EchoIM.xcodeproj/project.pbxproj
 git commit -m "feat(ios): add CachedMessage / ConversationMeta @Model entities"
 ```
+
+执行结果：实现提交为 `91eb1d7 feat(ios): add CachedMessage / ConversationMeta @Model entities`；未包含 `project.pbxproj`，原因见 Step 4。
 
 ---
 
