@@ -3123,7 +3123,7 @@ git commit -m "feat(ios): Me tab clear-chat-cache button with confirm dialog"
 **Files:**
 - Modify: `ios-app/README.md`
 
-- [ ] **Step 1：更新 README**
+- [x] **Step 1：更新 README**
 
 编辑 `ios-app/README.md` 的 `## Status` 块，把 P4 加进去：
 
@@ -3136,7 +3136,9 @@ git commit -m "feat(ios): Me tab clear-chat-cache button with confirm dialog"
 - P5-P8 tracked in `docs/superpowers/specs/2026-04-17-ios-app-design.md` §8.
 ```
 
-- [ ] **Step 2：服务端 + iOS 全量回归**
+执行结果：`ios-app/README.md` 已更新，并在 Step 3 提交为 `400509e docs: note iOS P4 cache + UserSession completion`。
+
+- [x] **Step 2：服务端 + iOS 全量回归**
 
 ```bash
 $SLINT
@@ -3148,18 +3150,33 @@ $UITEST
 
 全绿是唯一合格线。
 
-- [ ] **Step 3：最终提交**
+执行结果：
+
+- `npm run lint --prefix server`：通过。
+- `npm test --prefix server`：通过（8 个测试文件、147 个测试）。
+- `xcodebuild -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5,arch=arm64' -configuration Debug build`：`BUILD SUCCEEDED`。
+- `xcodebuild ... test -only-testing:EchoIMTests`：首次全量跑暴露 `ConversationsListViewModelCacheTests.loadRendersCachedMetaBeforeNetwork()` 的 50ms 时序窗口；修复为“网络请求已开始但被阻塞”后断言缓存已渲染，并同类加固 `ChatViewModelCacheTests.loadRendersCachedMessagesBeforeNetwork()`。
+- 测试稳定性提交：`3586788 test(ios): stabilize cached conversation list pre-network assertion`、`ce03663 test(ios): stabilize cached chat pre-network assertion`。
+- 复跑 `EchoIMTests`：`TEST SUCCEEDED`。
+- 后端 `GET /healthz`：`200 OK {"status":"ok"}`。
+- `xcodebuild ... test -only-testing:EchoIMUITests`：通过（6 tests, 0 failures）。
+
+- [x] **Step 3：最终提交**
 
 ```bash
 git add ios-app/README.md
 git commit -m "docs: note iOS P4 cache + UserSession completion"
 ```
 
+执行结果：README 提交为 `400509e docs: note iOS P4 cache + UserSession completion`。
+
 ---
 
 ## 模拟器联调清单（P4 全流程验收，跑完 14 项 task 后必做）
 
 后端 + 两个账号 A、B 互为好友。两台设备（或一台 + Web）分别登 A、B。
+
+> 2026-04-24 自动回归已覆盖：登录、发文本消息、跨账号好友申请、Me 页清缓存按钮、缓存预渲染、场景 C 循环补拉、`loadOlder` 本地优先、多用户目录创建 / teardown。下面涉及飞行模式、真实离线期间双端消息、SQLite 文件人工检查的项仍保留为人工验收清单，不用自动测试替代。
 
 ### 冷启动 / 杀 App 再进
 
@@ -3203,7 +3220,7 @@ git commit -m "docs: note iOS P4 cache + UserSession completion"
 
 ## Self-Review（完成前必过）
 
-- [ ] **P4 覆盖设计 §8 的全部要点**：
+- [x] **P4 覆盖设计 §8 的全部要点**：
   - `@Model CachedMessage` + `@Model ConversationMeta` → Task 3
   - 缓存落盘在 `.applicationSupport` + 排除备份 → Task 6（`UserSession.init`）
   - `ChatViewModel` 改造为 §5.2 连续后缀不变式 → Task 10（write-through）+ Task 11（场景 C 循环）+ Task 12（loadOlder 本地优先）
@@ -3213,10 +3230,10 @@ git commit -m "docs: note iOS P4 cache + UserSession completion"
   - 设计 §2.2 `UserSession` 拆出 → Task 6
   - 设计 §5.5 三阶段 tearDown → Task 7
 
-- [ ] **Placeholder 扫描**：
+- [x] **Placeholder 扫描**：
   `grep -rn -iE "t[b]d|t[o]do|implement[ -]later|similar[ -]to[ -]task" docs/superpowers/plans/2026-04-22-ios-p4-swiftdata-cache.md` 应为空。
 
-- [ ] **类型一致性**（跨任务用到的符号必须自洽）：
+- [x] **类型一致性**（跨任务用到的符号必须自洽）：
   - `MessageRepository.list(conversationId:cursor:limit:token:)` — Task 2 引入，Task 10 / 11 / 12 使用
   - `MessageStore.append(_:)` / `loadLatest(conversationId:limit:)` / `loadOlder(conversationId:before:limit:)` / `deleteAll()` — Task 4 引入，Task 10 / 11 / 12 / 13 使用
   - `ConversationMetaStore.upsert(_:)` / `load(conversationId:)` / `loadAll()` / `deleteAll()` — Task 5 引入，Task 9 / 10 / 11 / 12 / 13 使用
@@ -3229,7 +3246,7 @@ git commit -m "docs: note iOS P4 cache + UserSession completion"
   - `ConversationsListView.init(repository:messageRepo:metaStore:messageStore:wsClient:currentUserId:tokenProvider:)` — Task 9 定义，Task 8 使用
   - `ChatViewModel.refetchMissedMessages()` / `writeThroughAndMeta(_:)` — Task 10 / 11 使用，对外可见性 `internal`
 
-- [ ] **`Conversation` / `UserProfile` memberwise init**：
+- [x] **`Conversation` / `UserProfile` memberwise init**：
   Task 9 / 10 / 11 / 12 的测试里直接 `Conversation(id:...)` / `UserProfile(id:...)`。这两个类型的 `Decodable.init(from:)` 实现在 **extension** 里（见 `Core/Networking/Models/Conversation.swift:17` `extension Conversation: Decodable`），不会抑制 struct 自动合成的 `internal` memberwise init——测试代码按字段顺序直接构造即可，无需额外加 init。
   确认命令：
   ```bash
@@ -3238,34 +3255,36 @@ git commit -m "docs: note iOS P4 cache + UserSession completion"
   ```
   两者 struct 主体里都不应出现显式 init。
 
-- [ ] **Mock repo 的 `list` 签名同步**：
+- [x] **Mock repo 的 `list` 签名同步**：
   P3 测试里所有 mock 都是 `list(conversationId:cursor:token:)`，Task 2 Step 4 / Task 10 Step 5 必须全量替换为 `list(conversationId:cursor:limit:token:)`。遗漏会编译失败。
-  验证：`grep -rn "func list(conversationId:" ios-app/EchoIMTests` 的每一行都要含 `limit:`。
+  验证：`rg -n "func list" ios-app/EchoIMTests` 后核对所有 `MessageRepository` mock 的多行签名都含 `limit:`。
 
-- [ ] **三阶段 tearDown 的顺序**：
+- [x] **三阶段 tearDown 的顺序**：
   Task 7 的 `tearDownSession` 必须按 "Nuke → session nil → yield → 删目录"，顺序调换会：
   - Nuke 先 → 放 session 时 ModelContainer 还在写 WAL（无害，WAL 会被关闭时 checkpoint）
   - 先删目录 → SwiftData 文件句柄还持有 → 目录删除可能成功但 WAL 会被重写回来（Apple 的 SQLite 会 rewrite on fsync），下一次启动 schema 可能不一致
   严格按 §5.5 的顺序写。
 
-- [ ] **write-through 不写 pending 消息**：
+- [x] **write-through 不写 pending 消息**：
   `mergeServerResult` 用 `writeThroughAndMeta([message])` 时，`message` 一定是服务端回包 / WS echo 中的 confirmed 消息（非 pending 占位）。`sendText` 的 optimistic insert **不调用** `writeThroughAndMeta`（因为 `Message.id` 是负数占位，落盘后会污染缓存）。
   Task 10 Step 3 的代码里，`handleIncomingMessage` / `mergeServerResult` 都只对 confirmed 消息调 write-through；`sendText` 的 optimistic 路径里**没有**写 store——这一点在 Self-Review 时必须核对。
 
-- [ ] **`ChatsList` WS 增量不写 store**：
+- [x] **`ChatsList` WS 增量不写 store**：
   Task 9 的 `ConversationsListViewModel.applyIncomingMessage` 只改内存 `conversations[index]`，**不** upsert meta。理由在计划 "已知妥协" 里；下一次 `refresh()` 兜底写盘。确认 Task 10 代码里没有把 `applyIncomingMessage` 改成写 meta。
 
-- [ ] **`bootstrap()` 不等网络就建 session**：
+- [x] **`bootstrap()` 不等网络就建 session**：
   Task 7 的 `bootstrap()` 在冷启动发现有 token 时同步调用 `bootstrapSession(userId:)`——这样 `RootView.task { container.connectWebSocketIfNeeded() }` 里的 `container.session?` 一定非 nil。如果 P4 调整让 `bootstrap` 变成 async，需要相应修 RootView 的调用路径（现在 P3 的 `bootstrap()` 是同步，保持。
 
-- [ ] **不变式：`oldestCachedMessageId ≤ oldestDisplayedMessageId` 且 `newestCachedMessageId ≥ newestDisplayedMessageId`**：
+- [x] **不变式：`oldestCachedMessageId ≤ oldestDisplayedMessageId` 且 `newestCachedMessageId ≥ newestDisplayedMessageId`**：
   Task 10/11/12 的 write-through 每次都在 `writeThroughAndMeta` 里 `min(existing.oldest, rows.min)` / `max(existing.newest, rows.max)` 单调推进，不会出现 meta 和 messages 反着漂的情况。
 
-- [ ] **已知限制显式记录**：`20 页安全阀触顶`、`SwiftData 写入 best-effort`、`meta 过时未读数`、`清缓存不触发登出` 都在计划文件顶部"已知妥协"段中。
+- [x] **已知限制显式记录**：`20 页安全阀触顶`、`SwiftData 写入 best-effort`、`meta 过时未读数`、`清缓存不触发登出` 都在计划文件顶部"已知妥协"段中。
 
-- [ ] **工作目录一致**：所有路径都以 `server/` 或 `ios-app/EchoIM/...` 开头，无裸相对路径。
+- [x] **工作目录一致**：所有路径都以 `server/` 或 `ios-app/EchoIM/...` 开头，无裸相对路径。
 
-- [ ] **Lint**：修改 server 代码后 `$SLINT` 必须通过（Task 1 Step 5 已要求）。
+- [x] **Lint**：修改 server 代码后 `$SLINT` 必须通过（Task 1 Step 5 已要求）。
+
+Self-Review 执行记录（2026-04-24）：placeholder 扫描无输出；`Conversation` / `UserProfile` struct 主体无显式 init（`Conversation` 仅在 extension 中实现 `Decodable.init(from:)`）；`MessageRepository` 测试 mock 均已包含 `limit:`；`AppContainer.tearDownSession()` 保持 Nuke → disconnect/session nil/currentUser nil → `Task.yield()` → 删除 user 目录；`ChatViewModel` 只对服务端确认消息 / WS confirmed 消息 write-through，pending 不落盘；`ConversationsListViewModel.applyIncomingMessage` 只改内存；`bootstrap()` 同步建 `UserSession`；已知限制在文件顶部“已知妥协”段记录。
 
 ---
 
