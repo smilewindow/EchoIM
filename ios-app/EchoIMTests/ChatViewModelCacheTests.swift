@@ -73,14 +73,29 @@ struct ChatViewModelCacheTests {
             )
         )
 
-        final class DelayedRepo: MessageRepository {
+        actor BlockingRepo: MessageRepository {
+            private var started = false
+            private var startWaiters: [CheckedContinuation<Void, Never>] = []
+            private var releaseWaiter: CheckedContinuation<Void, Never>?
+            private var released = false
+
             func list(
                 conversationId: Int,
                 cursor: MessageCursor?,
                 limit: Int?,
                 token: String
             ) async throws -> [Message] {
-                try await Task.sleep(nanoseconds: 200_000_000)
+                started = true
+                startWaiters.forEach { $0.resume() }
+                startWaiters.removeAll()
+
+                await withCheckedContinuation { continuation in
+                    if released {
+                        continuation.resume()
+                    } else {
+                        releaseWaiter = continuation
+                    }
+                }
                 return []
             }
 
@@ -94,8 +109,25 @@ struct ChatViewModelCacheTests {
             }
 
             func markRead(conversationId: Int, lastReadMessageId: Int, token: String) async throws {}
+
+            func waitUntilStarted() async {
+                if started {
+                    return
+                }
+
+                await withCheckedContinuation { continuation in
+                    startWaiters.append(continuation)
+                }
+            }
+
+            func release() {
+                released = true
+                releaseWaiter?.resume()
+                releaseWaiter = nil
+            }
         }
 
+        let repo = BlockingRepo()
         let conversation = Conversation(
             id: 7,
             createdAt: Date(),
@@ -110,7 +142,7 @@ struct ChatViewModelCacheTests {
         let vm = ChatViewModel(
             route: .conversation(conversation),
             currentUserId: 10,
-            messageRepo: DelayedRepo(),
+            messageRepo: repo,
             wsClient: nil,
             conversationRepository: nil,
             messageStore: messageStore,
@@ -120,10 +152,11 @@ struct ChatViewModelCacheTests {
 
         async let loading: Void = vm.load()
 
-        try await Task.sleep(nanoseconds: 50_000_000)
+        await repo.waitUntilStarted()
         #expect(vm.messages.count == 3)
         #expect(vm.messages.map(\.message.id) == [1, 2, 3])
 
+        await repo.release()
         await loading
         #expect(vm.phase == .loaded)
     }
