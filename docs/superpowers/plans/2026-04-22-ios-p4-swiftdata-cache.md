@@ -1263,8 +1263,10 @@ git commit -m "feat(ios): add UserSession (per-user ModelContainer + session rep
 - Modify: `ios-app/EchoIM/App/AppContainer.swift:1-136`（整文件）
 - Modify: `ios-app/EchoIMTests/AppContainerTests.swift`（扩展 teardown 三阶段测试）
 - Modify: `ios-app/EchoIMTests/AppContainerRefreshTests.swift`（同步 API 变动）
+- Modify: `ios-app/EchoIM/App/RootView.swift`（编译必需：`wsClient` 调用点改为 `session`）
+- Modify: `ios-app/EchoIM/Features/Main/MainTabView.swift`（编译必需：会话 repo / WS 从 `session` 获取）
 
-- [ ] **Step 1：先写 / 改失败的测试**
+- [x] **Step 1：先写 / 改失败的测试**
 
 在 `ios-app/EchoIMTests/AppContainerTests.swift` 里追加（或替换 P3 的 teardown 用例）：
 
@@ -1305,7 +1307,7 @@ func tearDownSessionClearsAllUserStateAndFiles() async throws {
 }
 ```
 
-- [ ] **Step 2：跑失败的测试**
+- [x] **Step 2：跑失败的测试**
 
 ```bash
 $TEST -only-testing:EchoIMTests/AppContainerTests
@@ -1313,7 +1315,9 @@ $TEST -only-testing:EchoIMTests/AppContainerTests
 
 预期：编译失败或运行失败——`container.session` 属性不存在 / 目录删除逻辑缺失。
 
-- [ ] **Step 3：改写 `AppContainer`**
+执行结果：`xcodebuild ... test -only-testing:EchoIMTests/AppContainerTests` 编译失败，报 `Value of type 'AppContainer' has no member 'session'`，符合预期。
+
+- [x] **Step 3：改写 `AppContainer`**
 
 覆盖整个 `ios-app/EchoIM/App/AppContainer.swift`：
 
@@ -1480,7 +1484,9 @@ import Observation
 import Nuke
 ```
 
-- [ ] **Step 4：跑测试**
+执行结果：实现 `AppContainer.session`、`bootstrapSession(userId:)`、三阶段 `tearDownSession()`、`clearChatCache()`；`RootView` / `MainTabView` 的编译必需调用点也同步改为从 `session` 读取。计划原顺序会导致 Task 7 测试编译整个 App target 时卡在旧调用点，因此这部分接线提前到 Task 7。
+
+- [x] **Step 4：跑测试**
 
 ```bash
 $TEST -only-testing:EchoIMTests/AppContainerTests
@@ -1489,14 +1495,22 @@ $TEST -only-testing:EchoIMTests/AppContainerRefreshTests
 
 预期：新 teardown 三阶段用例通过；`AppContainerRefreshTests` 如果因为 `wsClient` 不再是 AppContainer 直属属性而编译失败，把访问点改成 `container.session?.wsClient`。
 
-- [ ] **Step 5：提交**
+执行结果：
+- `xcodebuild ... test -only-testing:EchoIMTests/AppContainerTests` 通过，5 条用例全绿。
+- `xcodebuild ... test -only-testing:EchoIMTests/AppContainerRefreshTests` 通过，4 条用例全绿。
+
+- [x] **Step 5：提交**
 
 ```bash
 git add ios-app/EchoIM/App/AppContainer.swift \
+        ios-app/EchoIM/App/RootView.swift \
+        ios-app/EchoIM/Features/Main/MainTabView.swift \
         ios-app/EchoIMTests/AppContainerTests.swift \
         ios-app/EchoIMTests/AppContainerRefreshTests.swift
 git commit -m "refactor(ios): delegate per-user resources to UserSession; three-phase tearDown"
 ```
+
+执行结果：实现提交为 `038d490 refactor(ios): delegate per-user resources to UserSession; three-phase tearDown`；`AppContainerRefreshTests.swift` 无需修改。
 
 ---
 
