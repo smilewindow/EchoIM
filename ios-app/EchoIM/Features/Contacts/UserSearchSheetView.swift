@@ -52,6 +52,7 @@ struct UserSearchSheetView: View {
                 .textFieldStyle(.plain)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
+                .accessibilityIdentifier("userSearchQuery")
                 .onChange(of: query) { _, newValue in
                     searchTask?.cancel()
                     let trimmed = newValue.trimmingCharacters(in: .whitespaces)
@@ -132,7 +133,9 @@ struct UserSearchSheetView: View {
                     .buttonStyle(.bordered)
                     .controlSize(.small)
                     .disabled(isAlreadySent(user.id) || sendingId == user.id)
+                    .accessibilityIdentifier("sendFriendRequest_\(user.username)")
                 }
+                .accessibilityIdentifier("userSearchResult_\(user.username)")
                 .listRowSeparator(.hidden)
             }
             .listStyle(.plain)

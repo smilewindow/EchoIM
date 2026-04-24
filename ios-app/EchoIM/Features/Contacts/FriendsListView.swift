@@ -39,6 +39,7 @@ struct FriendsListView: View {
                     }
                 }
                 .listRowSeparator(.hidden)
+                .accessibilityIdentifier("friendRow_\(friend.username)")
             }
             .listStyle(.plain)
             .accessibilityElement(children: .contain)

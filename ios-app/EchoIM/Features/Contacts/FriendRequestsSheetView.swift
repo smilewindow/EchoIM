@@ -81,6 +81,7 @@ struct FriendRequestsSheetView: View {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
                 .disabled(respondingId == request.id)
+                .accessibilityIdentifier("acceptFriendRequest_\(request.username ?? "\(request.senderId)")")
 
                 Button("拒绝") {
                     respondingId = request.id
@@ -92,8 +93,10 @@ struct FriendRequestsSheetView: View {
                 .buttonStyle(.bordered)
                 .controlSize(.small)
                 .disabled(respondingId == request.id)
+                .accessibilityIdentifier("declineFriendRequest_\(request.username ?? "\(request.senderId)")")
             }
         }
+        .accessibilityIdentifier("incomingFriendRequest_\(request.username ?? "\(request.senderId)")")
     }
 
     private func sentRow(_ request: FriendRequest) -> some View {
@@ -117,6 +120,7 @@ struct FriendRequestsSheetView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+        .accessibilityIdentifier("sentFriendRequest_\(request.username ?? "\(request.recipientId)")")
     }
 
     private func historyRow(_ request: FriendRequest) -> some View {
@@ -139,6 +143,9 @@ struct FriendRequestsSheetView: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .accessibilityIdentifier(
+            "historyFriendRequest_\(request.direction ?? "unknown")_\(request.username ?? "user")_\(request.status.rawValue)"
+        )
     }
 
     private func avatarFor(_ request: FriendRequest) -> some View {
