@@ -305,4 +305,222 @@ struct ChatViewModelCacheTests {
         #expect(meta?.oldestCachedMessageId == 51)
         #expect(meta?.newestCachedMessageId == 220)
     }
+
+    @MainActor
+    @Test
+    func loadOlderFullyServedByCacheSkipsNetwork() async throws {
+        let container = try makeContainer()
+        let messageStore = MessageStore(modelContainer: container)
+        let metaStore = ConversationMetaStore(modelContainer: container)
+
+        // 缓存已有完整 1...100：首屏渲染 51...100，上滑直接吃本地 1...50。
+        try await messageStore.append((1...100).map {
+            Message(
+                id: $0,
+                conversationId: 7,
+                senderId: 20,
+                body: "m-\($0)",
+                messageType: "text",
+                mediaUrl: nil,
+                createdAt: Date(timeIntervalSince1970: TimeInterval(1_700_000_000 + $0)),
+                clientTempId: nil
+            )
+        })
+        try await metaStore.upsert(
+            metaSnap(
+                oldestCachedMessageId: 1,
+                newestCachedMessageId: 100,
+                lastReadMessageId: 100,
+                unreadCount: 0,
+                lastMessageBody: "m-100",
+                lastMessageType: "text",
+                lastMessageAt: Date(timeIntervalSince1970: 1_700_000_100)
+            )
+        )
+
+        actor StrictRepo: MessageRepository {
+            private(set) var calls = 0
+
+            func list(
+                conversationId: Int,
+                cursor: MessageCursor?,
+                limit: Int?,
+                token: String
+            ) async throws -> [Message] {
+                calls += 1
+                return []
+            }
+
+            func sendText(
+                recipientId: Int,
+                body: String,
+                clientTempId: String,
+                token: String
+            ) async throws -> Message {
+                fatalError()
+            }
+
+            func markRead(conversationId: Int, lastReadMessageId: Int, token: String) async throws {}
+
+            func resetCalls() {
+                calls = 0
+            }
+        }
+
+        let conversation = Conversation(
+            id: 7,
+            createdAt: Date(),
+            peer: makePeer(),
+            lastMessageBody: "m-100",
+            lastMessageType: "text",
+            lastMessageSenderId: 20,
+            lastMessageAt: Date(timeIntervalSince1970: 1_700_000_100),
+            lastReadMessageId: 100,
+            unreadCount: 0
+        )
+        let repo = StrictRepo()
+        let vm = ChatViewModel(
+            route: .conversation(conversation),
+            currentUserId: 10,
+            messageRepo: repo,
+            wsClient: nil,
+            conversationRepository: nil,
+            messageStore: messageStore,
+            metaStore: metaStore,
+            tokenProvider: { "t" }
+        )
+
+        await vm.load()
+        #expect(vm.messages.count == 50)
+        #expect(vm.messages.first?.message.id == 51)
+        #expect(vm.messages.last?.message.id == 100)
+
+        await repo.resetCalls()
+        await vm.loadOlder()
+
+        let n = await repo.calls
+        #expect(n == 0)
+        #expect(vm.messages.count == 100)
+        #expect(vm.messages.first?.message.id == 1)
+    }
+
+    @MainActor
+    @Test
+    func loadOlderPartialCacheHitsSupplementsFromRemote() async throws {
+        let container = try makeContainer()
+        let messageStore = MessageStore(modelContainer: container)
+        let metaStore = ConversationMetaStore(modelContainer: container)
+
+        // 缓存只有 41...100：上滑先用本地 41...50，再向远端补 1...40。
+        try await messageStore.append((41...100).map {
+            Message(
+                id: $0,
+                conversationId: 7,
+                senderId: 20,
+                body: "m-\($0)",
+                messageType: "text",
+                mediaUrl: nil,
+                createdAt: Date(timeIntervalSince1970: TimeInterval(1_700_000_000 + $0)),
+                clientTempId: nil
+            )
+        })
+        try await metaStore.upsert(
+            metaSnap(
+                oldestCachedMessageId: 41,
+                newestCachedMessageId: 100,
+                lastReadMessageId: 100,
+                unreadCount: 0,
+                lastMessageBody: "m-100",
+                lastMessageType: "text",
+                lastMessageAt: Date(timeIntervalSince1970: 1_700_000_100)
+            )
+        )
+
+        actor RecordingRepo: MessageRepository {
+            private(set) var lastBeforeAnchor: Int?
+            private(set) var lastLimit: Int?
+            private(set) var beforeCalls = 0
+
+            func list(
+                conversationId: Int,
+                cursor: MessageCursor?,
+                limit: Int?,
+                token: String
+            ) async throws -> [Message] {
+                switch cursor {
+                case .before(let anchor):
+                    beforeCalls += 1
+                    lastBeforeAnchor = anchor
+                    lastLimit = limit
+                    let count = min(limit ?? 50, anchor - 1)
+                    guard count > 0 else { return [] }
+                    return stride(from: anchor - 1, through: anchor - count, by: -1).map {
+                        Message(
+                            id: $0,
+                            conversationId: 7,
+                            senderId: 20,
+                            body: "m-\($0)",
+                            messageType: "text",
+                            mediaUrl: nil,
+                            createdAt: Date(
+                                timeIntervalSince1970: TimeInterval(1_700_000_000 + $0)
+                            ),
+                            clientTempId: nil
+                        )
+                    }
+                case .after, .none:
+                    return []
+                }
+            }
+
+            func sendText(
+                recipientId: Int,
+                body: String,
+                clientTempId: String,
+                token: String
+            ) async throws -> Message {
+                fatalError()
+            }
+
+            func markRead(conversationId: Int, lastReadMessageId: Int, token: String) async throws {}
+        }
+
+        let conversation = Conversation(
+            id: 7,
+            createdAt: Date(),
+            peer: makePeer(),
+            lastMessageBody: "m-100",
+            lastMessageType: "text",
+            lastMessageSenderId: 20,
+            lastMessageAt: Date(timeIntervalSince1970: 1_700_000_100),
+            lastReadMessageId: 100,
+            unreadCount: 0
+        )
+        let repo = RecordingRepo()
+        let vm = ChatViewModel(
+            route: .conversation(conversation),
+            currentUserId: 10,
+            messageRepo: repo,
+            wsClient: nil,
+            conversationRepository: nil,
+            messageStore: messageStore,
+            metaStore: metaStore,
+            tokenProvider: { "t" }
+        )
+
+        await vm.load()
+        await vm.loadOlder()
+
+        let anchor = await repo.lastBeforeAnchor
+        let limit = await repo.lastLimit
+        let beforeCalls = await repo.beforeCalls
+        #expect(beforeCalls == 1)
+        #expect(anchor == 41)
+        #expect(limit == 40)
+        #expect(vm.messages.count == 100)
+        #expect(vm.messages.first?.message.id == 1)
+
+        let cached = try await messageStore.loadLatest(conversationId: 7, limit: 200)
+        #expect(cached.count == 100)
+    }
 }

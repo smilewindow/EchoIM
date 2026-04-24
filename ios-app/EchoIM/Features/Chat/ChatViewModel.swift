@@ -118,22 +118,56 @@ final class ChatViewModel {
 
     func loadOlder() async {
         guard let conversationId, !isLoadingOlder, hasMoreOlder else { return }
-        guard let oldestMessageId = messages.first?.message.id else { return }
+        guard let oldestDisplayed = messages.first?.message.id else { return }
         guard let token = tokenProvider() else { return }
 
         isLoadingOlder = true
         defer { isLoadingOlder = false }
 
+        let pageSize = 50
+        var localBatch: [Message] = []
+
+        if let messageStore {
+            localBatch = (try? await messageStore.loadOlder(
+                conversationId: conversationId,
+                before: oldestDisplayed,
+                limit: pageSize
+            )) ?? []
+
+            if !localBatch.isEmpty {
+                // 本地查询保持 DESC；UI 数组统一按时间 ASC 展示。
+                messages.insert(contentsOf: localBatch.reversed().map(LocalMessage.confirmed), at: 0)
+            }
+        }
+
+        if localBatch.count == pageSize {
+            return
+        }
+
+        let need = pageSize - localBatch.count
+        var oldestCached = messages.first?.message.id ?? oldestDisplayed
+        if let metaStore,
+           let meta = try? await metaStore.load(conversationId: conversationId),
+           let oldest = meta.oldestCachedMessageId {
+            // 远端补缺从缓存连续后缀的下边界往前要，避免重复拉本地已有段。
+            oldestCached = oldest
+        }
+
         do {
             let rows = try await messageRepo.list(
                 conversationId: conversationId,
-                cursor: .before(oldestMessageId),
-                limit: nil,
+                cursor: .before(oldestCached),
+                limit: need,
                 token: token
             )
+            if rows.isEmpty {
+                hasMoreOlder = false
+                return
+            }
+
             let older = rows.reversed().map(LocalMessage.confirmed)
             messages.insert(contentsOf: older, at: 0)
-            hasMoreOlder = rows.count == 50
+            hasMoreOlder = rows.count == need
             await writeThroughAndMeta(rows)
         } catch {
             // 上滑分页失败不打断现有聊天内容，下一次触顶时允许自然重试。
