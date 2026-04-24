@@ -30,4 +30,5 @@ UI smoke tests require:
 - P1 done: scaffold + login/register/home.
 - P2 done: main TabView (Chats / Contacts / Me), friends list, friend requests, user search, conversation list with unread badges, avatar caching via Nuke.
 - P3 done: text messaging + real-time WebSocket (ChatView, optimistic send with clientTempId merge, retry on failure, older pagination, mark-as-read, reconnect + heartbeat, ChatsList live updates).
-- P4-P8 tracked in `docs/superpowers/specs/2026-04-17-ios-app-design.md` §8.
+- P4 done: SwiftData cache (per-user ModelContainer under `applicationSupport/EchoIM/users/<id>/`), continuous-suffix invariant (scenario A/B/C), loadOlder local-first, UserSession separation with three-phase tearDown, Me tab clear-chat-cache.
+- P5-P8 tracked in `docs/superpowers/specs/2026-04-17-ios-app-design.md` §8.
