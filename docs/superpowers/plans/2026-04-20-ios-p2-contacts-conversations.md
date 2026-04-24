@@ -10,7 +10,7 @@
 
 **TDD 适用范围（与 P1 一致）：**
 - **纯逻辑 → TDD**：Data model 的 Decodable（尤其 `Conversation.init(from:)` 的 peer 扁平→嵌套聚合）、Repository 方法的 endpoint / body / 响应解码、`AppContainer.refreshCurrentUser()` 的 200 / 401 / network 分支。
-- **View / 集成 → 编译 + 模拟器手工清单**：`MainTabView` / `ConversationsListView` / `ContactsView` / `MeView` 不写 SwiftUI 单测。验证方式是 `$BUILD` + 模拟器按清单走一遍 + 扩展 XCUITest smoke 覆盖 Tab 切换。
+- **View / 集成 → 编译 + 模拟器手工清单**：`MainTabView` / `ConversationsListView` / `ContactsView` / `MeView` 不写 SwiftUI 单测。验证方式是 `$BUILD` + 模拟器按清单走一遍 + 扩展 XCUITest smoke 覆盖 Tab 切换和好友申请主路径。
 
 **服务端契约：** 本阶段依赖的接口全部已存在，不需要服务端改动：
 - `GET /api/users/me`（`server/src/routes/users.ts:11`）
@@ -3130,7 +3130,162 @@ git commit -m "test(ios): add tab navigation smoke test"
 
 ---
 
-## Task 14：P2 收尾 + README 更新
+## Task 14：XCUITest 扩展——好友申请跨账号 smoke
+
+**Files:**
+- Modify: `ios-app/EchoIM/Features/Contacts/UserSearchSheetView.swift`
+- Modify: `ios-app/EchoIM/Features/Contacts/FriendRequestsSheetView.swift`
+- Modify: `ios-app/EchoIM/Features/Contacts/FriendsListView.swift`
+- Create: `ios-app/EchoIMUITests/FriendRequestCrossAccountSmokeTests.swift`
+
+**动机：** Task 13 只证明 P2 的 MainTab 壳层和 Contacts 入口可达；但 P2 的核心业务 happy path 是“两个人真的能互加好友”。本 Task 加一条跨账号 smoke：测试进程先通过后端 API 注册一对唯一临时账号，然后在**同一台模拟器**里顺序切换登录 A / B，验证发送申请、接受申请、双方好友列表和双方申请历史。这样不依赖固定 `smoke` / `smoke2` 历史状态，第二遍跑不会因为“已经是好友”而失效。
+
+**前提：** 后端在跑；注册接口的 `INVITE_CODES` 可用。测试默认邀请码为 `letschat`，如果本地环境不同，运行前设置 `ECHOIM_UITEST_INVITE_CODE=<code>`。如后端不在 `http://localhost:3000`，设置 `ECHOIM_UITEST_BASE_URL=<base-url>`。
+
+- [ ] **Step 1：补好友流程 UI 测试锚点**
+
+`UserSearchSheetView`：
+
+```swift
+TextField("用户名", text: $query)
+    .accessibilityIdentifier("userSearchQuery")
+
+HStack {
+    // ...
+    Button("添加") { ... }
+        .accessibilityIdentifier("sendFriendRequest_\(user.username)")
+}
+.accessibilityIdentifier("userSearchResult_\(user.username)")
+```
+
+`FriendRequestsSheetView`：
+
+```swift
+Button("同意") { ... }
+    .accessibilityIdentifier("acceptFriendRequest_\(request.username ?? "\(request.senderId)")")
+
+Button("拒绝") { ... }
+    .accessibilityIdentifier("declineFriendRequest_\(request.username ?? "\(request.senderId)")")
+
+incomingRow
+    .accessibilityIdentifier("incomingFriendRequest_\(request.username ?? "\(request.senderId)")")
+
+sentRow
+    .accessibilityIdentifier("sentFriendRequest_\(request.username ?? "\(request.recipientId)")")
+
+historyRow
+    .accessibilityIdentifier(
+        "historyFriendRequest_\(request.direction ?? "unknown")_\(request.username ?? "user")_\(request.status.rawValue)"
+    )
+```
+
+`FriendsListView`：
+
+```swift
+friendRow
+    .accessibilityIdentifier("friendRow_\(friend.username)")
+```
+
+**注意：** SwiftUI `List` 有时不会稳定暴露子按钮的 accessibility id；smoke 可以用行 id 确认目标行，再点当前页面唯一的“添加”/“同意”按钮。因为本测试每次注册一对新账号，搜索结果和待处理申请都只有目标对象。
+
+- [ ] **Step 2：写 FriendRequestCrossAccountSmokeTests**
+
+`ios-app/EchoIMUITests/FriendRequestCrossAccountSmokeTests.swift` 的核心结构：
+
+```swift
+@MainActor
+func testCrossAccountFriendRequestFlow() async throws {
+    let suffix = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased().prefix(8)
+    let sender = TestUser(
+        username: "uismokea\(suffix)",
+        email: "uismokea\(suffix)@test.local",
+        password: "password123"
+    )
+    let receiver = TestUser(
+        username: "uismokeb\(suffix)",
+        email: "uismokeb\(suffix)@test.local",
+        password: "password123"
+    )
+
+    try await register(sender)
+    try await register(receiver)
+
+    launchFresh()
+    try login(email: sender.email, password: sender.password)
+    try openContacts()
+    try sendFriendRequest(toUsername: receiver.username)
+    try assertSentRequest(to: receiver.username)
+
+    launchFresh()
+    try login(email: receiver.email, password: receiver.password)
+    try openContacts()
+    try acceptIncomingFriendRequest(fromUsername: sender.username)
+    try assertFriendVisible(sender.username)
+
+    launchFresh()
+    try login(email: sender.email, password: sender.password)
+    try openContacts()
+    try assertFriendVisible(receiver.username)
+    try assertAcceptedSentHistory(to: receiver.username)
+}
+```
+
+注册辅助通过真实后端 API 建账号，测试只把 UI 操作聚焦在好友流程：
+
+```swift
+private func register(_ user: TestUser) async throws {
+    var request = URLRequest(url: registerURL)
+    request.httpMethod = "POST"
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    request.httpBody = try JSONEncoder().encode(
+        RegisterRequest(
+            username: user.username,
+            email: user.email,
+            password: user.password,
+            inviteCode: inviteCode
+        )
+    )
+
+    let (_, response) = try await URLSession.shared.data(for: request)
+    guard (response as? HTTPURLResponse)?.statusCode == 201 else {
+        throw BootstrapError(message: "UI smoke 注册临时账号失败")
+    }
+}
+```
+
+覆盖点：
+
+- [ ] A 搜索 B 并发送好友申请
+- [ ] A 的已发送申请列表出现 B
+- [ ] B 的收到申请列表出现 A
+- [ ] B 同意后，历史记录显示 `received + accepted`
+- [ ] B 好友列表出现 A
+- [ ] A 重新登录后，好友列表出现 B
+- [ ] A 历史记录显示 `sent + accepted`
+
+- [ ] **Step 3：跑 targeted UI smoke**
+
+```bash
+xcodebuild -project ios-app/EchoIM.xcodeproj -scheme EchoIM \
+  -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5,arch=arm64' \
+  test -only-testing:EchoIMUITests/FriendRequestCrossAccountSmokeTests/testCrossAccountFriendRequestFlow
+```
+
+预期：1 条测试绿。若注册返回 403，确认 `INVITE_CODES` 与 `ECHOIM_UITEST_INVITE_CODE` 一致。
+
+- [ ] **Step 4：提交**
+
+```bash
+git add ios-app/EchoIM/Features/Contacts/UserSearchSheetView.swift \
+        ios-app/EchoIM/Features/Contacts/FriendRequestsSheetView.swift \
+        ios-app/EchoIM/Features/Contacts/FriendsListView.swift \
+        ios-app/EchoIMUITests/FriendRequestCrossAccountSmokeTests.swift
+git commit -m "test(ios): add friend request cross-account smoke"
+```
+
+---
+
+## Task 15：P2 收尾 + README 更新
 
 **Files:**
 - Modify: `ios-app/README.md`
@@ -3188,6 +3343,7 @@ git commit -m "docs(ios): note P2 completion in README"
   - TabView (Chats / Contacts / Me) → Task 8 + Task 12
   - 好友列表 → Task 10 FriendsListView
   - 好友请求入口 → Task 10 FriendRequestsSheetView（+ ContactsView 的信封 toolbar 按钮）
+  - 互加好友 happy path（搜索 → 发送申请 → 对方同意 → 双方好友列表 / 历史）→ Task 14
   - 会话列表（头像、display_name、last_message 预览、unread 角标）→ Task 9 ConversationRow
   - 下拉刷新 → Task 9 + Task 10 的 `.refreshable`
   - 头像用 `LazyImage` → Task 7 AvatarView（NukeUI）
@@ -3222,7 +3378,8 @@ git commit -m "docs(ios): note P2 completion in README"
 - [ ] **UI smoke**：
   - `LoginSmokeTests` 在 Task 12 后已更新为：登录成功 → 断言 `mainTabView` 出现 → 切到“我”tab → 再断言 `homeUsername`
   - `TabNavigationSmokeTests`：登录成功 → 切到“联系人”tab → 断言 `openUserSearch` 出现，再等待 `friendsList` / `friendsEmpty`
-  - `MeView` 保留 `homeUsername` / `homeLogout`，`FriendsListView` 对 `friendsList` / `friendsEmpty` 补 `.accessibilityElement(children: .contain)`，保证 UI smoke 锚点稳定
+  - `FriendRequestCrossAccountSmokeTests`：每次自动注册一对唯一临时账号，同一台模拟器顺序切换 A / B，覆盖发送申请、接受申请、双方好友列表、双方申请历史
+  - `MeView` 保留 `homeUsername` / `homeLogout`，`FriendsListView` 对 `friendsList` / `friendsEmpty` / `friendRow_<username>` 补稳定 accessibility 锚点，保证 UI smoke 可定位
 
 ---
 
