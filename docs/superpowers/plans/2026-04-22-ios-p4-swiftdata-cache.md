@@ -2465,7 +2465,7 @@ git commit -m "feat(ios): wire stores through views and write-through cache on l
 - Modify: `ios-app/EchoIM/Features/Chat/ChatViewModel.swift:320-346`（`refetchMissedMessages` 方法体）
 - Modify: `ios-app/EchoIMTests/ChatViewModelCacheTests.swift`（追加循环翻页用例）
 
-- [ ] **Step 1：先写失败的测试**
+- [x] **Step 1：先写失败的测试**
 
 在 `ChatViewModelCacheTests.swift` 末尾追加：
 
@@ -2551,7 +2551,7 @@ func refetchLoopsUntilSmallPage() async throws {
 
 （如果 `refetchMissedMessages` 从 `messages` 推算 newest 导致起点不对，在 VM 上暴露一个 test-only `setDebugMessages(_:)` 或在 §5.3 实现里改为"优先读 meta.newestCachedMessageId，否则看 messages"。下一步 Step 3 会保证这一点。）
 
-- [ ] **Step 2：跑失败的测试**
+- [x] **Step 2：跑失败的测试**
 
 ```bash
 $TEST -only-testing:EchoIMTests/ChatViewModelCacheTests/refetchLoopsUntilSmallPage
@@ -2559,7 +2559,17 @@ $TEST -only-testing:EchoIMTests/ChatViewModelCacheTests/refetchLoopsUntilSmallPa
 
 预期：断言失败——P3 版本只调 1 次 repo。
 
-- [ ] **Step 3：改 `refetchMissedMessages`**
+执行结果：单用例 `-only-testing:EchoIMTests/ChatViewModelCacheTests/refetchLoopsUntilSmallPage` 在当前 Swift Testing / xcodebuild 组合下没有可靠暴露断言失败；改跑 suite 粒度：
+
+```bash
+xcodebuild -project ios-app/EchoIM.xcodeproj -scheme EchoIM \
+  -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5,arch=arm64' \
+  test -only-testing:EchoIMTests/ChatViewModelCacheTests
+```
+
+红灯结果：`refetchLoopsUntilSmallPage()` failed，其他两条缓存用例 passed，符合“P3 只补拉一页”的预期。
+
+- [x] **Step 3：改 `refetchMissedMessages`**
 
 ```swift
 /// §5.3 场景 C：从当前 newest 开始循环 after-cursor 翻页，直到返回 < limit（说明追上了）。
@@ -2619,7 +2629,7 @@ func refetchMissedMessages() async {
 
 （把 `refetchMissedMessages` 的可见性从 P3 的 internal 保留；若 Swift Testing 要求 `private` 可测，追加 `@testable import EchoIM`。）
 
-- [ ] **Step 4：跑测试**
+- [x] **Step 4：跑测试**
 
 ```bash
 $TEST -only-testing:EchoIMTests/ChatViewModelCacheTests
@@ -2627,13 +2637,30 @@ $TEST -only-testing:EchoIMTests/ChatViewModelCacheTests
 
 预期：`refetchLoopsUntilSmallPage` + 前两条场景 A/B 用例全绿；P3 既有测试不回归。
 
-- [ ] **Step 5：提交**
+执行结果：
+
+```bash
+xcodebuild -project ios-app/EchoIM.xcodeproj -scheme EchoIM \
+  -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5,arch=arm64' \
+  test -only-testing:EchoIMTests/ChatViewModelCacheTests
+
+xcodebuild -project ios-app/EchoIM.xcodeproj -scheme EchoIM \
+  -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5,arch=arm64' \
+  test -only-testing:EchoIMTests/ChatViewModelLoadTests \
+       -only-testing:EchoIMTests/ChatViewModelWSTests
+```
+
+两组测试均 `TEST SUCCEEDED`。实现保持 `refetchMissedMessages` 为 internal，优先读取 `ConversationMetaStore.newestCachedMessageId`，否则回退到当前 confirmed messages 的最大 id；循环补拉每页 `limit=50`，最多 20 页。
+
+- [x] **Step 5：提交**
 
 ```bash
 git add ios-app/EchoIM/Features/Chat/ChatViewModel.swift \
         ios-app/EchoIMTests/ChatViewModelCacheTests.swift
 git commit -m "feat(ios): loop paginate refetchMissedMessages with 20-page safety cap"
 ```
+
+执行结果：实现提交为 `dcee4a9 feat(ios): loop paginate refetchMissedMessages with 20-page safety cap`。
 
 ---
 
