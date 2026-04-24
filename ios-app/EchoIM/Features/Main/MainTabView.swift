@@ -29,31 +29,45 @@ struct MainTabView: View {
         .accessibilityIdentifier("mainTabView")
     }
 
+    @ViewBuilder
     private var chatsTab: some View {
-        ConversationsListView(
-            repository: container.session!.makeConversationRepository(),
-            messageRepo: container.session!.makeMessageRepository(),
-            wsClient: container.session!.wsClient,
-            currentUserId: container.currentUser?.id ?? 0,
-            tokenProvider: { [tokenStore = container.tokenStore] in
-                (try? tokenStore.load())?.token
-            }
-        )
+        if let session = container.session {
+            ConversationsListView(
+                repository: session.makeConversationRepository(),
+                messageRepo: session.makeMessageRepository(),
+                metaStore: session.conversationMetaStore(),
+                messageStore: session.messageStore(),
+                wsClient: session.wsClient,
+                currentUserId: container.currentUser?.id ?? 0,
+                tokenProvider: { [tokenStore = container.tokenStore] in
+                    (try? tokenStore.load())?.token
+                }
+            )
+        } else {
+            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
     }
 
+    @ViewBuilder
     private var contactsTab: some View {
-        ContactsView(
-            friendRepo: container.makeFriendRepository(),
-            requestRepo: container.makeFriendRequestRepository(),
-            userRepo: container.makeUserRepository(),
-            messageRepo: container.session!.makeMessageRepository(),
-            conversationRepo: container.session!.makeConversationRepository(),
-            wsClient: container.session!.wsClient,
-            currentUserId: container.currentUser?.id ?? 0,
-            tokenProvider: { [tokenStore = container.tokenStore] in
-                (try? tokenStore.load())?.token
-            }
-        )
+        if let session = container.session {
+            ContactsView(
+                friendRepo: container.makeFriendRepository(),
+                requestRepo: container.makeFriendRequestRepository(),
+                userRepo: container.makeUserRepository(),
+                messageRepo: session.makeMessageRepository(),
+                conversationRepo: session.makeConversationRepository(),
+                messageStore: session.messageStore(),
+                metaStore: session.conversationMetaStore(),
+                wsClient: session.wsClient,
+                currentUserId: container.currentUser?.id ?? 0,
+                tokenProvider: { [tokenStore = container.tokenStore] in
+                    (try? tokenStore.load())?.token
+                }
+            )
+        } else {
+            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
     }
 
     private var meTab: some View {

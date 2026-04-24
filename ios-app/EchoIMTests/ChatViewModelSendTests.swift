@@ -48,6 +48,8 @@ struct ChatViewModelSendTests {
             currentUserId: currentUserId,
             messageRepo: repo,
             wsClient: nil,
+            messageStore: nil,
+            metaStore: nil,
             tokenProvider: { "jwt" }
         )
     }

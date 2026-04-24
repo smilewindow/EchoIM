@@ -31,6 +31,7 @@ final class ConversationsListViewModel {
     private(set) var phase: ConversationsPhase = .idle
 
     private let repository: ConversationRepository
+    private let metaStore: ConversationMetaStore?
     private let tokenProvider: @MainActor () -> String?
     private let currentUserId: @MainActor () -> Int?
     private weak var wsClient: WebSocketClient?
@@ -39,11 +40,13 @@ final class ConversationsListViewModel {
 
     init(
         repository: ConversationRepository,
+        metaStore: ConversationMetaStore? = nil,
         tokenProvider: @escaping @MainActor () -> String?,
         currentUserId: @escaping @MainActor () -> Int? = { nil },
         wsClient: WebSocketClient? = nil
     ) {
         self.repository = repository
+        self.metaStore = metaStore
         self.tokenProvider = tokenProvider
         self.currentUserId = currentUserId
         self.wsClient = wsClient
@@ -56,19 +59,13 @@ final class ConversationsListViewModel {
             return
         }
 
-        guard let token = tokenProvider() else {
-            phase = .unauthenticated
-            return
+        if let metaStore, conversations.isEmpty {
+            if let snapshots = try? await metaStore.loadAll(), !snapshots.isEmpty {
+                conversations = snapshots.map(Conversation.fromCachedMeta)
+            }
         }
 
-        phase = .loading
-
-        do {
-            conversations = try await repository.list(token: token)
-            phase = .loaded
-        } catch {
-            phase = .error(String(describing: error))
-        }
+        await refresh()
     }
 
     func refresh() async {
@@ -77,11 +74,38 @@ final class ConversationsListViewModel {
             return
         }
 
+        phase = .loading
+
         do {
-            conversations = try await repository.list(token: token)
+            let fresh = try await repository.list(token: token)
+            conversations = fresh
             phase = .loaded
+            await writeBack(fresh)
         } catch {
             phase = .error(String(describing: error))
+        }
+    }
+
+    private func writeBack(_ conversations: [Conversation]) async {
+        guard let metaStore else { return }
+        for conv in conversations {
+            let existing = try? await metaStore.load(conversationId: conv.id)
+            let merged = ConversationMetaSnapshot(
+                conversationId: conv.id,
+                peerUserId: conv.peer.id,
+                peerUsername: conv.peer.username,
+                peerDisplayName: conv.peer.displayName,
+                peerAvatarUrl: conv.peer.avatarUrl,
+                // 消息边界只能由消息缓存推进；会话列表刷新只覆盖预览和已读状态。
+                oldestCachedMessageId: existing?.oldestCachedMessageId,
+                newestCachedMessageId: existing?.newestCachedMessageId,
+                lastReadMessageId: conv.lastReadMessageId,
+                unreadCount: conv.unreadCount,
+                lastMessageBody: conv.lastMessageBody,
+                lastMessageType: conv.lastMessageType,
+                lastMessageAt: conv.lastMessageAt
+            )
+            try? await metaStore.upsert(merged)
         }
     }
 
@@ -170,6 +194,27 @@ final class ConversationsListViewModel {
 // MARK: - Conversation 局部更新辅助
 
 extension Conversation {
+    /// 冷启动 / 缓存渲染用：从 ConversationMetaSnapshot 合成 Conversation。
+    /// peer 信息来自缓存里的会话元数据，避免列表闪成空占位。
+    static func fromCachedMeta(_ snap: ConversationMetaSnapshot) -> Conversation {
+        Conversation(
+            id: snap.conversationId,
+            createdAt: Date(),
+            peer: UserProfile(
+                id: snap.peerUserId,
+                username: snap.peerUsername,
+                displayName: snap.peerDisplayName,
+                avatarUrl: snap.peerAvatarUrl
+            ),
+            lastMessageBody: snap.lastMessageBody,
+            lastMessageType: snap.lastMessageType,
+            lastMessageSenderId: nil,
+            lastMessageAt: snap.lastMessageAt,
+            lastReadMessageId: snap.lastReadMessageId,
+            unreadCount: snap.unreadCount
+        )
+    }
+
     /// Conversation 是 let-only struct；WS 到达时只替换被事件触达的少量字段。
     static func updatedCopy(
         of conversation: Conversation,

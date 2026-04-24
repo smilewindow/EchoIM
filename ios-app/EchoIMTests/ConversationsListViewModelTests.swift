@@ -48,6 +48,7 @@ struct ConversationsListViewModelTests {
         let c1 = try makeConversation(id: 1, peerName: "alice", unread: 1)
         let vm = ConversationsListViewModel(
             repository: FakeRepo(.success([c1])),
+            metaStore: nil,
             tokenProvider: { "jwt" }
         )
 
@@ -62,6 +63,7 @@ struct ConversationsListViewModelTests {
     func loadPropagatesErrorPhase() async {
         let vm = ConversationsListViewModel(
             repository: FakeRepo(.failure(APIError.invalidResponse)),
+            metaStore: nil,
             tokenProvider: { "jwt" }
         )
 
@@ -79,6 +81,7 @@ struct ConversationsListViewModelTests {
         let repo = FakeRepo(.success([old]))
         let vm = ConversationsListViewModel(
             repository: repo,
+            metaStore: nil,
             tokenProvider: { "jwt" }
         )
 
@@ -98,6 +101,7 @@ struct ConversationsListViewModelTests {
         let repo = FakeRepo(.success([]))
         let vm = ConversationsListViewModel(
             repository: repo,
+            metaStore: nil,
             tokenProvider: { nil }
         )
 

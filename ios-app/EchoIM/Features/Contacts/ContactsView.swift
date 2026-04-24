@@ -5,6 +5,8 @@ struct ContactsView: View {
     private let userRepo: UserRepository
     private let messageRepo: MessageRepository
     private let conversationRepo: ConversationRepository
+    private let messageStore: MessageStore?
+    private let metaStore: ConversationMetaStore?
     private let wsClient: WebSocketClient?
     private let currentUserId: Int
     private let tokenProvider: () -> String?
@@ -19,6 +21,8 @@ struct ContactsView: View {
         userRepo: UserRepository,
         messageRepo: MessageRepository,
         conversationRepo: ConversationRepository,
+        messageStore: MessageStore?,
+        metaStore: ConversationMetaStore?,
         wsClient: WebSocketClient?,
         currentUserId: Int,
         tokenProvider: @escaping () -> String?
@@ -33,6 +37,8 @@ struct ContactsView: View {
         self.userRepo = userRepo
         self.messageRepo = messageRepo
         self.conversationRepo = conversationRepo
+        self.messageStore = messageStore
+        self.metaStore = metaStore
         self.wsClient = wsClient
         self.currentUserId = currentUserId
         self.tokenProvider = tokenProvider
@@ -84,6 +90,8 @@ struct ContactsView: View {
                         route: route,
                         currentUserId: currentUserId,
                         messageRepo: messageRepo,
+                        messageStore: messageStore,
+                        metaStore: metaStore,
                         wsClient: wsClient,
                         conversationRepository: conversationRepo,
                         tokenProvider: {

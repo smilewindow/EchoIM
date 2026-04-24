@@ -36,12 +36,12 @@ struct RootView: View {
         .animation(.default, value: container.currentUser?.id)
         .animation(.default, value: showRegister)
         .onChange(of: scenePhase) { _, newPhase in
-            guard container.currentUser != nil else { return }
+            guard let session = container.session else { return }
             switch newPhase {
             case .active:
-                container.connectWebSocketIfNeeded()
+                session.connectWebSocketIfNeeded()
             case .background:
-                container.session?.disconnectWebSocket(reason: .userInitiated)
+                session.disconnectWebSocket(reason: .userInitiated)
             case .inactive:
                 // 通知中心 / 锁屏瞬间等过渡态，保持当前连接状态。
                 break

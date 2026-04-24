@@ -8,6 +8,8 @@ struct ChatView: View {
         route: ChatRoute,
         currentUserId: Int,
         messageRepo: MessageRepository,
+        messageStore: MessageStore?,
+        metaStore: ConversationMetaStore?,
         wsClient: WebSocketClient?,
         conversationRepository: ConversationRepository?,
         tokenProvider: @escaping @MainActor () -> String?
@@ -19,6 +21,8 @@ struct ChatView: View {
                 messageRepo: messageRepo,
                 wsClient: wsClient,
                 conversationRepository: conversationRepository,
+                messageStore: messageStore,
+                metaStore: metaStore,
                 tokenProvider: tokenProvider
             )
         )

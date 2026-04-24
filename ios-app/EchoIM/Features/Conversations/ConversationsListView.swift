@@ -4,6 +4,8 @@ struct ConversationsListView: View {
     @State private var vm: ConversationsListViewModel
     private let conversationRepo: ConversationRepository
     private let messageRepo: MessageRepository
+    private let metaStore: ConversationMetaStore?
+    private let messageStore: MessageStore?
     private let wsClient: WebSocketClient?
     private let currentUserId: Int
     private let tokenProvider: @MainActor () -> String?
@@ -12,6 +14,8 @@ struct ConversationsListView: View {
     init(
         repository: ConversationRepository,
         messageRepo: MessageRepository,
+        metaStore: ConversationMetaStore?,
+        messageStore: MessageStore?,
         wsClient: WebSocketClient?,
         currentUserId: Int,
         tokenProvider: @escaping @MainActor () -> String?
@@ -19,6 +23,7 @@ struct ConversationsListView: View {
         _vm = State(
             wrappedValue: ConversationsListViewModel(
                 repository: repository,
+                metaStore: metaStore,
                 tokenProvider: tokenProvider,
                 currentUserId: { currentUserId },
                 wsClient: wsClient
@@ -26,6 +31,8 @@ struct ConversationsListView: View {
         )
         self.conversationRepo = repository
         self.messageRepo = messageRepo
+        self.metaStore = metaStore
+        self.messageStore = messageStore
         self.wsClient = wsClient
         self.currentUserId = currentUserId
         self.tokenProvider = tokenProvider
@@ -135,6 +142,8 @@ struct ConversationsListView: View {
             route: route,
             currentUserId: currentUserId,
             messageRepo: messageRepo,
+            messageStore: messageStore,
+            metaStore: metaStore,
             wsClient: wsClient,
             conversationRepository: conversationRepo,
             tokenProvider: {

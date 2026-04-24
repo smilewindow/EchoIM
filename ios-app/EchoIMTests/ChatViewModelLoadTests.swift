@@ -58,6 +58,8 @@ struct ChatViewModelLoadTests {
             currentUserId: 9,
             messageRepo: repo,
             wsClient: nil,
+            messageStore: nil,
+            metaStore: nil,
             tokenProvider: { "jwt" }
         )
 
@@ -78,6 +80,8 @@ struct ChatViewModelLoadTests {
             currentUserId: 9,
             messageRepo: repo,
             wsClient: nil,
+            messageStore: nil,
+            metaStore: nil,
             tokenProvider: { "jwt" }
         )
 
@@ -96,6 +100,8 @@ struct ChatViewModelLoadTests {
             currentUserId: 9,
             messageRepo: repo,
             wsClient: nil,
+            messageStore: nil,
+            metaStore: nil,
             tokenProvider: { "jwt" }
         )
 
@@ -116,6 +122,8 @@ struct ChatViewModelLoadTests {
             currentUserId: 9,
             messageRepo: repo,
             wsClient: nil,
+            messageStore: nil,
+            metaStore: nil,
             tokenProvider: { "jwt" }
         )
 
@@ -147,6 +155,8 @@ struct ChatViewModelLoadTests {
             currentUserId: 3,
             messageRepo: repo,
             wsClient: nil,
+            messageStore: nil,
+            metaStore: nil,
             tokenProvider: { "jwt" }
         )
 

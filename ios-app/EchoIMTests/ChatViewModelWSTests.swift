@@ -84,6 +84,8 @@ struct ChatViewModelWSTests {
             currentUserId: 9,
             messageRepo: repo,
             wsClient: nil,
+            messageStore: nil,
+            metaStore: nil,
             tokenProvider: { "jwt" }
         )
 
@@ -104,6 +106,8 @@ struct ChatViewModelWSTests {
             currentUserId: 3,
             messageRepo: repo,
             wsClient: nil,
+            messageStore: nil,
+            metaStore: nil,
             tokenProvider: { "jwt" }
         )
 
@@ -130,6 +134,8 @@ struct ChatViewModelWSTests {
             currentUserId: 9,
             messageRepo: repo,
             wsClient: nil,
+            messageStore: nil,
+            metaStore: nil,
             tokenProvider: { "jwt" }
         )
         let message = msg(id: 300)
@@ -148,6 +154,8 @@ struct ChatViewModelWSTests {
             currentUserId: 9,
             messageRepo: repo,
             wsClient: nil,
+            messageStore: nil,
+            metaStore: nil,
             tokenProvider: { "jwt" }
         )
 
@@ -164,6 +172,8 @@ struct ChatViewModelWSTests {
             currentUserId: 3,
             messageRepo: repo,
             wsClient: nil,
+            messageStore: nil,
+            metaStore: nil,
             tokenProvider: { "jwt" }
         )
         #expect(vm.conversationId == nil)
@@ -183,6 +193,8 @@ struct ChatViewModelWSTests {
             currentUserId: 9,
             messageRepo: repo,
             wsClient: nil,
+            messageStore: nil,
+            metaStore: nil,
             tokenProvider: { "jwt" }
         )
         #expect(vm.lastReadMessageId == nil)

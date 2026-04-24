@@ -28,6 +28,8 @@ final class ChatViewModel {
     // MARK: - Dependencies
     private let messageRepo: MessageRepository
     private let conversationRepository: ConversationRepository?
+    private let messageStore: MessageStore?
+    private let metaStore: ConversationMetaStore?
     weak var wsClient: WebSocketClient?
     private let tokenProvider: @MainActor () -> String?
 
@@ -45,6 +47,8 @@ final class ChatViewModel {
         messageRepo: MessageRepository,
         wsClient: WebSocketClient?,
         conversationRepository: ConversationRepository? = nil,
+        messageStore: MessageStore? = nil,
+        metaStore: ConversationMetaStore? = nil,
         tokenProvider: @escaping @MainActor () -> String?
     ) {
         switch route {
@@ -60,6 +64,8 @@ final class ChatViewModel {
         self.currentUserId = currentUserId
         self.messageRepo = messageRepo
         self.conversationRepository = conversationRepository
+        self.messageStore = messageStore
+        self.metaStore = metaStore
         self.wsClient = wsClient
         self.tokenProvider = tokenProvider
     }
@@ -78,22 +84,35 @@ final class ChatViewModel {
             return
         }
 
-        phase = .loading
+        if messages.isEmpty, let messageStore {
+            if let cached = try? await messageStore.loadLatest(conversationId: conversationId, limit: 50),
+               !cached.isEmpty {
+                messages = cached.reversed().map(LocalMessage.confirmed)
+                phase = .loaded
+            }
+        }
 
-        do {
-            let rows = try await messageRepo.list(
-                conversationId: conversationId,
-                cursor: nil,
-                limit: nil,
-                token: token
-            )
-            // 服务端最新在前；聊天窗口内部统一保存为从旧到新的时间序。
-            messages = rows.reversed().map(LocalMessage.confirmed)
-            hasMoreOlder = rows.count == 50
-            phase = .loaded
+        if messages.isEmpty {
+            phase = .loading
+            do {
+                let rows = try await messageRepo.list(
+                    conversationId: conversationId,
+                    cursor: nil,
+                    limit: nil,
+                    token: token
+                )
+                // 服务端最新在前；聊天窗口内部统一保存为从旧到新的时间序。
+                messages = rows.reversed().map(LocalMessage.confirmed)
+                hasMoreOlder = rows.count == 50
+                phase = .loaded
+                await writeThroughAndMeta(rows)
+                await markReadIfNeeded()
+            } catch {
+                phase = .error(String(describing: error))
+            }
+        } else {
+            await refetchMissedMessages()
             await markReadIfNeeded()
-        } catch {
-            phase = .error(String(describing: error))
         }
     }
 
@@ -115,6 +134,7 @@ final class ChatViewModel {
             let older = rows.reversed().map(LocalMessage.confirmed)
             messages.insert(contentsOf: older, at: 0)
             hasMoreOlder = rows.count == 50
+            await writeThroughAndMeta(rows)
         } catch {
             // 上滑分页失败不打断现有聊天内容，下一次触顶时允许自然重试。
         }
@@ -190,6 +210,10 @@ final class ChatViewModel {
         } else if !messages.contains(where: { $0.message.id == message.id }) {
             messages.append(LocalMessage.confirmed(message))
         }
+
+        Task { [weak self] in
+            await self?.writeThroughAndMeta([message])
+        }
     }
 
     private func markFailed(tempId: String, error: Error) {
@@ -219,6 +243,7 @@ final class ChatViewModel {
             )
             // 服务端也会通过 conversation.updated 推进；本地先乐观推进，避免重复 PUT。
             lastReadMessageId = latest
+            await writeReadProgress(latest)
         } catch {
             // 静默失败；下一次进入页面或收到新消息时重试。
         }
@@ -273,6 +298,10 @@ final class ChatViewModel {
 
         guard !messages.contains(where: { $0.message.id == incoming.id }) else { return }
         messages.append(.confirmed(incoming))
+
+        Task { [weak self] in
+            await self?.writeThroughAndMeta([incoming])
+        }
 
         if incoming.senderId != currentUserId {
             Task { [weak self] in
@@ -343,9 +372,61 @@ final class ChatViewModel {
             for message in rows where !messages.contains(where: { $0.message.id == message.id }) {
                 messages.append(.confirmed(message))
             }
+            await writeThroughAndMeta(rows)
         } catch {
             // 补拉失败保持现有消息；下一次 reconnect 或重进页面会再尝试。
         }
+    }
+
+    private func writeThroughAndMeta(_ rows: [Message]) async {
+        guard let messageStore, let metaStore else { return }
+        guard let conversationId, !rows.isEmpty else { return }
+
+        try? await messageStore.append(rows)
+
+        let newestInBatch = rows.max { $0.id < $1.id }
+        guard let minNew = rows.map(\.id).min(), let maxNew = newestInBatch?.id else { return }
+        let existing = try? await metaStore.load(conversationId: conversationId)
+        let shouldReplacePreview = maxNew > (existing?.newestCachedMessageId ?? 0)
+
+        let merged = ConversationMetaSnapshot(
+            conversationId: conversationId,
+            peerUserId: existing?.peerUserId ?? peer.id,
+            peerUsername: existing?.peerUsername ?? peer.username,
+            peerDisplayName: existing?.peerDisplayName ?? peer.displayName,
+            peerAvatarUrl: existing?.peerAvatarUrl ?? peer.avatarUrl,
+            // 服务端消息 id 全局单调，边界按 id 合并，不依赖接口返回顺序。
+            oldestCachedMessageId: min(existing?.oldestCachedMessageId ?? .max, minNew),
+            newestCachedMessageId: max(existing?.newestCachedMessageId ?? .min, maxNew),
+            lastReadMessageId: existing?.lastReadMessageId ?? lastReadMessageId,
+            unreadCount: existing?.unreadCount ?? 0,
+            lastMessageBody: shouldReplacePreview ? newestInBatch?.body : existing?.lastMessageBody,
+            lastMessageType: shouldReplacePreview ? newestInBatch?.messageType : existing?.lastMessageType,
+            lastMessageAt: shouldReplacePreview ? newestInBatch?.createdAt : existing?.lastMessageAt
+        )
+        try? await metaStore.upsert(merged)
+    }
+
+    private func writeReadProgress(_ latest: Int) async {
+        guard let conversationId, let metaStore else { return }
+        guard let existing = try? await metaStore.load(conversationId: conversationId) else { return }
+
+        try? await metaStore.upsert(
+            ConversationMetaSnapshot(
+                conversationId: existing.conversationId,
+                peerUserId: existing.peerUserId,
+                peerUsername: existing.peerUsername,
+                peerDisplayName: existing.peerDisplayName,
+                peerAvatarUrl: existing.peerAvatarUrl,
+                oldestCachedMessageId: existing.oldestCachedMessageId,
+                newestCachedMessageId: existing.newestCachedMessageId,
+                lastReadMessageId: latest,
+                unreadCount: 0,
+                lastMessageBody: existing.lastMessageBody,
+                lastMessageType: existing.lastMessageType,
+                lastMessageAt: existing.lastMessageAt
+            )
+        )
     }
 
     // MARK: - Tempid helper（Task 9/10 会用）
