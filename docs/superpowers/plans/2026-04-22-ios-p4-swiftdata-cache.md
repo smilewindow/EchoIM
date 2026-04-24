@@ -128,7 +128,7 @@ let container = try ModelContainer(for: schema, configurations: [config])
 - Modify: `server/src/routes/conversations.ts:36-88`
 - Modify: `server/tests/messages.test.ts:390-513`（`describe('GET /api/conversations/:id/messages')` block 内）
 
-- [ ] **Step 1：先写失败的测试**
+- [x] **Step 1：先写失败的测试**
 
 在 `server/tests/messages.test.ts` 的 `describe('GET /api/conversations/:id/messages', () => { ... })` block 里追加三个 case（放在 `returns 401 when unauthenticated` 之后）：
 
@@ -192,7 +192,7 @@ it('combines ?after= with ?limit= (ASC order, capped)', async () => {
 })
 ```
 
-- [ ] **Step 2：跑失败的测试**
+- [x] **Step 2：跑失败的测试**
 
 ```bash
 $STEST -- messages.test.ts
@@ -202,7 +202,9 @@ $STEST -- messages.test.ts
 
 > **如果 `rejects ?limit=0` 意外通过**也没关系，下一步实现里仍然要把它纳入 schema；实现之后它测的是 "schema 明确 minimum=1 的拒绝"，语义更强。
 
-- [ ] **Step 3：改 querystring schema 和 SQL**
+执行结果：`npm test --prefix server -- messages.test.ts` 红灯符合预期，`limits results when ?limit=N is provided` 与 `combines ?after= with ?limit= (ASC order, capped)` 因 schema 拒绝未知 `limit` 返回 400；越界用例保持 400。
+
+- [x] **Step 3：改 querystring schema 和 SQL**
 
 编辑 `server/src/routes/conversations.ts`，把 `GET /:id/messages` 的 handler 和 schema 改成：
 
@@ -262,7 +264,7 @@ fastify.get('/:id/messages', {
 })
 ```
 
-- [ ] **Step 4：跑测试**
+- [x] **Step 4：跑测试**
 
 ```bash
 $STEST -- messages.test.ts
@@ -270,13 +272,17 @@ $STEST -- messages.test.ts
 
 预期：`describe('GET /api/conversations/:id/messages')` 下全部 6 条原有 + 3 条新增共 9 条全绿。
 
-- [ ] **Step 5：lint + 提交**
+执行结果：`npm test --prefix server -- messages.test.ts` 通过，当前文件共 44 条测试全绿。
+
+- [x] **Step 5：lint + 提交**
 
 ```bash
 $SLINT
 git add server/src/routes/conversations.ts server/tests/messages.test.ts
 git commit -m "feat(server): add ?limit= query param to GET conversations messages"
 ```
+
+执行结果：`npm run lint --prefix server` 通过；实现提交为 `bb57e0c feat(server): add ?limit= query param to GET conversations messages`。
 
 ---
 
