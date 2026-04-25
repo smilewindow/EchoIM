@@ -161,7 +161,7 @@ private struct ConversationRow: View {
             AvatarView(profile: conversation.peer, size: 44)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(conversation.peer.displayName ?? conversation.peer.username)
+                Text(conversation.peer.displayTitle)
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(1)
                 Text(previewText)

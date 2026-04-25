@@ -19,4 +19,30 @@ struct FriendRequest: Identifiable, Equatable, Decodable, Sendable {
     let username: String?
     let displayName: String?
     let avatarUrl: String?
+
+    /// 好友申请里的用户摘要可能来自联表，也可能在刚 POST/PUT 后暂缺。
+    func displayTitle(fallback: String = "用户") -> String {
+        let trimmedDisplayName = displayName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedDisplayName?.isEmpty == false {
+            return trimmedDisplayName!
+        }
+
+        let trimmedUsername = username?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedUsername?.isEmpty == false {
+            return trimmedUsername!
+        }
+
+        return fallback
+    }
+
+    var usernameSubtitle: String? {
+        guard let username = username?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !username.isEmpty,
+              displayTitle() != username
+        else {
+            return nil
+        }
+
+        return "@\(username)"
+    }
 }

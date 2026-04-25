@@ -34,7 +34,7 @@ struct ChatView: View {
             Divider()
             inputBar
         }
-        .navigationTitle(vm.peer.displayName ?? vm.peer.username)
+        .navigationTitle(vm.peer.displayTitle)
         .navigationBarTitleDisplayMode(.inline)
         .task {
             vm.attachWSSubscription()

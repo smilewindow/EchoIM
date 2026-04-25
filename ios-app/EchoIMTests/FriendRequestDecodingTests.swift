@@ -44,6 +44,40 @@ struct FriendRequestDecodingTests {
     }
 
     @Test
+    func displayTitleFallsBackWhenDisplayNameIsBlank() throws {
+        let json = """
+        {
+          "id": 13, "sender_id": 3, "recipient_id": 9, "status": "pending",
+          "created_at": "2026-04-19T08:30:12.345Z",
+          "updated_at": "2026-04-19T08:30:12.345Z",
+          "username": "carol", "display_name": "   ", "avatar_url": null
+        }
+        """.data(using: .utf8)!
+
+        let request = try APIClient.jsonDecoder.decode(FriendRequest.self, from: json)
+
+        #expect(request.displayTitle(fallback: "用户3") == "carol")
+        #expect(request.usernameSubtitle == nil)
+    }
+
+    @Test
+    func usernameSubtitleAppearsOnlyWhenDisplayNameIsVisible() throws {
+        let json = """
+        {
+          "id": 14, "sender_id": 3, "recipient_id": 9, "status": "pending",
+          "created_at": "2026-04-19T08:30:12.345Z",
+          "updated_at": "2026-04-19T08:30:12.345Z",
+          "username": "dana", "display_name": "Dana", "avatar_url": null
+        }
+        """.data(using: .utf8)!
+
+        let request = try APIClient.jsonDecoder.decode(FriendRequest.self, from: json)
+
+        #expect(request.displayTitle() == "Dana")
+        #expect(request.usernameSubtitle == "@dana")
+    }
+
+    @Test
     func decodesBarePostResponseWithoutJoinedUser() throws {
         let json = """
         {

@@ -58,11 +58,11 @@ struct FriendRequestsSheetView: View {
             avatarFor(request)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(request.displayName ?? request.username ?? "用户\(request.senderId)")
+                Text(request.displayTitle(fallback: "用户\(request.senderId)"))
                     .font(.subheadline.weight(.medium))
 
-                if let username = request.username {
-                    Text("@\(username)")
+                if let usernameSubtitle = request.usernameSubtitle {
+                    Text(usernameSubtitle)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -104,11 +104,11 @@ struct FriendRequestsSheetView: View {
             avatarFor(request)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(request.displayName ?? request.username ?? "用户\(request.recipientId)")
+                Text(request.displayTitle(fallback: "用户\(request.recipientId)"))
                     .font(.subheadline.weight(.medium))
 
-                if let username = request.username {
-                    Text("@\(username)")
+                if let usernameSubtitle = request.usernameSubtitle {
+                    Text(usernameSubtitle)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -128,7 +128,7 @@ struct FriendRequestsSheetView: View {
             avatarFor(request)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(request.displayName ?? request.username ?? "用户")
+                Text(request.displayTitle())
                     .font(.subheadline)
                 Text(request.status == .accepted ? "已接受" : "已拒绝")
                     .font(.caption)

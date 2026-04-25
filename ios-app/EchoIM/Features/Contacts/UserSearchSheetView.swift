@@ -107,11 +107,11 @@ struct UserSearchSheetView: View {
                     AvatarView(profile: user, size: 40)
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(user.displayName ?? user.username)
+                        Text(user.displayTitle)
                             .font(.subheadline.weight(.medium))
 
-                        if user.displayName != nil {
-                            Text("@\(user.username)")
+                        if let usernameSubtitle = user.usernameSubtitle {
+                            Text(usernameSubtitle)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }

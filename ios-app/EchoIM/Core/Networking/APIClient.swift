@@ -6,6 +6,17 @@ struct AuthenticatedUser: Codable, Equatable {
     let email: String
     let displayName: String?
     let avatarUrl: String?
+
+    /// 当前登录用户的 UI 展示名；displayName 为空白时回退到 username。
+    var displayTitle: String {
+        let trimmedDisplayName = displayName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmedDisplayName?.isEmpty == false ? trimmedDisplayName! : username
+    }
+
+    /// 仅当 displayName 是有效主标题时，才额外展示 @username。
+    var usernameSubtitle: String? {
+        displayTitle == username ? nil : "@\(username)"
+    }
 }
 
 struct AuthResponse: Codable, Equatable {

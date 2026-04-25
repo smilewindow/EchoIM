@@ -16,12 +16,12 @@ struct MeView: View {
                             AvatarView(user: user, size: 72)
 
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(user.displayName ?? user.username)
+                                Text(user.displayTitle)
                                     .font(.title3.weight(.semibold))
                                     .accessibilityIdentifier("homeUsername")
 
-                                if user.displayName != nil {
-                                    Text("@\(user.username)")
+                                if let usernameSubtitle = user.usernameSubtitle {
+                                    Text(usernameSubtitle)
                                         .font(.subheadline)
                                         .foregroundStyle(.secondary)
                                 }

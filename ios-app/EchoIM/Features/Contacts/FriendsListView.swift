@@ -25,11 +25,11 @@ struct FriendsListView: View {
                         AvatarView(profile: friend, size: 40)
 
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(friend.displayName ?? friend.username)
+                            Text(friend.displayTitle)
                                 .font(.subheadline.weight(.medium))
 
-                            if friend.displayName != nil {
-                                Text("@\(friend.username)")
+                            if let usernameSubtitle = friend.usernameSubtitle {
+                                Text(usernameSubtitle)
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
