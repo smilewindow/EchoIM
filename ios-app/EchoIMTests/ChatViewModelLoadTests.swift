@@ -31,10 +31,24 @@ struct ChatViewModelLoadTests {
         func markRead(conversationId: Int, lastReadMessageId: Int, token: String) async throws {}
     }
 
-    private func makeMessage(id: Int, body: String) -> Message {
+    final class FakeConversationRepo: ConversationRepository {
+        var listResult: Result<[Conversation], Error>
+        private(set) var calls = 0
+
+        init(_ listResult: Result<[Conversation], Error>) {
+            self.listResult = listResult
+        }
+
+        func list(token: String) async throws -> [Conversation] {
+            calls += 1
+            return try listResult.get()
+        }
+    }
+
+    private func makeMessage(id: Int, body: String, conversationId: Int = 5) -> Message {
         Message(
             id: id,
-            conversationId: 5,
+            conversationId: conversationId,
             senderId: 3,
             body: body,
             messageType: "text",
@@ -163,6 +177,85 @@ struct ChatViewModelLoadTests {
         await vm.load()
 
         #expect(repo.calls.isEmpty)
+        #expect(vm.messages.isEmpty)
+        #expect(vm.phase == .loaded)
+    }
+
+    @Test
+    func draftRouteLoadsExistingConversationForPeer() async {
+        let repo = FakeMessageRepo()
+        repo.listResult = .success([
+            makeMessage(id: 2, body: "b", conversationId: 42),
+            makeMessage(id: 1, body: "a", conversationId: 42),
+        ])
+        let conversationRepo = FakeConversationRepo(
+            .success([makeConversation(id: 42, peerId: 9)])
+        )
+        let vm = ChatViewModel(
+            route: .peer(UserProfile(id: 9, username: "alice", displayName: nil, avatarUrl: nil)),
+            currentUserId: 3,
+            messageRepo: repo,
+            wsClient: nil,
+            conversationRepository: conversationRepo,
+            messageStore: nil,
+            metaStore: nil,
+            tokenProvider: { "jwt" }
+        )
+
+        await vm.load()
+
+        #expect(conversationRepo.calls == 1)
+        #expect(vm.conversationId == 42)
+        #expect(repo.calls.count == 1)
+        #expect(repo.calls[0].0 == 42)
+        #expect(vm.messages.map(\.message.id) == [1, 2])
+        #expect(vm.phase == .loaded)
+    }
+
+    @Test
+    func draftRouteWithoutExistingConversationStaysDraft() async {
+        let repo = FakeMessageRepo()
+        let conversationRepo = FakeConversationRepo(.success([]))
+        let vm = ChatViewModel(
+            route: .peer(UserProfile(id: 9, username: "alice", displayName: nil, avatarUrl: nil)),
+            currentUserId: 3,
+            messageRepo: repo,
+            wsClient: nil,
+            conversationRepository: conversationRepo,
+            messageStore: nil,
+            metaStore: nil,
+            tokenProvider: { "jwt" }
+        )
+
+        await vm.load()
+
+        #expect(conversationRepo.calls == 1)
+        #expect(repo.calls.isEmpty)
+        #expect(vm.conversationId == nil)
+        #expect(vm.messages.isEmpty)
+        #expect(vm.phase == .loaded)
+    }
+
+    @Test
+    func draftRouteDiscoveryFailureFallsBackToDraft() async {
+        let repo = FakeMessageRepo()
+        let conversationRepo = FakeConversationRepo(.failure(APIError.invalidResponse))
+        let vm = ChatViewModel(
+            route: .peer(UserProfile(id: 9, username: "alice", displayName: nil, avatarUrl: nil)),
+            currentUserId: 3,
+            messageRepo: repo,
+            wsClient: nil,
+            conversationRepository: conversationRepo,
+            messageStore: nil,
+            metaStore: nil,
+            tokenProvider: { "jwt" }
+        )
+
+        await vm.load()
+
+        #expect(conversationRepo.calls == 1)
+        #expect(repo.calls.isEmpty)
+        #expect(vm.conversationId == nil)
         #expect(vm.messages.isEmpty)
         #expect(vm.phase == .loaded)
     }

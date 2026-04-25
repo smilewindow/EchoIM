@@ -73,9 +73,15 @@ final class ChatViewModel {
     // MARK: - Load
 
     func load() async {
+        if conversationId == nil {
+            await resolveDraftConversationIfNeeded()
+        }
+
         guard let conversationId else {
-            phase = .loaded
             hasMoreOlder = false
+            if phase == .idle {
+                phase = .loaded
+            }
             return
         }
 
@@ -113,6 +119,34 @@ final class ChatViewModel {
         } else {
             await refetchMissedMessages()
             await markReadIfNeeded()
+        }
+    }
+
+    private func resolveDraftConversationIfNeeded() async {
+        guard conversationId == nil else { return }
+        guard let conversationRepository else {
+            phase = .loaded
+            hasMoreOlder = false
+            return
+        }
+
+        guard let token = tokenProvider() else {
+            phase = .error("unauthenticated")
+            return
+        }
+
+        do {
+            let conversations = try await conversationRepository.list(token: token)
+            if let match = conversations.first(where: { $0.peer.id == peer.id }) {
+                adoptConversation(match)
+            } else {
+                phase = .loaded
+                hasMoreOlder = false
+            }
+        } catch {
+            // 会话发现失败不阻塞草稿输入；发送成功后仍会从 REST 响应回填 conversationId。
+            phase = .loaded
+            hasMoreOlder = false
         }
     }
 
@@ -376,9 +410,15 @@ final class ChatViewModel {
         }
 
         if let match = conversations.first(where: { $0.peer.id == peer.id }) {
-            conversationId = match.id
+            adoptConversation(match)
             await load()
         }
+    }
+
+    private func adoptConversation(_ conversation: Conversation) {
+        // 联系人入口与会话入口最终收敛到同一个 conversationId，避免打开一间“空的新聊天室”。
+        conversationId = conversation.id
+        lastReadMessageId = conversation.lastReadMessageId
     }
 
     /// §5.3 场景 C：重连后按页追赶缺失消息，避免长离线时一次请求过大。
