@@ -528,7 +528,7 @@ git commit -m "feat(ios): add APIClient multipart upload"
 
 `UploadRepository` 是给 `ChatViewModel` 看到的"喂 Data，收 mediaURL"接口。multipart 拼装、boundary 生成、JSON 解码都封在 impl 内部；测试都从 `UploadRepository` 这一层进入。
 
-- [ ] **Step 1: 写 protocol + 测试（用现有 MockURLProtocol.configure 风格）**
+- [x] **Step 1: 写 protocol + 测试（用现有 MockURLProtocol.configure 风格）**
 
 ```swift
 // ios-app/EchoIMTests/UploadRepositoryTests.swift
@@ -643,12 +643,12 @@ struct UploadRepositoryTests {
 }
 ```
 
-- [ ] **Step 2: 跑测试，确认失败**
+- [x] **Step 2: 跑测试，确认失败**
 
 Run: `$TEST -only-testing:EchoIMTests/UploadRepositoryTests`
 Expected: 编译失败（`UploadRepository` / `UploadRepositoryImpl` 未定义）。
 
-- [ ] **Step 3: 实现 UploadRepository**
+- [x] **Step 3: 实现 UploadRepository**
 
 ```swift
 // ios-app/EchoIM/Features/Chat/UploadRepository.swift
@@ -664,7 +664,6 @@ protocol UploadRepository {
 
 private struct UploadMessageImageResponse: Decodable {
     let mediaUrl: String
-    enum CodingKeys: String, CodingKey { case mediaUrl = "media_url" }
 }
 
 @MainActor
@@ -736,18 +735,22 @@ enum Endpoints {
 }
 ```
 
-- [ ] **Step 4: 删除 Task 2 的过渡测试（UploadRepository 已经覆盖同样契约）**
+实现记录：`UploadMessageImageResponse` 不声明 `CodingKeys`，继续复用
+`APIClient.jsonDecoder` 的 `.convertFromSnakeCase`。测试读取 multipart body 时同 Task 2，
+兼容 `httpBody` 与 `httpBodyStream`。
+
+- [x] **Step 4: 删除 Task 2 的过渡测试（UploadRepository 已经覆盖同样契约）**
 
 ```bash
 git rm ios-app/EchoIMTests/APIClientUploadTests.swift
 ```
 
-- [ ] **Step 5: 跑测试**
+- [x] **Step 5: 跑测试**
 
 Run: `$TEST -only-testing:EchoIMTests/UploadRepositoryTests`
 Expected: 4 个测试通过。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git add ios-app/EchoIM/Features/Chat/UploadRepository.swift \

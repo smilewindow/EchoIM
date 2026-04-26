@@ -94,4 +94,8 @@ enum Endpoints {
     enum Messages {
         static let base = "api/messages"
     }
+
+    enum Upload {
+        static let messageImage = "api/upload/message-image"
+    }
 }

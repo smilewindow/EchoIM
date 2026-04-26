@@ -3,16 +3,13 @@ import Testing
 @testable import EchoIM
 
 @MainActor
-@Suite("APIClient — Upload")
-struct APIClientUploadTests {
+@Suite("UploadRepository")
+struct UploadRepositoryTests {
     @Test
-    func uploadSendsMultipartWithFileFieldAndBearer() async throws {
+    func uploadMessageImageReturnsMediaURL() async throws {
         var capturedRequest: URLRequest?
         let (config, _) = MockURLProtocol.configure { request in
             capturedRequest = request
-            let body = """
-            {"media_url":"/uploads/messages/42-1234567890.jpg"}
-            """.data(using: .utf8)!
             return (
                 HTTPURLResponse(
                     url: request.url!,
@@ -20,36 +17,33 @@ struct APIClientUploadTests {
                     httpVersion: nil,
                     headerFields: nil
                 )!,
-                body
+                "{\"media_url\":\"/uploads/messages/7-1745800000000.jpg\"}".data(using: .utf8)!
             )
         }
         let api = APIClient(session: URLSession(configuration: config))
+        let repo = UploadRepositoryImpl(api: api)
 
-        let body = Self.makeBody(boundary: "TestBoundary", payload: Data([0xFF, 0xD8, 0xFF]))
-        let response: APIClientUploadProbe = try await api.upload(
-            "api/upload/message-image",
-            boundary: "TestBoundary",
-            body: body,
-            token: "abc"
+        let url = try await repo.uploadMessageImage(
+            data: Data([0xFF, 0xD8, 0xFF, 0xE0]),
+            token: "tok"
         )
-
-        #expect(response.mediaUrl == "/uploads/messages/42-1234567890.jpg")
+        #expect(url == "/uploads/messages/7-1745800000000.jpg")
 
         let request = try #require(capturedRequest)
         #expect(request.httpMethod == "POST")
-        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer abc")
+        #expect(request.url?.path == "/api/upload/message-image")
         let contentType = try #require(request.value(forHTTPHeaderField: "Content-Type"))
-        #expect(contentType == "multipart/form-data; boundary=TestBoundary")
+        #expect(contentType.starts(with: "multipart/form-data; boundary="))
 
-        let captured = try #require(Self.bodyData(from: request))
-        let bodyString = String(decoding: captured, as: UTF8.self)
-        #expect(bodyString.contains("name=\"file\""))
-        #expect(bodyString.contains("filename=\"image.jpg\""))
-        #expect(bodyString.contains("Content-Type: image/jpeg"))
+        let body = try #require(Self.bodyData(from: request))
+        let bodyText = String(decoding: body, as: UTF8.self)
+        #expect(bodyText.contains("name=\"file\""))
+        #expect(bodyText.contains("filename=\"image.jpg\""))
+        #expect(bodyText.contains("Content-Type: image/jpeg"))
     }
 
     @Test
-    func uploadMaps401ToUnauthorized() async throws {
+    func uploadMessageImagePropagatesUnauthorized() async throws {
         let (config, _) = MockURLProtocol.configure { request in
             (
                 HTTPURLResponse(
@@ -62,14 +56,10 @@ struct APIClientUploadTests {
             )
         }
         let api = APIClient(session: URLSession(configuration: config))
+        let repo = UploadRepositoryImpl(api: api)
 
         do {
-            let _: APIClientUploadProbe = try await api.upload(
-                "api/upload/message-image",
-                boundary: "X",
-                body: Self.makeBody(boundary: "X", payload: Data([0xFF, 0xD8])),
-                token: "stale"
-            )
+            _ = try await repo.uploadMessageImage(data: Data([0xFF, 0xD8]), token: "tok")
             Issue.record("expected APIError.unauthorized")
         } catch APIError.unauthorized {
             // expected
@@ -77,7 +67,7 @@ struct APIClientUploadTests {
     }
 
     @Test
-    func uploadMapsNon2xxToHTTPStatus() async throws {
+    func uploadMessageImageMaps400ToHTTPStatus() async throws {
         let (config, _) = MockURLProtocol.configure { request in
             (
                 HTTPURLResponse(
@@ -90,32 +80,47 @@ struct APIClientUploadTests {
             )
         }
         let api = APIClient(session: URLSession(configuration: config))
+        let repo = UploadRepositoryImpl(api: api)
 
         do {
-            let _: APIClientUploadProbe = try await api.upload(
-                "api/upload/message-image",
-                boundary: "X",
-                body: Self.makeBody(boundary: "X", payload: Data([0x00])),
-                token: "tok"
-            )
+            _ = try await repo.uploadMessageImage(data: Data([0x00]), token: "tok")
             Issue.record("expected APIError.http")
         } catch APIError.http(let status, _) {
             #expect(status == 400)
         }
     }
 
-    private static func makeBody(boundary: String, payload: Data) -> Data {
-        var data = Data()
-        let crlf = "\r\n"
-        data.append("--\(boundary)\(crlf)".data(using: .utf8)!)
-        data.append(
-            "Content-Disposition: form-data; name=\"file\"; filename=\"image.jpg\"\(crlf)"
-                .data(using: .utf8)!
-        )
-        data.append("Content-Type: image/jpeg\(crlf)\(crlf)".data(using: .utf8)!)
-        data.append(payload)
-        data.append("\(crlf)--\(boundary)--\(crlf)".data(using: .utf8)!)
-        return data
+    @Test
+    func boundaryIsUniquePerCall() async throws {
+        nonisolated(unsafe) var boundaries: [String] = []
+        let lock = NSLock()
+        let (config, _) = MockURLProtocol.configure { request in
+            let contentType = request.value(forHTTPHeaderField: "Content-Type") ?? ""
+            let boundary = String(contentType.split(separator: "=").last ?? "")
+            lock.lock()
+            boundaries.append(boundary)
+            lock.unlock()
+            return (
+                HTTPURLResponse(
+                    url: request.url!,
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: nil
+                )!,
+                "{\"media_url\":\"/uploads/messages/1-1.jpg\"}".data(using: .utf8)!
+            )
+        }
+        let api = APIClient(session: URLSession(configuration: config))
+        let repo = UploadRepositoryImpl(api: api)
+
+        _ = try await repo.uploadMessageImage(data: Data([0xFF]), token: "t")
+        _ = try await repo.uploadMessageImage(data: Data([0xFF]), token: "t")
+
+        lock.lock()
+        let recorded = boundaries
+        lock.unlock()
+        #expect(recorded.count == 2)
+        #expect(recorded[0] != recorded[1], "每次调用必须用新的 boundary，避免请求间字节窜流")
     }
 
     private static func bodyData(from request: URLRequest) -> Data? {
@@ -144,8 +149,4 @@ struct APIClientUploadTests {
         }
         return data
     }
-}
-
-private struct APIClientUploadProbe: Decodable {
-    let mediaUrl: String
 }
