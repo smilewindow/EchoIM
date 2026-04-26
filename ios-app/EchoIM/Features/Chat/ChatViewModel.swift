@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import UIKit
 
 enum ChatPhase: Equatable, Sendable {
     case idle
@@ -243,6 +244,42 @@ final class ChatViewModel {
         await performSend(body: trimmed, tempId: tempId, token: token)
     }
 
+    func sendImage(_ image: UIImage) async {
+        guard let compressed = ImageCompressor.compressForUpload(image) else {
+            // 编码失败极少发生；P5 先静默放弃，P8 接日志/提示体系时再补用户反馈。
+            return
+        }
+        await sendCompressedImage(data: compressed.data, width: compressed.width, height: compressed.height)
+    }
+
+    func sendCompressedImage(data: Data, width: Int, height: Int) async {
+        guard let token = tokenProvider() else { return }
+        guard let uploadRepo else { return }
+
+        let tempId = makeTempId()
+        let optimistic = Message(
+            id: -Int.random(in: 1...Int.max),
+            conversationId: conversationId ?? -1,
+            senderId: currentUserId,
+            body: nil,
+            messageType: "image",
+            mediaUrl: nil,
+            createdAt: Date(),
+            clientTempId: tempId
+        )
+        messages.append(
+            LocalMessage(
+                localId: tempId,
+                message: optimistic,
+                sendState: .pending,
+                localImageData: data
+            )
+        )
+        imageSendStages[tempId] = .notStarted
+
+        await executeImageSend(tempId: tempId, data: data, token: token, uploadRepo: uploadRepo)
+    }
+
     func retry(localId: String) async {
         guard let index = messages.firstIndex(where: { $0.localId == localId }) else { return }
         guard case .failed = messages[index].sendState else { return }
@@ -262,6 +299,39 @@ final class ChatViewModel {
                 token: token
             )
             mergeServerResult(result, tempId: tempId)
+        } catch {
+            markFailed(tempId: tempId, error: error)
+        }
+    }
+
+    private func executeImageSend(
+        tempId: String,
+        data: Data,
+        token: String,
+        uploadRepo: UploadRepository
+    ) async {
+        let mediaURL: String
+        if case .uploaded(let cached) = imageSendStages[tempId] {
+            mediaURL = cached
+        } else {
+            do {
+                mediaURL = try await uploadRepo.uploadMessageImage(data: data, token: token)
+                imageSendStages[tempId] = .uploaded(mediaURL: mediaURL)
+            } catch {
+                markFailed(tempId: tempId, error: error)
+                return
+            }
+        }
+
+        do {
+            let result = try await messageRepo.sendImage(
+                recipientId: peer.id,
+                mediaUrl: mediaURL,
+                clientTempId: tempId,
+                token: token
+            )
+            mergeServerResult(result, tempId: tempId)
+            imageSendStages.removeValue(forKey: tempId)
         } catch {
             markFailed(tempId: tempId, error: error)
         }

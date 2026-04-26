@@ -1172,7 +1172,7 @@ func sendCompressedImage(data: Data, width: Int, height: Int) async
 private func executeImageSend(tempId: String, data: Data, token: String, uploadRepo: UploadRepository) async
 ```
 
-- [ ] **Step 1: 创建共享 mock helper（Task 7 / 8 都会复用）**
+- [x] **Step 1: 创建共享 mock helper（Task 7 / 8 都会复用）**
 
 ```swift
 // ios-app/EchoIMTests/ImageTestHelpers.swift
@@ -1287,7 +1287,7 @@ func makeImageVM(
 }
 ```
 
-- [ ] **Step 2: 写测试 — 完整 happy path（compress + upload + send 都成功）**
+- [x] **Step 2: 写测试 — 完整 happy path（compress + upload + send 都成功）**
 
 ```swift
 // ios-app/EchoIMTests/ChatViewModelImageTests.swift
@@ -1369,12 +1369,12 @@ struct ChatViewModelImageTests {
 }
 ```
 
-- [ ] **Step 3: 跑测试，确认失败**
+- [x] **Step 3: 跑测试，确认失败**
 
 Run: `$TEST -only-testing:EchoIMTests/ChatViewModelImageTests`
 Expected: 编译失败（`sendCompressedImage` 未定义；helper 文件 OK 但 VM 里没方法可调）。
 
-- [ ] **Step 4: 实现 sendImage / sendCompressedImage**
+- [x] **Step 4: 实现 sendImage / sendCompressedImage**
 
 在 `ChatViewModel.swift` 的 `sendText` 之后插入：
 
@@ -1453,12 +1453,18 @@ private func executeImageSend(
 
 > 注意 `import UIKit`：如果文件目前只 `import Foundation`，加一行 `import UIKit`。否则 `UIImage` 类型不可见。
 
-- [ ] **Step 5: 跑测试**
+- [x] **Step 5: 跑测试**
 
 Run: `$TEST -only-testing:EchoIMTests/ChatViewModelImageTests`
 Expected: 2 个测试通过。
 
-- [ ] **Step 6: 提交**
+实现记录：Task 6 先运行 `EchoIMTests/ChatViewModelImageTests` 红灯，确认失败点为
+`ChatViewModel` 缺少 `sendCompressedImage`。实现后同一测试集在
+`platform=iOS Simulator,OS=17.5,name=iPhone 15` 通过。`sendImage(_:)` 当前引入
+`UIKit` 只用于 `UIImage` 压缩入口，测试仍通过 `sendCompressedImage(data:width:height:)`
+避开图片解码。
+
+- [x] **Step 6: 提交**
 
 ```bash
 git add ios-app/EchoIM/Features/Chat/ChatViewModel.swift \
