@@ -313,7 +313,7 @@ git commit -m "feat(ios): add ImageCompressor with white-fill flatten"
 
 > **关键实现选择**：内部用 `request.httpBody = body` + `session.data(for:)` 而不是 `session.upload(for:from:)`。后者 `URLSession` 会把 body 转成 stream，`MockURLProtocol` 在 `startLoading()` 里只能拿到 `request.httpBodyStream` 不能拿到 `request.httpBody`，测试断言 body 内容时会很麻烦。直接走 `data(for:)` 让 body 留在 `request.httpBody`，单测用 `req.httpBody` 即可读到完整 multipart 字节。multipart 上限 10MB（服务端 `MAX_FILE_SIZE`），全装内存没问题。
 
-- [ ] **Step 1: 写测试 — multipart 请求形状（用现有 MockURLProtocol.configure 风格）**
+- [x] **Step 1: 写测试 — multipart 请求形状（用现有 MockURLProtocol.configure 风格）**
 
 ```swift
 // ios-app/EchoIMTests/APIClientUploadTests.swift  ← Task 3 会删除本文件，由 UploadRepositoryTests 接管
@@ -425,16 +425,20 @@ struct APIClientUploadTests {
 /// 私有探测类型，与 UploadRepository 内部 response 同形状。Task 3 删除本文件时一并删。
 private struct APIClientUploadProbe: Decodable {
     let mediaUrl: String
-    enum CodingKeys: String, CodingKey { case mediaUrl = "media_url" }
 }
 ```
 
-- [ ] **Step 2: 跑测试，确认失败**
+实现记录：本仓库 `APIClient.jsonDecoder.keyDecodingStrategy = .convertFromSnakeCase`，
+因此测试探测类型不声明 `CodingKeys`，让 `media_url` 自动映射到 `mediaUrl`。
+另外，`URLProtocol` 捕获到的请求体在本机仍可能落到 `httpBodyStream`，测试 helper 会先读
+`httpBody`，为空时再读取 stream。
+
+- [x] **Step 2: 跑测试，确认失败**
 
 Run: `$TEST -only-testing:EchoIMTests/APIClientUploadTests`
 Expected: 编译失败（`APIClient.upload(_:boundary:body:token:)` 未定义）。
 
-- [ ] **Step 3: 实现 APIClient.upload**
+- [x] **Step 3: 实现 APIClient.upload**
 
 ```swift
 // ios-app/EchoIM/Core/Networking/APIClient+Upload.swift
@@ -494,17 +498,17 @@ extension APIClient {
 > ```
 > 如果输出里看到 `private let session`，把 `private` 改成 `internal`（或删掉，默认就是 internal）。当前 P1 的实现是 `private let session: URLSession`，必须改。
 
-- [ ] **Step 4: 跑测试**
+- [x] **Step 4: 跑测试**
 
 Run: `$TEST -only-testing:EchoIMTests/APIClientUploadTests`
 Expected: 3 个测试通过。
 
-- [ ] **Step 5: lint + build**
+- [x] **Step 5: lint + build**
 
 Run: `$BUILD`
 Expected: SUCCEEDED。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git add ios-app/EchoIM/Core/Networking/APIClient+Upload.swift \
