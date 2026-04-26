@@ -229,4 +229,88 @@ struct ChatViewModelWSTests {
         )
         #expect(vm.lastReadMessageId == 150)
     }
+
+    @Test
+    func wsImageMessageFromPeerAppendsAsImageBubble() async throws {
+        let upload = MockUploadRepo()
+        let messages = MockMessageRepo()
+        let vm = makeImageVM(
+            currentUserId: 3,
+            peerId: 9,
+            conversationId: 5,
+            upload: upload,
+            messages: messages
+        )
+
+        vm.handleWSEvent(
+            .messageNew(
+                Message(
+                    id: 500,
+                    conversationId: 5,
+                    senderId: 9,
+                    body: nil,
+                    messageType: "image",
+                    mediaUrl: "/uploads/messages/9-1745900000000.jpg",
+                    createdAt: Date(),
+                    clientTempId: nil
+                )
+            )
+        )
+
+        await Task.yield()
+        await Task.yield()
+
+        let last = try #require(vm.messages.last)
+        #expect(last.message.messageType == "image")
+        #expect(last.message.mediaUrl == "/uploads/messages/9-1745900000000.jpg")
+        #expect(last.localImageData == nil, "对方的图片不带本地 Data，UI 走 Nuke 远程加载")
+        #expect(last.sendState == .confirmed)
+    }
+
+    @Test
+    func wsEchoFromSelfMergesIntoPendingImageBubblePreservingLocalData() async throws {
+        let upload = MockUploadRepo()
+        upload.uploadResult = "/uploads/messages/3-1.jpg"
+        let messages = MockMessageRepo()
+        messages.sendImageResult = .success(
+            Message(
+                id: 600,
+                conversationId: 5,
+                senderId: 3,
+                body: nil,
+                messageType: "image",
+                mediaUrl: "/uploads/messages/3-1.jpg",
+                createdAt: Date(),
+                clientTempId: "tmp-x"
+            )
+        )
+
+        let vm = makeImageVM(
+            currentUserId: 3,
+            peerId: 9,
+            conversationId: 5,
+            upload: upload,
+            messages: messages
+        )
+
+        let imgBytes = Data([0xFF, 0xD8, 0xFF])
+        await vm.sendCompressedImage(data: imgBytes, width: 10, height: 10)
+
+        let echo = Message(
+            id: 600,
+            conversationId: 5,
+            senderId: 3,
+            body: nil,
+            messageType: "image",
+            mediaUrl: "/uploads/messages/3-1.jpg",
+            createdAt: Date(),
+            clientTempId: try #require(vm.messages.first?.localId)
+        )
+        vm.handleWSEvent(.messageNew(echo))
+        await Task.yield()
+
+        #expect(vm.messages.count == 1)
+        #expect(vm.messages[0].localImageData == imgBytes, "WS echo 不应擦掉 localImageData")
+        #expect(vm.messages[0].sendState == .confirmed)
+    }
 }

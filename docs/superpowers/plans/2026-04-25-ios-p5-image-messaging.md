@@ -1750,7 +1750,7 @@ git commit -m "feat(ios): branch retry by messageType, image skip-upload path"
 
 P4 的 `handleIncomingMessage` / `writeThroughAndMeta` 与 P3 的 `mergeServerResult` 已经按 `Message.mediaUrl` 透传字段，理论上对 image 类型免改。本任务**不改实现**，只补两个回归测试，明确"WS 推一条 image / 自己发的 image 都正确落盘并保留 localImageData"。
 
-- [ ] **Step 1: 在 `ChatViewModelWSTests` 增加 image 回归测试**
+- [x] **Step 1: 在 `ChatViewModelWSTests` 增加 image 回归测试**
 
 > 现有 `ChatViewModelWSTests` 是 nested `FakeMessageRepo` + 直接 `ChatViewModel(...)` 构造（`ChatViewModelWSTests.swift:8`）。新增测试**不**用 `FakeMessageRepo`——直接用 Task 6 共享的 `MockUploadRepo` / `MockMessageRepo` + `makeImageVM`。`handleWSEvent` 是 internal，测试无需 `attachWSSubscription` 这一层就能直接喂事件。
 
@@ -1829,7 +1829,7 @@ func wsEchoFromSelfMergesIntoPendingImageBubblePreservingLocalData() async throw
 }
 ```
 
-- [ ] **Step 2: 在 `ChatViewModelCacheTests` 增加 image 写盘回归**
+- [x] **Step 2: 在 `ChatViewModelCacheTests` 增加 image 写盘回归**
 
 > `ChatViewModelCacheTests` 现有用 `try makeContainer()` + `MessageStore(modelContainer: container)` + `ConversationMetaStore(modelContainer: container)` 构造 store（`ChatViewModelCacheTests.swift:48`）。新增测试沿用同一模式，store 即用即弃。**不**自行发明 `freshMessageStore()` / `freshMetaStore()` helper。
 
@@ -1905,14 +1905,20 @@ func pendingImageBubbleIsNotWrittenToCache() async throws {
 }
 ```
 
-- [ ] **Step 3: 跑测试**
+- [x] **Step 3: 跑测试**
 
 Run: `$TEST -only-testing:EchoIMTests/ChatViewModelWSTests EchoIMTests/ChatViewModelCacheTests`
 Expected: 全过；新增 4 个测试也通过，无需改实现。
 
+实现记录：第一次运行时 `confirmedImageMessageWritesThroughToCache` 暴露出测试等待不稳定：
+`mergeServerResult` 内部写盘是 fire-and-forget `Task`，固定三次 `Task.yield()` 不保证
+SwiftData 写入已经完成。实现未改，测试改为最多 0.5s 轮询缓存直到目标消息落地。
+最终用两个 `-only-testing` 参数运行 `ChatViewModelWSTests` 和 `ChatViewModelCacheTests`，
+在 iOS 17.5 iPhone 15 模拟器通过。
+
 > 如果 `pendingImageBubbleIsNotWrittenToCache` 失败，说明 `sendCompressedImage` 在 optimistic insert 时调用了 `writeThroughAndMeta`——回到 Task 6 检查实现：optimistic insert 路径**不**应触发 write-through，只有 `mergeServerResult`（confirmed）和 `handleIncomingMessage`（confirmed）才写盘。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add ios-app/EchoIMTests/ChatViewModelWSTests.swift \

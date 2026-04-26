@@ -601,4 +601,87 @@ struct ChatViewModelCacheTests {
         let cached = try await messageStore.loadLatest(conversationId: 7, limit: 200)
         #expect(cached.count == 100)
     }
+
+    @MainActor
+    @Test
+    func confirmedImageMessageWritesThroughToCache() async throws {
+        let container = try makeContainer()
+        let messageStore = MessageStore(modelContainer: container)
+        let metaStore = ConversationMetaStore(modelContainer: container)
+
+        let upload = MockUploadRepo()
+        upload.uploadResult = "/uploads/messages/3-2.jpg"
+        let messages = MockMessageRepo()
+        messages.sendImageResult = .success(
+            Message(
+                id: 700,
+                conversationId: 5,
+                senderId: 3,
+                body: nil,
+                messageType: "image",
+                mediaUrl: "/uploads/messages/3-2.jpg",
+                createdAt: Date(),
+                clientTempId: nil
+            )
+        )
+
+        let vm = makeImageVM(
+            currentUserId: 3,
+            peerId: 9,
+            conversationId: 5,
+            upload: upload,
+            messages: messages,
+            messageStore: messageStore,
+            metaStore: metaStore
+        )
+
+        await vm.sendCompressedImage(data: Data([0xFF]), width: 10, height: 10)
+
+        var cached: [Message] = []
+        for _ in 0..<50 {
+            cached = try await messageStore.loadLatest(conversationId: 5, limit: 10)
+            if cached.contains(where: { $0.id == 700 }) {
+                break
+            }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        #expect(cached.contains { $0.id == 700 && $0.mediaUrl == "/uploads/messages/3-2.jpg" })
+
+        let meta = try #require(try await metaStore.load(conversationId: 5))
+        #expect(meta.lastMessageType == "image")
+        #expect(meta.newestCachedMessageId == 700)
+    }
+
+    @MainActor
+    @Test
+    func pendingImageBubbleIsNotWrittenToCache() async throws {
+        let container = try makeContainer()
+        let messageStore = MessageStore(modelContainer: container)
+        let metaStore = ConversationMetaStore(modelContainer: container)
+
+        let upload = SuspendableUploadRepo()
+        let messages = MockMessageRepo()
+
+        let vm = makeImageVM(
+            currentUserId: 3,
+            peerId: 9,
+            conversationId: 5,
+            upload: upload,
+            messages: messages,
+            messageStore: messageStore,
+            metaStore: metaStore
+        )
+
+        let task = Task {
+            await vm.sendCompressedImage(data: Data([0xFF, 0xD8]), width: 10, height: 10)
+        }
+        await Task.yield()
+        await Task.yield()
+
+        let cached = try await messageStore.loadLatest(conversationId: 5, limit: 10)
+        #expect(cached.isEmpty, "pending image 不应进入 SwiftData（id 是负数 + media_url nil 会破坏不变式）")
+
+        upload.resume(with: "/uploads/messages/3-3.jpg")
+        await task.value
+    }
 }
