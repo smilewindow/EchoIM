@@ -146,7 +146,7 @@ ios-app/EchoIM/
 
 设计依据：§6.2。白底必须在 resize 之前 fill，避免与服务端 `sharp.flatten({ r:255, g:255, b:255 })` 行为不一致。`UIGraphicsImageRendererFormat.scale = 1` 是关键——默认会按 device scale（@2x/@3x）放大像素，使输出实际是 4800x4800 而不是 1600x1600。
 
-- [ ] **Step 1: 写测试 — 透明 PNG 压缩后第一像素是白色**
+- [x] **Step 1: 写测试 — 透明 PNG 压缩后第一像素是白色**
 
 ```swift
 // ios-app/EchoIMTests/ImageCompressorTests.swift
@@ -240,12 +240,12 @@ struct ImageCompressorTests {
 }
 ```
 
-- [ ] **Step 2: 跑测试，确认失败**
+- [x] **Step 2: 跑测试，确认失败**
 
 Run: `$TEST -only-testing:EchoIMTests/ImageCompressorTests`
 Expected: 编译失败（`ImageCompressor` 未定义）。
 
-- [ ] **Step 3: 实现 ImageCompressor**
+- [x] **Step 3: 实现 ImageCompressor**
 
 ```swift
 // ios-app/EchoIM/Core/Utilities/ImageCompressor.swift
@@ -285,12 +285,15 @@ enum ImageCompressor {
 }
 ```
 
-- [ ] **Step 4: 跑测试**
+- [x] **Step 4: 跑测试**
 
 Run: `$TEST -only-testing:EchoIMTests/ImageCompressorTests`
 Expected: 4 个测试全过。第一像素 R/G/B 都应该 > 250。
 
-- [ ] **Step 5: 提交**
+验证记录：本机没有 `OS:latest` 的 iPhone 15 目标，使用
+`-destination 'platform=iOS Simulator,OS=17.5,name=iPhone 15'` 跑通 4 个测试。
+
+- [x] **Step 5: 提交**
 
 ```bash
 git add ios-app/EchoIM/Core/Utilities/ImageCompressor.swift \
