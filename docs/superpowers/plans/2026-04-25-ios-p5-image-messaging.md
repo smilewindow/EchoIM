@@ -2820,6 +2820,12 @@ git commit -m "test(ios): UI smoke for image picker entry"
 
 执行 `$BUILD` 后用模拟器（或真机）跑一遍下列清单，全部通过才能进入 Self-Review。
 
+执行记录：本轮已执行 `$BUILD`、`$TEST -only-testing:EchoIMTests`、
+`EchoIMUITests/ImageSendSmokeTests`，以及服务端 `upload.test.ts` / `messages.test.ts`
+契约测试。下面的双账号互发、断网、代理注入 send 失败、Nuke 视觉缓存、多账号目录隔离等
+需要人工控制模拟器相册、网络/代理和双账号会话，当前非交互执行环境未完整跑完；
+这些条目保留为人工验收清单，不伪造勾选。
+
 ### 14.1 文字 ↔ 图片混合发送
 
 - [ ] A 给 B 发文字 → B 收到 → ChatsList 预览是文字
@@ -2877,7 +2883,7 @@ git commit -m "test(ios): UI smoke for image picker entry"
 
 ## Self-Review（完成前必过）
 
-- [ ] **P5 覆盖设计 §8 P5 全部要点**：
+- [x] **P5 覆盖设计 §8 P5 全部要点**：
   - `UploadRepository.uploadMessageImage` → Task 3
   - `ImageCompressor`（1600px / JPEG 0.80 / 白底 flatten） → Task 1
   - `PhotosPicker` 接入输入栏 → Task 11
@@ -2887,7 +2893,7 @@ git commit -m "test(ios): UI smoke for image picker entry"
   - `ChatsList` 显示 `[图片]`（P4 已实现，Task 12 仅回归 + 修 P4 nil body 潜在 bug）
   - 收到对方图片走 Nuke 加载 → Task 9 `LazyImage(url:)`
 
-- [ ] **Placeholder 扫描**：
+- [x] **Placeholder 扫描**：
 
 ```bash
 grep -rn -iE "t[b]d|t[o]do|implement[ -]later|similar[ -]to[ -]task|\\.\\.\\." \
@@ -2897,7 +2903,10 @@ grep -rn -iE "t[b]d|t[o]do|implement[ -]later|similar[ -]to[ -]task|\\.\\.\\." \
 ```
 应为空（允许"// ... 现有 ... 不变"这类注释）。
 
-- [ ] **类型一致性**（跨任务用到的符号必须自洽）：
+执行记录：直接 `rg` 扫描仍会命中文档自身的示例省略号、未来 P7/P6 风险提示里的
+`TODO`，以及 Self-Review 命令文本；未发现新增实现占位或未完成代码片段。
+
+- [x] **类型一致性**（跨任务用到的符号必须自洽）：
   - `ImageCompressor.compressForUpload(_ image: UIImage) -> (data: Data, width: Int, height: Int)?` — Task 1 引入；Task 6 `sendImage(_ image: UIImage)` 使用
   - `UploadRepository.uploadMessageImage(data: Data, token: String) async throws -> String` — Task 3 引入；Task 5 / 6 / 7 / 11 使用
   - `MessageRepository.sendImage(recipientId: Int, mediaUrl: String, clientTempId: String, token: String) async throws -> Message` — Task 4 引入；Task 6 / 7 / 8 使用
@@ -2910,53 +2919,56 @@ grep -rn -iE "t[b]d|t[o]do|implement[ -]later|similar[ -]to[ -]task|\\.\\.\\." \
   - `Lightbox(localData:remoteURL:onClose:)` — Task 10 引入；Task 11 ChatView fullScreenCover 使用
   - `MessageBubble(message:isSelf:onRetry:onOpenImage:)` — Task 9 改造；Task 11 ChatView 调用
 
-- [ ] **不变式 1（media_url 不要客户端拼）**：检查 `ChatViewModel.executeImageSend` 直接用 `uploadRepo` 返回值传给 `messageRepo.sendImage`，不做任何字符串处理。
+- [x] **不变式 1（media_url 不要客户端拼）**：检查 `ChatViewModel.executeImageSend` 直接用 `uploadRepo` 返回值传给 `messageRepo.sendImage`，不做任何字符串处理。
 
-- [ ] **不变式 2（multipart field name 必须是 `file`）**：`UploadRepositoryImpl.uploadMessageImage` 的 `makeMultipartBody(fieldName: "file", ...)`；Task 3 测试 `uploadMessageImageReturnsMediaURL` 已断言 body 含 `name="file"`。
+- [x] **不变式 2（multipart field name 必须是 `file`）**：`UploadRepositoryImpl.uploadMessageImage` 的 `makeMultipartBody(fieldName: "file", ...)`；Task 3 测试 `uploadMessageImageReturnsMediaURL` 已断言 body 含 `name="file"`。
 
-- [ ] **不变式 3（白底 flatten 在 resize 之前）**：`ImageCompressor.compressForUpload` 里 `UIColor.white.setFill() → ctx.fill(rect) → image.draw(in: rect)` 顺序固定；Task 1 透明 PNG 测试已验证。
+- [x] **不变式 3（白底 flatten 在 resize 之前）**：`ImageCompressor.compressForUpload` 里 `UIColor.white.setFill() → ctx.fill(rect) → image.draw(in: rect)` 顺序固定；Task 1 透明 PNG 测试已验证。
 
-- [ ] **不变式 4（`UIGraphicsImageRendererFormat.scale = 1`）**：`ImageCompressor` 显式设置；Task 1 `resizesLongerEdgeTo1600WhenLarger` 测试间接验证（输出 width/height 等于 pt 数）。
+- [x] **不变式 4（`UIGraphicsImageRendererFormat.scale = 1`）**：`ImageCompressor` 显式设置；Task 1 `resizesLongerEdgeTo1600WhenLarger` 测试间接验证（输出 width/height 等于 pt 数）。
 
-- [ ] **不变式 5（mergeServerResult 保留 localImageData）**：`ChatViewModel.swift:271-280` 的 `mergeServerResult` 现有实现里 `localImageData: messages[index].localImageData` 一行不动；Task 8 `wsEchoFromSelfMergesIntoPendingImageBubblePreservingLocalData` 测试验证。
+- [x] **不变式 5（mergeServerResult 保留 localImageData）**：`ChatViewModel.swift:271-280` 的 `mergeServerResult` 现有实现里 `localImageData: messages[index].localImageData` 一行不动；Task 8 `wsEchoFromSelfMergesIntoPendingImageBubblePreservingLocalData` 测试验证。
 
-- [ ] **不变式 6（pending image 不写 SwiftData）**：`sendCompressedImage` 的 optimistic insert 路径**不**调用 `writeThroughAndMeta`；只有 `mergeServerResult` / `handleIncomingMessage` 的 confirmed 路径写盘。Task 8 `pendingImageBubbleIsNotWrittenToCache` 测试验证。
+- [x] **不变式 6（pending image 不写 SwiftData）**：`sendCompressedImage` 的 optimistic insert 路径**不**调用 `writeThroughAndMeta`；只有 `mergeServerResult` / `handleIncomingMessage` 的 confirmed 路径写盘。Task 8 `pendingImageBubbleIsNotWrittenToCache` 测试验证。
 
-- [ ] **重试边界**：
+- [x] **重试边界**：
   - Upload 失败 → stage = `.notStarted` → retry 重新上传 → ✓ Task 7 `retryRestartsFromUploadWhenStageIsNotStarted`
   - Send 失败 → stage = `.uploaded(...)` → retry 跳过上传 → ✓ Task 7 `retrySkipsUploadWhenStageIsUploaded`
   - localImageData 丢失 → retry no-op → ✓ Task 7 `retryNoOpsWhenLocalImageDataMissing`
   - 文字 retry 路径不退化 → P3 已有测试 + Task 7 Step 6 全套验证
 
-- [ ] **`P4 已知妥协 → P5 接收**：
+- [x] **`P4 已知妥协 → P5 接收**：
   - "VM 重建后 failed image 丢失"：本计划"已知妥协"段已写明
   - "压缩在主线程"：本计划"已知妥协"段已写明，留 Task.detached 升级路径
   - 没有 image schema migration（`CachedMessage.mediaUrl` P4 已有）：本计划"不在 P5 范围"段已写明
 
-- [ ] **服务端契约 0 改动**：
+- [x] **服务端契约 0 改动**：
   ```bash
   git diff main...HEAD -- server/ | grep -v "^$" | head
   ```
   应该为空。整个 P5 不应该有任何 server/ 下的改动。
 
-- [ ] **`ChatViewModel` 测试 mock 同步更新**：所有 `class .*: MessageRepository` mock 都加了 `sendImage` 方法（Task 4 Step 5）。验证：
+执行记录：`main...HEAD -- server/` 非空，原因是当前分支在本轮 P5 iOS 任务前已经包含服务端上传/消息契约实现。
+以 Task 1 父提交 `ed01e46^..HEAD -- server/` 复核，本轮 Task 1-13 没有新增任何 `server/` 改动。
+
+- [x] **`ChatViewModel` 测试 mock 同步更新**：所有 `class .*: MessageRepository` mock 都加了 `sendImage` 方法（Task 4 Step 5）。验证：
   ```bash
   grep -rn "func sendImage\|: MessageRepository {" ios-app/EchoIMTests
   ```
   每个 conform 都应有 `sendImage`。
 
-- [ ] **`ChatView.init` 多了 uploadRepo 参数 → 三个调用方都更新**（Task 11 Step 4）：
+- [x] **`ChatView.init` 多了 uploadRepo 参数 → 三个调用方都更新**（Task 11 Step 4）：
   ```bash
   grep -rn "ChatView(" ios-app/EchoIM/Features ios-app/EchoIMUITests
   ```
   全部应包含 `uploadRepo:`。
 
-- [ ] **Lint**：（与 P1-P4 一致）
+- [x] **Lint**：（与 P1-P4 一致）
   - 服务端：未改，无需跑
   - iOS：`$BUILD` warning 为零
   - 检查：`xcodebuild ... build 2>&1 | grep -i 'warning'`，应只有第三方包内部 warning
 
-- [ ] **工作目录一致**：所有路径以 `ios-app/EchoIM/...` 开头，无裸相对路径。
+- [x] **工作目录一致**：所有路径以 `ios-app/EchoIM/...` 开头，无裸相对路径。
 
 ---
 
