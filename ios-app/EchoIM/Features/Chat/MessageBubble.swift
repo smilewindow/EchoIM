@@ -4,15 +4,38 @@ struct MessageBubble: View {
     let message: LocalMessage
     let isSelf: Bool
     var onRetry: () -> Void = {}
+    var onOpenImage: () -> Void = {}
 
     var body: some View {
+        if message.message.messageType == "image" {
+            ImageMessageBubble(
+                message: message,
+                isSelf: isSelf,
+                onTap: onOpenImage,
+                onRetry: onRetry
+            )
+        } else {
+            textBubble
+        }
+    }
+
+    private var textBubble: some View {
         HStack {
             if isSelf {
                 Spacer(minLength: 40)
             }
 
             VStack(alignment: isSelf ? .trailing : .leading, spacing: 4) {
-                bubble
+                Text(message.message.body ?? "")
+                    .font(.body)
+                    .foregroundStyle(isSelf ? .white : Color.primary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(isSelf ? Color.accentColor : Color(uiColor: .secondarySystemBackground))
+                    )
+                    .opacity(message.sendState == .pending ? 0.65 : 1.0)
                 footer
             }
 
@@ -20,20 +43,6 @@ struct MessageBubble: View {
                 Spacer(minLength: 40)
             }
         }
-    }
-
-    @ViewBuilder
-    private var bubble: some View {
-        Text(message.message.body ?? "")
-            .font(.body)
-            .foregroundStyle(isSelf ? .white : Color.primary)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(isSelf ? Color.accentColor : Color(uiColor: .secondarySystemBackground))
-            )
-            .opacity(message.sendState == .pending ? 0.65 : 1.0)
     }
 
     @ViewBuilder

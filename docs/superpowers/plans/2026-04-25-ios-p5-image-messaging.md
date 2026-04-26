@@ -1936,7 +1936,7 @@ git commit -m "test(ios): regression coverage for image WS echo and cache write-
 
 设计依据：§6.4 + §6.5。优先用 `localImageData`（Data → UIImage 直接渲染），否则走 `LazyImage(url:)` Nuke 远程加载，4:3 占位避免抖动。
 
-- [ ] **Step 1: 创建 ImageMessageBubble**
+- [x] **Step 1: 创建 ImageMessageBubble**
 
 ```swift
 // ios-app/EchoIM/Features/Chat/ImageMessageBubble.swift
@@ -2044,7 +2044,7 @@ struct ImageMessageBubble: View {
 }
 ```
 
-- [ ] **Step 2: 改 MessageBubble 派发到 image / text**
+- [x] **Step 2: 改 MessageBubble 派发到 image / text**
 
 ```swift
 // ios-app/EchoIM/Features/Chat/MessageBubble.swift
@@ -2122,12 +2122,16 @@ struct MessageBubble: View {
 }
 ```
 
-- [ ] **Step 3: build 验证**
+- [x] **Step 3: build 验证**
 
 Run: `$BUILD`
 Expected: SUCCEEDED；ChatView 调用 `MessageBubble(message:isSelf:onRetry:)` 现有签名仍然兼容（onOpenImage 默认 `{}`）。
 
-- [ ] **Step 4: 提交**
+实现记录：`ImageMessageBubble` 使用本地 `localImageData` 优先、远端 `LazyImage` 兜到
+`Endpoints.absolute(_:)`，并保留 4:3 占位。`MessageBubble` 新增 `onOpenImage` 默认闭包，
+现有 `ChatView` 调用无需修改。本任务 build 使用 iOS 17.5 iPhone 15 目的地通过。
+
+- [x] **Step 4: 提交**
 
 ```bash
 git add ios-app/EchoIM/Features/Chat/ImageMessageBubble.swift \
