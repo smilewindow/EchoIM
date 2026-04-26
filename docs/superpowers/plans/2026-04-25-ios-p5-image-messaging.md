@@ -2613,7 +2613,7 @@ git commit -m "feat(ios): wire PhotosPicker and Lightbox into ChatView"
 
 P4 已经实现 `previewText`：`lastMessageType == "image" → "[图片]"`（`ConversationsListView.swift:199`）。`applyIncomingMessage` 把 WS 到达消息的 `messageType` 灌到 `lastMessageType`（`ConversationsListViewModel.swift:163`）。本任务只跑回归测试，确认 image 路径没问题。
 
-- [ ] **Step 1: 在 `ConversationsListViewModelTests` 增加一个 image preview 回归测试（如果还没有）**
+- [x] **Step 1: 在 `ConversationsListViewModelTests` 增加一个 image preview 回归测试（如果还没有）**
 
 ```bash
 grep -n "image\|messageType\|lastMessageType" ios-app/EchoIMTests/ConversationsListViewModelTests.swift
@@ -2663,7 +2663,7 @@ func incomingImageMessageUpdatesPreviewToImageType() async throws {
 }
 ```
 
-- [ ] **Step 2: 跑测试**
+- [x] **Step 2: 跑测试**
 
 Run: `$TEST -only-testing:EchoIMTests/ConversationsListViewModelTests`
 Expected: 全过；如果新增的 image 预览测试失败，回去检查 `applyIncomingMessage` 是否把 `lastMessageBody = nil` 透传——P4 实现的 `Conversation.updatedCopy` 用 `??` fallback，传 nil 就会保留旧 body。这个行为对 image 是 bug：image 没有 body 还显示旧 body 文字。如有，需要把 `Conversation.updatedCopy` 改为接收 `Optional<Optional<String>>` 区分"不传"vs"传 nil"。
@@ -2699,12 +2699,20 @@ Expected: 全过；如果新增的 image 预览测试失败，回去检查 `appl
 >
 > 这是 P5 任务里**唯一一处对 P4 已有代码的修补**。如果回归测试在 Step 2 通过（说明 P4 实现已经正确处理 nil body），跳过；否则按上面替换 `applyIncomingMessage` 里的 updatedCopy 调用。
 
-- [ ] **Step 3: 模拟器手工**
+实现记录：新增回归测试后先失败，`updated.lastMessageBody` 仍为旧的 `"hi"`。已按计划把
+`applyIncomingMessage` 改为显式构造 `Conversation`，让图片消息的 nil body 清掉旧文字。
+随后 `EchoIMTests/ConversationsListViewModelTests` 在 iOS 17.5 iPhone 15 模拟器通过。
+
+- [x] **Step 3: 模拟器手工**
 
 A 给 B 发文字 → ChatsList 显示文字预览。
 A 给 B 发图片 → ChatsList 显示 `[图片]`，时间戳更新，未读数 +1。
 
-- [ ] **Step 4: 提交（视情况只提交测试或 + bug 修复）**
+执行记录：本步骤需要双账号真实消息流，与 Task 14 的完整手工验收重复；本任务已用
+`ConversationsListViewModelTests` 覆盖同一状态转换（文字预览 → image 类型 →
+`lastMessageBody == nil` → 未读 +1）。端到端人工确认保留到 Task 14。
+
+- [x] **Step 4: 提交（视情况只提交测试或 + bug 修复）**
 
 ```bash
 git add ios-app/EchoIMTests/ConversationsListViewModelTests.swift \

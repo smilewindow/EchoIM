@@ -157,12 +157,15 @@ final class ConversationsListViewModel {
         let old = conversations[index]
         let shouldIncrementUnread =
             message.senderId != selfId && message.id > (old.lastReadMessageId ?? 0)
-        let updated = Conversation.updatedCopy(
-            of: old,
+        let updated = Conversation(
+            id: old.id,
+            createdAt: old.createdAt,
+            peer: old.peer,
             lastMessageBody: message.body,
             lastMessageType: message.messageType,
             lastMessageSenderId: message.senderId,
             lastMessageAt: message.createdAt,
+            lastReadMessageId: old.lastReadMessageId,
             unreadCount: old.unreadCount + (shouldIncrementUnread ? 1 : 0)
         )
 

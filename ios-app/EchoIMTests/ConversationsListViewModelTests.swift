@@ -109,4 +109,36 @@ struct ConversationsListViewModelTests {
 
         #expect(vm.phase == .unauthenticated)
     }
+
+    @Test
+    func incomingImageMessageUpdatesPreviewToImageType() async throws {
+        let initial = try makeConversation(id: 5, peerName: "p")
+        let vm = ConversationsListViewModel(
+            repository: FakeRepo(.success([initial])),
+            metaStore: nil,
+            tokenProvider: { "t" },
+            currentUserId: { 3 }
+        )
+        await vm.refresh()
+
+        vm.handleWSEvent(
+            .messageNew(
+                Message(
+                    id: 800,
+                    conversationId: 5,
+                    senderId: 105,
+                    body: nil,
+                    messageType: "image",
+                    mediaUrl: "/uploads/messages/105-1745800000000.jpg",
+                    createdAt: Date(),
+                    clientTempId: nil
+                )
+            )
+        )
+
+        let updated = try #require(vm.conversations.first)
+        #expect(updated.lastMessageType == "image")
+        #expect(updated.lastMessageBody == nil)
+        #expect(updated.unreadCount == 1)
+    }
 }
