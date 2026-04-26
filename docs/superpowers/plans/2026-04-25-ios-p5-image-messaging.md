@@ -1483,7 +1483,7 @@ git commit -m "feat(ios): ChatViewModel sendImage with optimistic bubble"
 
 设计依据：§6.3 阶段化重试。
 
-- [ ] **Step 1: 写四个失败 / 重试测试**
+- [x] **Step 1: 写四个失败 / 重试测试**
 
 在 `ChatViewModelImageTests` 里追加：
 
@@ -1648,12 +1648,12 @@ func retryNoOpsWhenLocalImageDataMissing() async throws {
 }
 ```
 
-- [ ] **Step 2: 跑测试，确认失败**
+- [x] **Step 2: 跑测试，确认失败**
 
 Run: `$TEST -only-testing:EchoIMTests/ChatViewModelImageTests`
 Expected: 4 个新测试编译失败 / 行为错（`retry` 还在走文字路径；测试入口 `_injectFailedImageBubbleForTesting` 未定义）。
 
-- [ ] **Step 3: 改造 `retry(localId:)` 按 messageType 分叉**
+- [x] **Step 3: 改造 `retry(localId:)` 按 messageType 分叉**
 
 把现有 `func retry(localId:)` 替换为：
 
@@ -1684,7 +1684,7 @@ func retry(localId: String) async {
 
 `executeImageSend` 的开头已经有 `if case .uploaded(let cached) = imageSendStages[tempId] { ... } else { upload }` 分叉（Task 6 实现），所以阶段化重试自动生效——无需在 `retry` 里再判断。
 
-- [ ] **Step 4: 加一个 `internal` 测试入口 — 注入 failed image bubble**
+- [x] **Step 4: 加一个 `internal` 测试入口 — 注入 failed image bubble**
 
 在 `ChatViewModel.swift` 文件末尾追加（用 `#if DEBUG` 圈起来，避免污染 release）：
 
@@ -1715,17 +1715,24 @@ extension ChatViewModel {
 
 > 用 `_` 前缀强调它是私有约定（Swift 没有 `@testable internal-private` 区分）。
 
-- [ ] **Step 5: 跑测试**
+- [x] **Step 5: 跑测试**
 
 Run: `$TEST -only-testing:EchoIMTests/ChatViewModelImageTests`
 Expected: 6 个测试全部通过（Task 6 的 2 个 + 本任务的 4 个）。
 
-- [ ] **Step 6: 跑全套，确保 P3/P4 文字 retry 不退化**
+实现记录：本节标题写“四个失败 / 重试测试”，但计划代码块实际包含 5 个新增测试；
+实现按代码块完整覆盖 5 个场景。因此 `ChatViewModelImageTests` 实际为 7 个测试
+（Task 6 的 2 个 + Task 7 的 5 个），均在 iOS 17.5 iPhone 15 模拟器通过。
+
+- [x] **Step 6: 跑全套，确保 P3/P4 文字 retry 不退化**
 
 Run: `$TEST -only-testing:EchoIMTests/ChatViewModelSendTests EchoIMTests/ChatViewModelCacheTests`
 Expected: 全过。
 
-- [ ] **Step 7: 提交**
+实现记录：`xcodebuild` 使用两个 `-only-testing` 参数分别指定
+`EchoIMTests/ChatViewModelSendTests` 与 `EchoIMTests/ChatViewModelCacheTests`，两组均通过。
+
+- [x] **Step 7: 提交**
 
 ```bash
 git add ios-app/EchoIM/Features/Chat/ChatViewModel.swift \

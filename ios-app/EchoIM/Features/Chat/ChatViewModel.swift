@@ -283,9 +283,21 @@ final class ChatViewModel {
     func retry(localId: String) async {
         guard let index = messages.firstIndex(where: { $0.localId == localId }) else { return }
         guard case .failed = messages[index].sendState else { return }
-        guard let body = messages[index].message.body else { return }
-        guard let token = tokenProvider() else { return }
+        let local = messages[index]
 
+        if local.message.messageType == "image" {
+            guard let token = tokenProvider() else { return }
+            guard let uploadRepo else { return }
+            // VM 重建后会丢 localImageData（已知妥协）；此时 no-op，等待用户重选图。
+            guard let data = local.localImageData else { return }
+
+            messages[index].sendState = .pending
+            await executeImageSend(tempId: localId, data: data, token: token, uploadRepo: uploadRepo)
+            return
+        }
+
+        guard let body = local.message.body else { return }
+        guard let token = tokenProvider() else { return }
         messages[index].sendState = .pending
         await performSend(body: body, tempId: localId, token: token)
     }
@@ -607,3 +619,25 @@ final class ChatViewModel {
         return "pending-\(Int(Date().timeIntervalSince1970))-\(tempSeq)"
     }
 }
+
+#if DEBUG
+extension ChatViewModel {
+    /// 仅 P5 图片发送测试用：注入丢失 localImageData 的 failed bubble 边界。
+    func _injectFailedImageBubbleForTesting(
+        tempId: String,
+        message: Message,
+        stage: ImageSendStage,
+        localData: Data?
+    ) {
+        messages.append(
+            LocalMessage(
+                localId: tempId,
+                message: message,
+                sendState: .failed("injected"),
+                localImageData: localData
+            )
+        )
+        imageSendStages[tempId] = stage
+    }
+}
+#endif
