@@ -1007,7 +1007,7 @@ git commit -m "feat(ios): add MessageRepository.sendImage"
 - `.notStarted` — 还没成功上传过；retry 时需要重新走 compress + upload + send 全链路
 - `.uploaded(mediaURL:)` — 已经上传成功但发消息那一步失败；retry 时跳过 upload，直接发消息
 
-- [ ] **Step 1: 写枚举 + 最小契约测试**
+- [x] **Step 1: 写枚举 + 最小契约测试**
 
 ```swift
 // ios-app/EchoIMTests/ImageSendStageTests.swift
@@ -1043,12 +1043,12 @@ struct ImageSendStageTests {
 }
 ```
 
-- [ ] **Step 2: 跑测试，确认失败**
+- [x] **Step 2: 跑测试，确认失败**
 
 Run: `$TEST -only-testing:EchoIMTests/ImageSendStageTests`
 Expected: 编译失败（`ImageSendStage` 未定义）。
 
-- [ ] **Step 3: 实现 ImageSendStage**
+- [x] **Step 3: 实现 ImageSendStage**
 
 ```swift
 // ios-app/EchoIM/Features/Chat/ImageSendStage.swift
@@ -1066,12 +1066,12 @@ enum ImageSendStage: Sendable, Equatable {
 }
 ```
 
-- [ ] **Step 4: 跑测试**
+- [x] **Step 4: 跑测试**
 
 Run: `$TEST -only-testing:EchoIMTests/ImageSendStageTests`
 Expected: 3 个测试通过。
 
-- [ ] **Step 5: 给 ChatViewModel 加 imageSendStages + uploadRepo 依赖**
+- [x] **Step 5: 给 ChatViewModel 加 imageSendStages + uploadRepo 依赖**
 
 修改 `ios-app/EchoIM/Features/Chat/ChatViewModel.swift`：
 
@@ -1106,7 +1106,7 @@ final class ChatViewModel {
 
 > `uploadRepo` 设默认值 `nil` 是为了让 P3/P4 已有的测试构造函数无需改动；只有 P5 新增的 ImageTests 才传具体的 mock。生产代码里 `ChatView.init` 一定会传，编译期由调用方保证非 nil（见 Task 11）。
 
-- [ ] **Step 6: 修 P3/P4 ChatView 的 init 调用（多了一个 uploadRepo 参数，默认 nil 不需要改，但保险起见 grep 一遍）**
+- [x] **Step 6: 修 P3/P4 ChatView 的 init 调用（多了一个 uploadRepo 参数，默认 nil 不需要改，但保险起见 grep 一遍）**
 
 ```bash
 grep -rn "ChatViewModel(\|ChatView(" ios-app/EchoIM ios-app/EchoIMTests
@@ -1116,12 +1116,18 @@ Step 6 的 grep 输出里：
 - 测试里旧的 `ChatViewModel(...)` 都没传 `uploadRepo` → default nil，OK
 - `ChatView.init(... )` 调用有几处，本任务先**不**给它加 uploadRepo 参数（Task 11 会改）
 
-- [ ] **Step 7: build 验证**
+- [x] **Step 7: build 验证**
 
 Run: `$BUILD`
 Expected: SUCCEEDED。`uploadRepo: nil` 默认值让现有测试 / view 不需要改。
 
-- [ ] **Step 8: 提交**
+实现记录：本机可用模拟器是 `platform=iOS Simulator,OS=17.5,name=iPhone 15`；
+`OS:latest` 会匹配到 iOS 26 SDK 但没有对应 iPhone 15 runtime。Task 5 的
+`ImageSendStageTests` 与 build 均用 iOS 17.5 目的地通过。`ChatViewModel` 的旧构造调用
+经 `rg "ChatViewModel\\(|ChatView\\(" ios-app/EchoIM ios-app/EchoIMTests` 确认仍走
+`uploadRepo: nil` 默认值，本任务不改 UI 层注入。
+
+- [x] **Step 8: 提交**
 
 ```bash
 git add ios-app/EchoIM/Features/Chat/ImageSendStage.swift \

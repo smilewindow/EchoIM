@@ -18,6 +18,8 @@ final class ChatViewModel {
     private(set) var hasMoreOlder = true
     /// 服务端已确认的 last_read_message_id；P3 只同步游标，不在消息列表里计算未读。
     private(set) var lastReadMessageId: Int?
+    /// key 是 `LocalMessage.localId`（即 `clientTempId`）。confirmed 后移除，避免长期堆积。
+    private(set) var imageSendStages: [String: ImageSendStage] = [:]
 
     // MARK: - Identity
     /// 当前会话 id；从联系人进入未聊过的好友时先保持 nil，首条消息成功后再回填。
@@ -27,6 +29,7 @@ final class ChatViewModel {
 
     // MARK: - Dependencies
     private let messageRepo: MessageRepository
+    private let uploadRepo: UploadRepository?
     private let conversationRepository: ConversationRepository?
     private let messageStore: MessageStore?
     private let metaStore: ConversationMetaStore?
@@ -49,6 +52,7 @@ final class ChatViewModel {
         conversationRepository: ConversationRepository? = nil,
         messageStore: MessageStore? = nil,
         metaStore: ConversationMetaStore? = nil,
+        uploadRepo: UploadRepository? = nil,
         tokenProvider: @escaping @MainActor () -> String?
     ) {
         switch route {
@@ -63,6 +67,7 @@ final class ChatViewModel {
 
         self.currentUserId = currentUserId
         self.messageRepo = messageRepo
+        self.uploadRepo = uploadRepo
         self.conversationRepository = conversationRepository
         self.messageStore = messageStore
         self.metaStore = metaStore
