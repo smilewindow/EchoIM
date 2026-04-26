@@ -774,7 +774,7 @@ git commit -m "feat(ios): add UploadRepository with multipart message-image"
 
 `media_url` 必须形如 `/uploads/messages/<senderId>-\d{10,16}\.jpg`，由 `UploadRepository.uploadMessageImage` 返回，原样传。客户端不再做格式检查（让服务端 400 自然抛出）。
 
-- [ ] **Step 1: 写测试 — sendImage 请求体形状**
+- [x] **Step 1: 写测试 — sendImage 请求体形状**
 
 > **APIError 现状**（`APIError.swift:3`）：只有 `network/unauthorized/http(status:body:)/decoding/invalidResponse`。401 走 `.unauthorized`，其它非 2xx 走 `.http(status:body:)`。下面所有 4xx 测试都用 `case APIError.http(let status, _)` 模式匹配。
 
@@ -888,12 +888,12 @@ struct MessageRepositorySendImageTests {
 }
 ```
 
-- [ ] **Step 2: 跑测试，确认失败**
+- [x] **Step 2: 跑测试，确认失败**
 
 Run: `$TEST -only-testing:EchoIMTests/MessageRepositorySendImageTests`
 Expected: 编译失败（`MessageRepository.sendImage` 未定义）。
 
-- [ ] **Step 3: 在 `MessageRepository` 协议加 sendImage**
+- [x] **Step 3: 在 `MessageRepository` 协议加 sendImage**
 
 ```swift
 // ios-app/EchoIM/Features/Chat/MessageRepository.swift
@@ -948,12 +948,12 @@ extension MessageRepositoryImpl {
 
 > 注意把 `extension MessageRepositoryImpl` 直接写在原 final class 同文件下方即可（同样的 `@MainActor` 在 class 上声明，extension 自动继承）。如果 lint 不喜欢两段，可以把 `sendImage` 直接挂到 class 内 `markRead` 之前。
 
-- [ ] **Step 4: 跑测试**
+- [x] **Step 4: 跑测试**
 
 Run: `$TEST -only-testing:EchoIMTests/MessageRepositorySendImageTests`
 Expected: 3 个测试通过。
 
-- [ ] **Step 5: 检查 P3 已有的 mock**
+- [x] **Step 5: 检查 P3 已有的 mock**
 
 P3 / P4 的测试里有若干 `MessageRepository` mock，比如 `ChatViewModelSendTests` 的 `class`、`ChatViewModelCacheTests` 的 `actor BlockingRepo` / `actor PagedRepo` / `actor StrictRepo` / `actor RecordingRepo` 等。新增协议方法会让这些 mock 编译失败。**用包含 actor / struct 的 grep**：
 
@@ -969,12 +969,16 @@ func sendImage(recipientId: Int, mediaUrl: String, clientTempId: String, token: 
 }
 ```
 
-- [ ] **Step 6: 编译 + 跑全量测试，确认 P3/P4 测试不退化**
+- [x] **Step 6: 编译 + 跑全量测试，确认 P3/P4 测试不退化**
 
 Run: `$TEST -only-testing:EchoIMTests`
 Expected: 全部通过。
 
-- [ ] **Step 7: 提交**
+实现记录：`MessageRepositorySendImageTests` 读取 JSON 请求体时同上传测试一样兼容
+`httpBody` / `httpBodyStream`；本机全量 `EchoIMTests` 使用
+`-destination 'platform=iOS Simulator,OS=17.5,name=iPhone 15'` 跑通。
+
+- [x] **Step 7: 提交**
 
 ```bash
 git add ios-app/EchoIM/Features/Chat/MessageRepository.swift \

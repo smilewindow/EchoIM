@@ -108,6 +108,15 @@ struct ChatViewModelCacheTests {
                 fatalError()
             }
 
+            func sendImage(
+                recipientId: Int,
+                mediaUrl: String,
+                clientTempId: String,
+                token: String
+            ) async throws -> Message {
+                fatalError()
+            }
+
             func markRead(conversationId: Int, lastReadMessageId: Int, token: String) async throws {}
 
             func waitUntilStarted() async {
@@ -198,6 +207,15 @@ struct ChatViewModelCacheTests {
                 fatalError()
             }
 
+            func sendImage(
+                recipientId: Int,
+                mediaUrl: String,
+                clientTempId: String,
+                token: String
+            ) async throws -> Message {
+                fatalError()
+            }
+
             func markRead(conversationId: Int, lastReadMessageId: Int, token: String) async throws {}
         }
 
@@ -271,6 +289,15 @@ struct ChatViewModelCacheTests {
             func sendText(
                 recipientId: Int,
                 body: String,
+                clientTempId: String,
+                token: String
+            ) async throws -> Message {
+                fatalError()
+            }
+
+            func sendImage(
+                recipientId: Int,
+                mediaUrl: String,
                 clientTempId: String,
                 token: String
             ) async throws -> Message {
@@ -393,6 +420,15 @@ struct ChatViewModelCacheTests {
                 fatalError()
             }
 
+            func sendImage(
+                recipientId: Int,
+                mediaUrl: String,
+                clientTempId: String,
+                token: String
+            ) async throws -> Message {
+                fatalError()
+            }
+
             func markRead(conversationId: Int, lastReadMessageId: Int, token: String) async throws {}
 
             func resetCalls() {
@@ -509,6 +545,15 @@ struct ChatViewModelCacheTests {
             func sendText(
                 recipientId: Int,
                 body: String,
+                clientTempId: String,
+                token: String
+            ) async throws -> Message {
+                fatalError()
+            }
+
+            func sendImage(
+                recipientId: Int,
+                mediaUrl: String,
                 clientTempId: String,
                 token: String
             ) async throws -> Message {

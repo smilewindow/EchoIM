@@ -27,6 +27,15 @@ struct ChatViewModelReadTests {
             throw APIError.invalidResponse
         }
 
+        func sendImage(
+            recipientId: Int,
+            mediaUrl: String,
+            clientTempId: String,
+            token: String
+        ) async throws -> Message {
+            throw APIError.invalidResponse
+        }
+
         func markRead(conversationId: Int, lastReadMessageId: Int, token: String) async throws {
             markCalls.append((conversationId, lastReadMessageId))
         }

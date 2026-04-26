@@ -18,6 +18,12 @@ protocol MessageRepository {
         token: String
     ) async throws -> [Message]
     func sendText(recipientId: Int, body: String, clientTempId: String, token: String) async throws -> Message
+    func sendImage(
+        recipientId: Int,
+        mediaUrl: String,
+        clientTempId: String,
+        token: String
+    ) async throws -> Message
     func markRead(conversationId: Int, lastReadMessageId: Int, token: String) async throws
 }
 
@@ -29,6 +35,20 @@ private struct SendTextBody: Encodable {
     enum CodingKeys: String, CodingKey {
         case recipientId = "recipient_id"
         case body
+        case clientTempId = "client_temp_id"
+    }
+}
+
+private struct SendImageBody: Encodable {
+    let recipientId: Int
+    let mediaUrl: String
+    let messageType: String
+    let clientTempId: String
+
+    enum CodingKeys: String, CodingKey {
+        case recipientId = "recipient_id"
+        case mediaUrl = "media_url"
+        case messageType = "message_type"
         case clientTempId = "client_temp_id"
     }
 }
@@ -87,6 +107,25 @@ final class MessageRepositoryImpl: MessageRepository {
             method: "POST",
             token: token,
             body: SendTextBody(recipientId: recipientId, body: body, clientTempId: clientTempId)
+        )
+    }
+
+    func sendImage(
+        recipientId: Int,
+        mediaUrl: String,
+        clientTempId: String,
+        token: String
+    ) async throws -> Message {
+        try await api.request(
+            Endpoints.Messages.base,
+            method: "POST",
+            token: token,
+            body: SendImageBody(
+                recipientId: recipientId,
+                mediaUrl: mediaUrl,
+                messageType: "image",
+                clientTempId: clientTempId
+            )
         )
     }
 
