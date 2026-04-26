@@ -2731,7 +2731,7 @@ git commit -m "test(ios): regression coverage for image preview in ChatsList"
 
 XCUITest 触达不到系统 Photos picker UI（沙盒外）；只能断言"按钮存在 + 点击不 crash + Picker 模态出现"。
 
-- [ ] **Step 1: 写 smoke 测试**
+- [x] **Step 1: 写 smoke 测试**
 
 > 现有 UI 测试只有 `-uitest-reset-keychain` 这一个 launchArgument（`ChatSmokeTests.swift:11`），登录走"`loginEmail` → `loginPassword` → `loginSubmit`"手动填表单（参考 `ChatSmokeTests.swift:14-25`）。本任务沿用同一流程，**不**发明新的 launch args。`smoke@test.local` / `password123` 是 P3 引入的测试账号，假设 server 端已有数据；如果跑下来需要先注册，参考 `FriendRequestCrossAccountSmokeTests` 里的 `register(_:)` helper。
 
@@ -2795,12 +2795,16 @@ final class ImageSendSmokeTests: XCTestCase {
 > grep -rn "uitest\|launchArguments" ios-app/EchoIMUITests
 > ```
 
-- [ ] **Step 2: 跑 UI smoke**
+- [x] **Step 2: 跑 UI smoke**
 
 Run: `$UITEST -only-testing:EchoIMUITests/ImageSendSmokeTests`
 Expected: 通过。如果 fixture 名字不对，按 grep 结果改。
 
-- [ ] **Step 3: 提交**
+实现记录：新增 `ImageSendSmokeTests`，沿用 `-uitest-reset-keychain` 与
+`smoke@test.local/password123` 登录流程；运行
+`EchoIMUITests/ImageSendSmokeTests` 在 iOS 17.5 iPhone 15 模拟器通过。
+
+- [x] **Step 3: 提交**
 
 ```bash
 git add ios-app/EchoIMUITests/ImageSendSmokeTests.swift
