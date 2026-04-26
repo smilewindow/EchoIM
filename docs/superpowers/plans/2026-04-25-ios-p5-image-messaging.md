@@ -2149,7 +2149,7 @@ git commit -m "feat(ios): split MessageBubble into text/image variants"
 
 SwiftUI 没有内建 pinch/zoom + double-tap-to-zoom；用 `UIScrollView` 包一层。`Lightbox` 是 SwiftUI sheet / fullScreenCover 入口，封装"加载图片 → 居中 → 关闭按钮 → 滑下关闭"。
 
-- [ ] **Step 1: 创建 ZoomableImageView**
+- [x] **Step 1: 创建 ZoomableImageView**
 
 ```swift
 // ios-app/EchoIM/Core/UI/ZoomableImageView.swift
@@ -2226,7 +2226,7 @@ struct ZoomableImageView: UIViewRepresentable {
 }
 ```
 
-- [ ] **Step 2: 创建 Lightbox sheet**
+- [x] **Step 2: 创建 Lightbox sheet**
 
 ```swift
 // ios-app/EchoIM/Features/Chat/Lightbox.swift
@@ -2316,12 +2316,16 @@ struct Lightbox: View {
 >
 > 检查命令：`grep -A2 "Nuke" ios-app/EchoIM.xcodeproj/project.pbxproj | grep version`
 
-- [ ] **Step 3: build 验证**
+- [x] **Step 3: build 验证**
 
 Run: `$BUILD`
 Expected: SUCCEEDED。
 
-- [ ] **Step 4: 提交**
+实现记录：`ZoomableImageView` 支持 pinch 和双击缩放；`Lightbox` 优先加载本地 Data，
+远端图片走 `ImagePipeline.shared.image(for:)`。Nuke 12.9.0 的 async API 在本项目可用，
+无需使用 completion handler 回退。build 使用 iOS 17.5 iPhone 15 目的地通过。
+
+- [x] **Step 4: 提交**
 
 ```bash
 git add ios-app/EchoIM/Core/UI/ZoomableImageView.swift \
