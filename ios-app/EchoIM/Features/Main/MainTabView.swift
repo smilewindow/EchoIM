@@ -38,6 +38,7 @@ struct MainTabView: View {
                 metaStore: session.conversationMetaStore(),
                 messageStore: session.messageStore(),
                 wsClient: session.wsClient,
+                uploadRepo: session.makeUploadRepository(),
                 currentUserId: container.currentUser?.id ?? 0,
                 tokenProvider: { [tokenStore = container.tokenStore] in
                     (try? tokenStore.load())?.token
@@ -60,6 +61,7 @@ struct MainTabView: View {
                 messageStore: session.messageStore(),
                 metaStore: session.conversationMetaStore(),
                 wsClient: session.wsClient,
+                uploadRepo: session.makeUploadRepository(),
                 currentUserId: container.currentUser?.id ?? 0,
                 tokenProvider: { [tokenStore = container.tokenStore] in
                     (try? tokenStore.load())?.token

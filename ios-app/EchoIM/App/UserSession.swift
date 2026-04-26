@@ -52,6 +52,10 @@ final class UserSession {
         MessageRepositoryImpl(api: apiClient)
     }
 
+    func makeUploadRepository() -> UploadRepository {
+        UploadRepositoryImpl(api: apiClient)
+    }
+
     func makeConversationRepository() -> ConversationRepository {
         ConversationRepositoryImpl(api: apiClient)
     }

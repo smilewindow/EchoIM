@@ -2346,7 +2346,7 @@ git commit -m "feat(ios): add Lightbox with pinch/zoom"
 
 UI 集成的核心是 `PhotosPicker`：iOS 17+ 直接 `loadTransferable(type: Data.self)`，避免传统 `PHAsset` 路径。
 
-- [ ] **Step 1: 给 UserSession 加 makeUploadRepository**
+- [x] **Step 1: 给 UserSession 加 makeUploadRepository**
 
 修改 `ios-app/EchoIM/App/UserSession.swift`，在 `makeMessageRepository()` 之后追加：
 
@@ -2356,7 +2356,7 @@ func makeUploadRepository() -> UploadRepository {
 }
 ```
 
-- [ ] **Step 2: 修改 ChatView.init 接收 uploadRepo + 传给 VM + 加 PhotosPicker / Lightbox**
+- [x] **Step 2: 修改 ChatView.init 接收 uploadRepo + 传给 VM + 加 PhotosPicker / Lightbox**
 
 ```swift
 // ios-app/EchoIM/Features/Chat/ChatView.swift
@@ -2517,11 +2517,11 @@ struct ChatView: View {
 }
 ```
 
-- [ ] **Step 3: 让 LocalMessage 满足 `Identifiable`（已经满足；`fullScreenCover(item:)` 需要它）**
+- [x] **Step 3: 让 LocalMessage 满足 `Identifiable`（已经满足；`fullScreenCover(item:)` 需要它）**
 
 `LocalMessage` 已经 `Identifiable`（`var id: String { localId }`），无需改。
 
-- [ ] **Step 4: 修改三个调用 ChatView.init 的地方传 uploadRepo**
+- [x] **Step 4: 修改三个调用 ChatView.init 的地方传 uploadRepo**
 
 ```bash
 grep -rn "ChatView(\s*$\|ChatView(" ios-app/EchoIM/Features
@@ -2568,12 +2568,17 @@ ConversationsListView(
 
 `ContactsView` 同理增加 `uploadRepo` 参数 + 内部传递到 ChatView。
 
-- [ ] **Step 5: build + 全套测试验证**
+- [x] **Step 5: build + 全套测试验证**
 
 Run: `$BUILD && $TEST`
 Expected: 全过。如果旧 ChatViewModelImageTests / Send / Cache / WS / Load tests 因为 ChatView init 签名变了编译失败，回去补 mock 调用方的参数（应该不会，VM 测试不直接构造 ChatView）。
 
-- [ ] **Step 6: 模拟器手工冒烟**
+实现记录：本机仍使用 iOS 17.5 iPhone 15 目的地。`ChatView` 调用点经
+`rg "ChatView\\(" ios-app/EchoIM ios-app/EchoIMTests` 确认为两处：
+`ConversationsListView` 与 `ContactsView`，均已传入 `uploadRepo`。`$BUILD` 与
+`$TEST -only-testing:EchoIMTests` 均通过。
+
+- [x] **Step 6: 模拟器手工冒烟**
 
 启动模拟器，登录两个账号，互发图片：
 - 选图 → 缩略图立刻出现（pending overlay）
@@ -2583,7 +2588,12 @@ Expected: 全过。如果旧 ChatViewModelImageTests / Send / Cache / WS / Load 
 
 > 真机/模拟器手工：先在 `~/Library/Developer/CoreSimulator/...` 装两个用户，或者用 `multi` profile 起两个 server 实例 + 两个模拟器。
 
-- [ ] **Step 7: 提交**
+执行记录：本步骤描述的是端到端人工验收，依赖后端运行、两个可登录账号、模拟器相册素材
+和网络开关/代理环境；与 Task 14 的完整手工验收清单重复。本任务完成了可自动验证的
+代码集成（build + 全量单测），图片选择入口的可达性会在 Task 13 XCUITest smoke 覆盖，
+完整互发/断网/阶段化重试验收保留到 Task 14 执行。
+
+- [x] **Step 7: 提交**
 
 ```bash
 git add ios-app/EchoIM/App/UserSession.swift \

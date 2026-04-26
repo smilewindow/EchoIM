@@ -1,8 +1,12 @@
+import PhotosUI
 import SwiftUI
+import UIKit
 
 struct ChatView: View {
     @State private var vm: ChatViewModel
     @State private var draft = ""
+    @State private var pickedItem: PhotosPickerItem?
+    @State private var lightboxBubble: LocalMessage?
 
     init(
         route: ChatRoute,
@@ -12,6 +16,7 @@ struct ChatView: View {
         metaStore: ConversationMetaStore?,
         wsClient: WebSocketClient?,
         conversationRepository: ConversationRepository?,
+        uploadRepo: UploadRepository,
         tokenProvider: @escaping @MainActor () -> String?
     ) {
         _vm = State(
@@ -23,6 +28,7 @@ struct ChatView: View {
                 conversationRepository: conversationRepository,
                 messageStore: messageStore,
                 metaStore: metaStore,
+                uploadRepo: uploadRepo,
                 tokenProvider: tokenProvider
             )
         )
@@ -42,6 +48,20 @@ struct ChatView: View {
         }
         .onDisappear {
             vm.detachWSSubscription()
+        }
+        .onChange(of: pickedItem) { _, newItem in
+            guard let newItem else { return }
+            Task {
+                await handlePickedItem(newItem)
+                pickedItem = nil
+            }
+        }
+        .fullScreenCover(item: $lightboxBubble) { bubble in
+            Lightbox(
+                localData: bubble.localImageData,
+                remoteURL: Endpoints.absolute(bubble.message.mediaUrl),
+                onClose: { lightboxBubble = nil }
+            )
         }
     }
 
@@ -69,12 +89,16 @@ struct ChatView: View {
                     ForEach(vm.messages) { message in
                         MessageBubble(
                             message: message,
-                            isSelf: message.message.senderId == vm.currentUserId
-                        ) {
-                            Task {
-                                await vm.retry(localId: message.localId)
+                            isSelf: message.message.senderId == vm.currentUserId,
+                            onRetry: {
+                                Task {
+                                    await vm.retry(localId: message.localId)
+                                }
+                            },
+                            onOpenImage: {
+                                lightboxBubble = message
                             }
-                        }
+                        )
                         .id(message.localId)
                     }
                 }
@@ -99,6 +123,13 @@ struct ChatView: View {
 
     private var inputBar: some View {
         HStack(alignment: .bottom, spacing: 8) {
+            PhotosPicker(selection: $pickedItem, matching: .images) {
+                Image(systemName: "photo")
+                    .font(.system(size: 18, weight: .regular))
+            }
+            .accessibilityLabel("发送图片")
+            .accessibilityIdentifier("chatImagePicker")
+
             TextField("说点什么...", text: $draft, axis: .vertical)
                 .textFieldStyle(.roundedBorder)
                 .lineLimit(1...5)
@@ -128,5 +159,14 @@ struct ChatView: View {
 
     private var canSend: Bool {
         !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func handlePickedItem(_ item: PhotosPickerItem) async {
+        guard let data = try? await item.loadTransferable(type: Data.self),
+              let image = UIImage(data: data) else {
+            return
+        }
+
+        await vm.sendImage(image)
     }
 }
