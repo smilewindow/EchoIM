@@ -40,6 +40,12 @@ final class ChatViewModel {
     // P6：只读 typingStore（不变式 8：VM 不路由 typing 事件，UserSession 是唯一写入方）
     private let typingStore: TypingStore?
 
+    // P6 typing debounce
+    private let typingSender: @MainActor (Int, Bool) -> Void
+    private let idleTypingDuration: TimeInterval
+    private var typingSendActive = false
+    private var idleTypingTimer: Task<Void, Never>?
+
     // MARK: - WS subscriptions
 
     private var subscription: WSSubscription?
@@ -58,6 +64,8 @@ final class ChatViewModel {
         metaStore: ConversationMetaStore? = nil,
         uploadRepo: UploadRepository? = nil,
         typingStore: TypingStore? = nil,
+        typingSender: @escaping @MainActor (Int, Bool) -> Void = { _, _ in },
+        idleTypingDuration: TimeInterval = 3.0,
         tokenProvider: @escaping @MainActor () -> String?
     ) {
         switch route {
@@ -78,6 +86,8 @@ final class ChatViewModel {
         self.metaStore = metaStore
         self.wsClient = wsClient
         self.typingStore = typingStore
+        self.typingSender = typingSender
+        self.idleTypingDuration = idleTypingDuration
         self.tokenProvider = tokenProvider
     }
 
@@ -230,6 +240,7 @@ final class ChatViewModel {
     func sendText(_ body: String) async {
         let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        stopTyping()    // 不变式 4 触发点 ②；在 token guard 之前执行，避免 401 早退漏发 stop
         guard let token = tokenProvider() else { return }
 
         let tempId = makeTempId()
@@ -256,6 +267,7 @@ final class ChatViewModel {
     }
 
     func sendImage(_ image: UIImage) async {
+        stopTyping()    // 不变式 4 触发点 ②；在 compressForUpload 之前执行
         guard let compressed = ImageCompressor.compressForUpload(image) else {
             // 编码失败极少发生；P5 先静默放弃，P8 接日志/提示体系时再补用户反馈。
             return
@@ -264,6 +276,7 @@ final class ChatViewModel {
     }
 
     func sendCompressedImage(data: Data, width: Int, height: Int) async {
+        stopTyping()    // sendCompressedImage 被直接调用时（如测试）也保证幂等
         guard let token = tokenProvider() else { return }
         guard let uploadRepo else { return }
 
@@ -413,6 +426,36 @@ final class ChatViewModel {
         } catch {
             // 静默失败；下一次进入页面或收到新消息时重试。
         }
+    }
+
+    // MARK: - Typing
+
+    /// 输入框 onChange 时调用：第一次发 start，重置 idle 兜底定时器（不变式 5）。
+    func handleTypingInput() {
+        guard let conversationId else { return }
+
+        if !typingSendActive {
+            typingSendActive = true
+            typingSender(conversationId, true)
+        }
+
+        idleTypingTimer?.cancel()
+        let nanos = UInt64(idleTypingDuration * 1_000_000_000)
+        idleTypingTimer = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: nanos)
+            guard !Task.isCancelled, let self else { return }
+            self.stopTyping()
+        }
+    }
+
+    /// 三种触发点（不变式 4）：① idle 到期 ② sendText/sendImage ③ onDisappear。
+    func stopTyping() {
+        idleTypingTimer?.cancel()
+        idleTypingTimer = nil
+
+        guard typingSendActive, let conversationId else { return }
+        typingSendActive = false
+        typingSender(conversationId, false)
     }
 
     // MARK: - WS
