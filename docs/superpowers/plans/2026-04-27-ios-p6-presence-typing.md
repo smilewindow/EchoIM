@@ -1842,7 +1842,7 @@ Expected: 通过。✅
 
 - [x] **Step 4: 跑既有 ChatView UI smoke 不退化**
 
-✅ 将在 Task 10 / Task 11 UITest 阶段统一验证。
+✅ ChatSmokeTests + ImageSendSmokeTests 实际执行通过（Task 11 阶段）。`.navigationTitle` → `.toolbar(.principal)` 改动不影响既有测试断言。
 
 - [x] **Step 5: 提交**
 
@@ -1981,7 +1981,7 @@ Expected: 全部通过。重点 PresenceStoreTests / TypingStoreTests / WebSocke
 
 Run: `$UITEST`
 Expected: 全部通过；Task 10 的 PresenceTypingSmokeTests 也应通过（fixture 账号 `smoke@test.local` 必须在测试服务端建好且至少有一条会话——与现有 ChatSmokeTests 共用前置）。
-> UITest 需服务端环境，编译验证通过，运行阶段需手工对接 fixture 服务端。
+✅ ChatSmokeTests / ImageSendSmokeTests / TabNavigationSmokeTests / PresenceTypingSmokeTests 全部通过（含真实 WS + fixture 账号）。`.toolbar(.principal)` 改动未破坏既有导航交互（`app.navigationBars.buttons.firstMatch.tap()` 仍可用）。
 
 - [x] **Step 4: 服务端测试不动也得跑一遍兜底**
 
