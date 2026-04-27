@@ -12,10 +12,14 @@ struct ContactsView: View {
     private let currentUserId: Int
     private let tokenProvider: () -> String?
 
+    // P6：presence / typing 透传到 FriendsListView 和 ChatView
+    private let presenceStore: PresenceStore?
+    private let typingStore: TypingStore?
+    private let typingSender: @MainActor (Int, Bool) -> Void
+
     @State private var showRequests = false
     @State private var showSearch = false
 
-    /// VM 由 ContactsView 自己持有，避免 tab 重算时反复重建并重复触发四个接口。
     init(
         friendRepo: FriendRepository,
         requestRepo: FriendRequestRepository,
@@ -27,6 +31,9 @@ struct ContactsView: View {
         wsClient: WebSocketClient?,
         uploadRepo: UploadRepository,
         currentUserId: Int,
+        presenceStore: PresenceStore? = nil,
+        typingStore: TypingStore? = nil,
+        typingSender: @escaping @MainActor (Int, Bool) -> Void = { _, _ in },
         tokenProvider: @escaping () -> String?
     ) {
         _vm = State(
@@ -44,12 +51,15 @@ struct ContactsView: View {
         self.wsClient = wsClient
         self.uploadRepo = uploadRepo
         self.currentUserId = currentUserId
+        self.presenceStore = presenceStore
+        self.typingStore = typingStore
+        self.typingSender = typingSender
         self.tokenProvider = tokenProvider
     }
 
     var body: some View {
         NavigationStack {
-            FriendsListView(friends: vm.friends)
+            FriendsListView(friends: vm.friends, presenceStore: presenceStore)
                 .navigationTitle("联系人")
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
@@ -98,6 +108,9 @@ struct ContactsView: View {
                         wsClient: wsClient,
                         conversationRepository: conversationRepo,
                         uploadRepo: uploadRepo,
+                        presenceStore: presenceStore,
+                        typingStore: typingStore,
+                        typingSender: typingSender,
                         tokenProvider: {
                             tokenProvider()
                         }

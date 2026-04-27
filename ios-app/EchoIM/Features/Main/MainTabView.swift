@@ -40,6 +40,11 @@ struct MainTabView: View {
                 wsClient: session.wsClient,
                 uploadRepo: session.makeUploadRepository(),
                 currentUserId: container.currentUser?.id ?? 0,
+                presenceStore: session.presenceStore,
+                typingStore: session.typingStore,
+                typingSender: { [weak ws = session.wsClient] cid, isStart in
+                    ws?.sendTyping(conversationId: cid, isStart: isStart)
+                },
                 tokenProvider: { [tokenStore = container.tokenStore] in
                     (try? tokenStore.load())?.token
                 }
@@ -63,6 +68,11 @@ struct MainTabView: View {
                 wsClient: session.wsClient,
                 uploadRepo: session.makeUploadRepository(),
                 currentUserId: container.currentUser?.id ?? 0,
+                presenceStore: session.presenceStore,
+                typingStore: session.typingStore,
+                typingSender: { [weak ws = session.wsClient] cid, isStart in
+                    ws?.sendTyping(conversationId: cid, isStart: isStart)
+                },
                 tokenProvider: { [tokenStore = container.tokenStore] in
                     (try? tokenStore.load())?.token
                 }

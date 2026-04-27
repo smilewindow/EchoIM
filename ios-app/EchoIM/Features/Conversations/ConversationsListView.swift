@@ -11,6 +11,11 @@ struct ConversationsListView: View {
     private let currentUserId: Int
     private let tokenProvider: @MainActor () -> String?
 
+    // P6：presence / typing 透传到 ConversationRow 和 ChatView
+    private let presenceStore: PresenceStore?
+    private let typingStore: TypingStore?
+    private let typingSender: @MainActor (Int, Bool) -> Void
+
     /// VM 由列表页自己持有，避免 MainTabView 因容器状态变化重算时重复创建。
     init(
         repository: ConversationRepository,
@@ -20,6 +25,9 @@ struct ConversationsListView: View {
         wsClient: WebSocketClient?,
         uploadRepo: UploadRepository,
         currentUserId: Int,
+        presenceStore: PresenceStore? = nil,
+        typingStore: TypingStore? = nil,
+        typingSender: @escaping @MainActor (Int, Bool) -> Void = { _, _ in },
         tokenProvider: @escaping @MainActor () -> String?
     ) {
         _vm = State(
@@ -38,6 +46,9 @@ struct ConversationsListView: View {
         self.wsClient = wsClient
         self.uploadRepo = uploadRepo
         self.currentUserId = currentUserId
+        self.presenceStore = presenceStore
+        self.typingStore = typingStore
+        self.typingSender = typingSender
         self.tokenProvider = tokenProvider
     }
 
@@ -96,12 +107,12 @@ struct ConversationsListView: View {
     private var list: some View {
         List(vm.conversations) { conversation in
             NavigationLink(value: ChatRoute.conversation(conversation)) {
-                ConversationRow(conversation: conversation)
+                ConversationRow(conversation: conversation, presenceStore: presenceStore)
             }
-                .listRowSeparator(.hidden)
-                .listRowInsets(
-                    EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12)
-                )
+            .listRowSeparator(.hidden)
+            .listRowInsets(
+                EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12)
+            )
         }
         .listStyle(.plain)
         .accessibilityIdentifier("conversationsList")
@@ -114,7 +125,7 @@ struct ConversationsListView: View {
                 .foregroundStyle(.secondary)
             Text("暂无会话")
                 .foregroundStyle(.secondary)
-            Text("从“联系人”里选一个好友开始聊天")
+            Text("从「联系人」里选一个好友开始聊天")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -150,6 +161,9 @@ struct ConversationsListView: View {
             wsClient: wsClient,
             conversationRepository: conversationRepo,
             uploadRepo: uploadRepo,
+            presenceStore: presenceStore,
+            typingStore: typingStore,
+            typingSender: typingSender,
             tokenProvider: {
                 tokenProvider()
             }
@@ -159,10 +173,23 @@ struct ConversationsListView: View {
 
 private struct ConversationRow: View {
     let conversation: Conversation
+    let presenceStore: PresenceStore?
+
+    init(conversation: Conversation, presenceStore: PresenceStore? = nil) {
+        self.conversation = conversation
+        self.presenceStore = presenceStore
+    }
 
     var body: some View {
         HStack(spacing: 12) {
-            AvatarView(profile: conversation.peer, size: 44)
+            ZStack(alignment: .bottomTrailing) {
+                AvatarView(profile: conversation.peer, size: 44)
+                if presenceStore?.isOnline(conversation.peer.id) == true {
+                    PresenceDot()
+                        .offset(x: 2, y: 2)
+                        .accessibilityIdentifier("conversationOnlineDot_\(conversation.peer.username)")
+                }
+            }
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(conversation.peer.displayTitle)

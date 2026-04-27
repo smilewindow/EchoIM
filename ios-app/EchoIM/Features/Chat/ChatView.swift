@@ -7,6 +7,7 @@ struct ChatView: View {
     @State private var draft = ""
     @State private var pickedItem: PhotosPickerItem?
     @State private var lightboxBubble: LocalMessage?
+    private let presenceStore: PresenceStore?
 
     init(
         route: ChatRoute,
@@ -17,6 +18,9 @@ struct ChatView: View {
         wsClient: WebSocketClient?,
         conversationRepository: ConversationRepository?,
         uploadRepo: UploadRepository,
+        presenceStore: PresenceStore? = nil,
+        typingStore: TypingStore? = nil,
+        typingSender: @escaping @MainActor (Int, Bool) -> Void = { _, _ in },
         tokenProvider: @escaping @MainActor () -> String?
     ) {
         _vm = State(
@@ -29,9 +33,12 @@ struct ChatView: View {
                 messageStore: messageStore,
                 metaStore: metaStore,
                 uploadRepo: uploadRepo,
+                typingStore: typingStore,
+                typingSender: typingSender,
                 tokenProvider: tokenProvider
             )
         )
+        self.presenceStore = presenceStore
     }
 
     var body: some View {
@@ -40,13 +47,18 @@ struct ChatView: View {
             Divider()
             inputBar
         }
-        .navigationTitle(vm.peer.displayTitle)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                principalTitle
+            }
+        }
         .task {
             vm.attachWSSubscription()
             await vm.load()
         }
         .onDisappear {
+            vm.stopTyping()                  // 不变式 4 触发点 ③
             vm.detachWSSubscription()
         }
         .onChange(of: pickedItem) { _, newItem in
@@ -63,6 +75,28 @@ struct ChatView: View {
                 onClose: { lightboxBubble = nil }
             )
         }
+    }
+
+    private var principalTitle: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 6) {
+                Text(vm.peer.displayTitle)
+                    .font(.body.weight(.semibold))
+                    .lineLimit(1)
+                if presenceStore?.isOnline(vm.peer.id) == true {
+                    PresenceDot(size: 8)
+                        .accessibilityIdentifier("chatPeerOnlineDot")
+                }
+            }
+            if vm.peerIsTyping {
+                Text("正在输入...")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("chatPeerTyping")
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("chatPrincipalTitle")
     }
 
     private var messagesList: some View {
@@ -134,6 +168,14 @@ struct ChatView: View {
                 .textFieldStyle(.roundedBorder)
                 .lineLimit(1...5)
                 .submitLabel(.send)
+                .onChange(of: draft) { _, newValue in
+                    let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if trimmed.isEmpty {
+                        vm.stopTyping()
+                    } else {
+                        vm.handleTypingInput()
+                    }
+                }
                 .accessibilityIdentifier("chatInput")
 
             Button {
