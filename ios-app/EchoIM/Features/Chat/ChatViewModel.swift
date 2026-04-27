@@ -37,6 +37,9 @@ final class ChatViewModel {
     weak var wsClient: WebSocketClient?
     private let tokenProvider: @MainActor () -> String?
 
+    // P6：只读 typingStore（不变式 8：VM 不路由 typing 事件，UserSession 是唯一写入方）
+    private let typingStore: TypingStore?
+
     // MARK: - WS subscriptions
 
     private var subscription: WSSubscription?
@@ -54,6 +57,7 @@ final class ChatViewModel {
         messageStore: MessageStore? = nil,
         metaStore: ConversationMetaStore? = nil,
         uploadRepo: UploadRepository? = nil,
+        typingStore: TypingStore? = nil,
         tokenProvider: @escaping @MainActor () -> String?
     ) {
         switch route {
@@ -73,7 +77,14 @@ final class ChatViewModel {
         self.messageStore = messageStore
         self.metaStore = metaStore
         self.wsClient = wsClient
+        self.typingStore = typingStore
         self.tokenProvider = tokenProvider
+    }
+
+    /// 对方是否正在输入。仅当 conversationId 已知且 typingStore 命中时为 true（不变式 8）。
+    var peerIsTyping: Bool {
+        guard let conversationId, let typingStore else { return false }
+        return typingStore.isTyping(conversationId)
     }
 
     // MARK: - Load
