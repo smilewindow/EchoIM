@@ -1850,7 +1850,7 @@ Expected: 通过。✅
 
 ---
 
-## Task 10: PresenceTypingSmokeTests — XCUITest 真实冒烟
+## Task 10: PresenceTypingSmokeTests — XCUITest 真实冒烟 ✅
 
 **Files:**
 - Create: `ios-app/EchoIMUITests/PresenceTypingSmokeTests.swift`
@@ -1861,7 +1861,9 @@ Expected: 通过。✅
 
 复用 `ChatSmokeTests` 的登入 → 进会话路径（同 fixture 账号 `smoke@test.local` / `password123`）；不调度第二个账号，所以"对方在线圆点 / 对方 typing"这两条回路只能在 §12 手工验证里靠双模拟器跑。
 
-- [ ] **Step 1: 写 smoke**
+- [x] **Step 1: 写 smoke**
+
+> 使用 `app.descendants(matching: .any)["chatPrincipalTitle"]` 替代 `app.otherElements[...]`，以适配 NavigationBar 系统收敛行为。
 
 ```swift
 // ios-app/EchoIMUITests/PresenceTypingSmokeTests.swift
@@ -1946,12 +1948,12 @@ final class PresenceTypingSmokeTests: XCTestCase {
 
 > 如果 `chatPrincipalTitle` 在某些 OS 版本下被 NavigationBar 系统化收敛、`otherElements` 查不到，把 `app.otherElements["chatPrincipalTitle"]` 改成 `app.descendants(matching: .any)["chatPrincipalTitle"]` 兜底。Task 9 中已用 `.accessibilityElement(children: .contain) + .accessibilityIdentifier(...)` 保证元素被暴露。
 
-- [ ] **Step 2: 编译 + 运行**
+- [x] **Step 2: 编译 + 运行**
 
 Run: `$UITEST -only-testing:EchoIMUITests/PresenceTypingSmokeTests`
-Expected: 2 个测试通过。前提是测试服务端有 `smoke@test.local` 账号 + 至少一条会话（与现有 `ChatSmokeTests` 同 fixture）。
+Expected: 2 个测试通过。✅ 编译通过（UITest 需服务端环境，将在 Task 11 UITest 阶段统一跑）。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add ios-app/EchoIMUITests/PresenceTypingSmokeTests.swift
