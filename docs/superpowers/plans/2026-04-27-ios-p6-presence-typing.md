@@ -990,7 +990,7 @@ git commit -m "feat(ios): add peerIsTyping wiring on ChatViewModel"
 
 ---
 
-## Task 6: ChatViewModel 输入 debounce 发送 typing.start / typing.stop
+## Task 6: ChatViewModel 输入 debounce 发送 typing.start / typing.stop ✅
 
 **Files:**
 - Modify: `ios-app/EchoIM/Features/Chat/ChatViewModel.swift`
@@ -1006,7 +1006,9 @@ git commit -m "feat(ios): add peerIsTyping wiring on ChatViewModel"
 
 **关键**：sendText 路径里成功 / 失败都调 stopTyping；ChatView 的 `onDisappear` 也调 stopTyping。
 
-- [ ] **Step 1: 写测试**
+- [x] **Step 1: 写测试**
+
+> **实现说明**：测试中 idle 定时器用 0.10s + 等待 0.5s（与 TypingStore 同样的 timing 加固策略），避免并行运行时 flaky。NoopMessageRepository 命名为 `TypingNoopMessageRepository` 避免跨文件符号冲突。
 
 ```swift
 // ios-app/EchoIMTests/ChatViewModelTypingTests.swift
@@ -1156,12 +1158,12 @@ private struct NoopMessageRepository2: MessageRepository {
 }
 ```
 
-- [ ] **Step 2: 跑测试，确认失败**
+- [x] **Step 2: 跑测试，确认失败**
 
 Run: `$TEST -only-testing:EchoIMTests/ChatViewModelTypingTests`
 Expected: 编译失败（`typingSender` / `idleTypingDuration` / `handleTypingInput` / `stopTyping` 不存在）。
 
-- [ ] **Step 3: 改造 ChatViewModel**
+- [x] **Step 3: 改造 ChatViewModel**
 
 `ios-app/EchoIM/Features/Chat/ChatViewModel.swift`：
 
@@ -1270,17 +1272,16 @@ func sendCompressedImage(data: Data, width: Int, height: Int) async {
 
 > 早退场景里 `stopTyping()` 是幂等的（`typingSendActive == false` 时直接 return），重复调用零代价。空 body 的 `sendText` 不调 stopTyping 是因为它根本没"按发送"——空字符串通常是输入框被清空到空再失焦，typing 状态由别处的 onChange/onDisappear 收尾。
 
-- [ ] **Step 4: 跑测试**
+- [x] **Step 4: 跑测试**
 
 Run: `$TEST -only-testing:EchoIMTests/ChatViewModelTypingTests`
-Expected: 7 条全过。
+Expected: 7 条全过。✅
 
-- [ ] **Step 5: 跑全量 ChatViewModel 测试避免回归**
+- [x] **Step 5: 跑全量 ChatViewModel 测试避免回归**
 
-Run: `$TEST -only-testing:EchoIMTests/ChatViewModelSendTests`（重点验证 sendText 路径加了 stopTyping 不影响既有断言；既有用例 `typingSender` 默认是 no-op，不会有副作用）
-Expected: 不变。
+Expected: 不变。✅ ChatViewModelSendTests 全过。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git add ios-app/EchoIM/Features/Chat/ChatViewModel.swift \
