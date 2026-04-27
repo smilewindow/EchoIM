@@ -152,7 +152,7 @@ ios-app/EchoIM/
 
 ---
 
-## Task 1: PresenceStore — `@Observable` 在线好友集合
+## Task 1: PresenceStore — `@Observable` 在线好友集合 ✅
 
 **Files:**
 - Create: `ios-app/EchoIM/Features/Shared/Stores/PresenceStore.swift`
@@ -160,7 +160,9 @@ ios-app/EchoIM/
 
 设计依据：§2.1（`Features/Shared/Stores/PresenceStore.swift`）+ §7.5 step 5。store 是纯状态容器，不与 WebSocketClient 耦合（不变式 1）。
 
-- [ ] **Step 1: 写测试 — set / unset / isOnline / clearAll 四组基础语义**
+> **实现说明**：项目使用 `PBXFileSystemSynchronizedRootGroup`（Xcode 16+），新建 Swift 文件无需手动修改 `project.pbxproj`，文件系统变更自动被 Xcode 识别。新增 `ios-app/EchoIM/Features/Shared/Stores/` 目录即可。
+
+- [x] **Step 1: 写测试 — set / unset / isOnline / clearAll 四组基础语义**
 
 ```swift
 // ios-app/EchoIMTests/PresenceStoreTests.swift
@@ -215,12 +217,12 @@ struct PresenceStoreTests {
 }
 ```
 
-- [ ] **Step 2: 跑测试，确认失败**
+- [x] **Step 2: 跑测试，确认失败**
 
 Run: `$TEST -only-testing:EchoIMTests/PresenceStoreTests`
 Expected: 编译失败（`PresenceStore` 未定义）。
 
-- [ ] **Step 3: 实现 PresenceStore**
+- [x] **Step 3: 实现 PresenceStore**
 
 ```swift
 // ios-app/EchoIM/Features/Shared/Stores/PresenceStore.swift
@@ -255,12 +257,12 @@ final class PresenceStore {
 }
 ```
 
-- [ ] **Step 4: 跑测试，确认通过**
+- [x] **Step 4: 跑测试，确认通过**
 
 Run: `$TEST -only-testing:EchoIMTests/PresenceStoreTests`
-Expected: 5 条全过。
+Expected: 5 条全过。✅ 实际结果：5 条全过。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add ios-app/EchoIM/Features/Shared/Stores/PresenceStore.swift \
@@ -270,7 +272,7 @@ git commit -m "feat(ios): add PresenceStore observable set"
 
 ---
 
-## Task 2: TypingStore — `@Observable` 正在输入会话集合 + 5 秒安全定时器
+## Task 2: TypingStore — `@Observable` 正在输入会话集合 + 5 秒安全定时器 ✅
 
 **Files:**
 - Create: `ios-app/EchoIM/Features/Shared/Stores/TypingStore.swift`
@@ -278,7 +280,7 @@ git commit -m "feat(ios): add PresenceStore observable set"
 
 设计依据：§8 P6 "TypingStore 带 5 秒安全定时器"。store 持有 `Set<Int>` 形式的 `typingConversationIds`；每次 `handleTypingStart(conversationId:)` 都重置一个 5 秒后自动 `handleTypingStop` 的 `Task`，保证服务端 stop 丢失时也能复位（不变式 6）。`safetyDuration` 通过 init 注入，单测用 0.05 秒。
 
-- [ ] **Step 1: 写测试 — start 写入 + 提前 stop 清理 + 兜底自动清理**
+- [x] **Step 1: 写测试 — start 写入 + 提前 stop 清理 + 兜底自动清理**
 
 ```swift
 // ios-app/EchoIMTests/TypingStoreTests.swift
@@ -360,12 +362,12 @@ struct TypingStoreTests {
 }
 ```
 
-- [ ] **Step 2: 跑测试，确认失败**
+- [x] **Step 2: 跑测试，确认失败**
 
 Run: `$TEST -only-testing:EchoIMTests/TypingStoreTests`
 Expected: 编译失败（`TypingStore` 未定义）。
 
-- [ ] **Step 3: 实现 TypingStore**
+- [x] **Step 3: 实现 TypingStore**
 
 ```swift
 // ios-app/EchoIM/Features/Shared/Stores/TypingStore.swift
@@ -412,12 +414,12 @@ final class TypingStore {
 }
 ```
 
-- [ ] **Step 4: 跑测试，确认通过**
+- [x] **Step 4: 跑测试，确认通过**
 
 Run: `$TEST -only-testing:EchoIMTests/TypingStoreTests`
-Expected: 7 条全过。如果安全定时器测试在 CI 上偶现失败，把 `safetyDuration` 抬到 0.10、`Task.sleep` 等长 0.30 重试——本机 sleep 精度有抖动。
+Expected: 7 条全过。✅ 实际结果：7 条全过（含定时器 async 测试）。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add ios-app/EchoIM/Features/Shared/Stores/TypingStore.swift \
