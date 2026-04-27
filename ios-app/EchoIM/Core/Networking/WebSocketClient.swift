@@ -343,6 +343,51 @@ final class WebSocketClient: NSObject {
     }
 }
 
+extension WebSocketClient {
+    /// 客户端唯一会主动发的两类帧：typing.start / typing.stop。设计 §7.8。
+    /// 服务端 `server/src/plugins/ws.ts:253-277` 期望平铺 JSON，**不**嵌套 payload。
+    ///
+    /// **`nonisolated`**：WebSocketClient 整体是 `@MainActor`，但本函数不读写 actor 状态，
+    /// 显式 nonisolated 让任何 actor 上下文（包括无 `@MainActor` 的测试）都能直接调用。
+    nonisolated static func typingFrameJSON(conversationId: Int, isStart: Bool) throws -> Data {
+        let payload: [String: Any] = [
+            "type": isStart ? "typing.start" : "typing.stop",
+            "conversation_id": conversationId,
+        ]
+        return try JSONSerialization.data(withJSONObject: payload, options: [])
+    }
+
+    /// 仅 .ready 状态下发送；其它状态静默丢弃（与 Web `sendWsMessage` 一致）。
+    func sendTyping(conversationId: Int, isStart: Bool) {
+        guard case .ready = state, let task else { return }
+        guard let data = try? Self.typingFrameJSON(
+            conversationId: conversationId,
+            isStart: isStart
+        ),
+        let text = String(data: data, encoding: .utf8) else { return }
+
+        task.send(.string(text)) { _ in }
+    }
+}
+
+#if DEBUG
+extension WebSocketClient {
+    /// 仅测试用：直接 dispatch 一条 WSEvent 给所有订阅者，不走真实 receive 路径。
+    func _dispatchForTesting(_ event: WSEvent) {
+        for handler in handlers.values {
+            handler(event)
+        }
+    }
+
+    /// 仅测试用：直接触发 onReady 回调（不切 state 也不 startHeartbeat，只跑 readyHandlers）。
+    func _fireReadyForTesting() {
+        for handler in Array(readyHandlers.values) {
+            handler()
+        }
+    }
+}
+#endif
+
 extension WebSocketClient: URLSessionWebSocketDelegate, URLSessionTaskDelegate {
     nonisolated func urlSession(
         _ session: URLSession,
