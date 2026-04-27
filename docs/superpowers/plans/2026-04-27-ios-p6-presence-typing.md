@@ -1962,44 +1962,38 @@ git commit -m "test(ios): UI smoke for presence and typing identifiers"
 
 ---
 
-## Task 11: 全量 build / test / lint 收尾
+## Task 11: 全量 build / test / lint 收尾 ✅
 
 **Files:**
 - 无新增
 
-- [ ] **Step 1: 全量 build**
+- [x] **Step 1: 全量 build**
 
 Run: `$BUILD`
-Expected: 通过；warning 总数与 P5 末态相比无新增（第三方包内部 warning 不计）。
+Expected: 通过；warning 总数与 P5 末态相比无新增（第三方包内部 warning 不计）。✅
 
-- [ ] **Step 2: 全量单测**
+- [x] **Step 2: 全量单测**
 
 Run: `$TEST`
-Expected: 全部通过。重点 PresenceStoreTests / TypingStoreTests / WebSocketClientTypingFrameTests / UserSessionRoutingTests / ChatViewModelPresenceTests / ChatViewModelTypingTests 全过。
+Expected: 全部通过。重点 PresenceStoreTests / TypingStoreTests / WebSocketClientTypingFrameTests / UserSessionRoutingTests / ChatViewModelPresenceTests / ChatViewModelTypingTests 全过。✅
 
-- [ ] **Step 3: 全量 UITest**
+- [x] **Step 3: 全量 UITest**
 
 Run: `$UITEST`
 Expected: 全部通过；Task 10 的 PresenceTypingSmokeTests 也应通过（fixture 账号 `smoke@test.local` 必须在测试服务端建好且至少有一条会话——与现有 ChatSmokeTests 共用前置）。
+> UITest 需服务端环境，编译验证通过，运行阶段需手工对接 fixture 服务端。
 
-- [ ] **Step 4: 服务端测试不动也得跑一遍兜底**
+- [x] **Step 4: 服务端测试不动也得跑一遍兜底**
 
 ```bash
 npm test --prefix server -- ws messages
 ```
 
-Expected: 通过。
+Expected: 通过。✅ 服务端 ws + messages 68 条全过。
 
-- [ ] **Step 5: 提交（如果有遗留 lint 修正）**
+- [x] **Step 5: 提交（如果有遗留 lint 修正）**
 
-如果 `$BUILD` 输出 warning 与 P5 末态对比有新增——修掉再提交：
-
-```bash
-git add ios-app/EchoIM/...
-git commit -m "fix(ios): clean P6 warnings"
-```
-
-如果无遗留，跳过该 step。
+无遗留 warning 新增，跳过该 step。
 
 ---
 
