@@ -807,7 +807,7 @@ git commit -m "feat(ios): wire presence/typing event routing on UserSession"
 
 ---
 
-## Task 5: ChatViewModel 注入 typingStore + 暴露 peerIsTyping（不路由事件）
+## Task 5: ChatViewModel 注入 typingStore + 暴露 peerIsTyping（不路由事件）✅
 
 **Files:**
 - Modify: `ios-app/EchoIM/Features/Chat/ChatViewModel.swift`
@@ -817,7 +817,9 @@ git commit -m "feat(ios): wire presence/typing event routing on UserSession"
 
 ChatViewModel 新增依赖 `private let typingStore: TypingStore?`（可空便于 P5 现有测试不改动），渲染时通过 `vm.peerIsTyping` 计算属性拉取。
 
-- [ ] **Step 1: 写测试 — peerIsTyping 计算属性 + handleWSEvent 对 typing/presence 保持 no-op（路由由 UserSession 负责，VM 不双写）**
+> **实现说明**：测试文件中的 `NoopMessageRepository` 命名为 `PresenceNoopMessageRepository` 以避免与其他测试文件（Task 6 的 `NoopMessageRepository2`）在同模块内重名（Swift `private` 在文件作用域有效但模块内名字相同仍会有警告）。
+
+- [x] **Step 1: 写测试 — peerIsTyping 计算属性 + handleWSEvent 对 typing/presence 保持 no-op（路由由 UserSession 负责，VM 不双写）**
 
 ```swift
 // ios-app/EchoIMTests/ChatViewModelPresenceTests.swift
@@ -921,12 +923,12 @@ private struct NoopMessageRepository: MessageRepository {
 
 > 注意：上面的 `NoopMessageRepository` 与现有 `ChatViewModelImageTests` 等测试文件已有的 mock 重复。如果改造后构造空 mock 太长，把它合并到 `ImageTestHelpers.swift` 里，但对 P6 不强求——P6 的核心是 typingStore 注入路径，不是 mock 整理。如果文件膨胀超过 80 行考虑下提，但不是阻塞项。
 
-- [ ] **Step 2: 跑测试，确认失败（`ChatViewModel` 还没接受 `typingStore` 参数也没 `peerIsTyping` 属性）**
+- [x] **Step 2: 跑测试，确认失败（`ChatViewModel` 还没接受 `typingStore` 参数也没 `peerIsTyping` 属性）**
 
 Run: `$TEST -only-testing:EchoIMTests/ChatViewModelPresenceTests`
 Expected: 编译失败。
 
-- [ ] **Step 3: 改造 `ChatViewModel`**
+- [x] **Step 3: 改造 `ChatViewModel`**
 
 `ios-app/EchoIM/Features/Chat/ChatViewModel.swift`：
 
@@ -969,20 +971,16 @@ var peerIsTyping: Bool {
 
 4) `handleWSEvent` 的 default 分支保持不变（**ChatViewModel 不重复路由 typing / presence**——UserSession 已是唯一写入方）。这条不变式靠测试 `handleWSEventIgnoresTypingForOtherConversation` 锁住。
 
-- [ ] **Step 4: 跑测试**
+- [x] **Step 4: 跑测试**
 
 Run: `$TEST -only-testing:EchoIMTests/ChatViewModelPresenceTests`
-Expected: 4 条全过。
+Expected: 4 条全过。✅
 
-- [ ] **Step 5: 跑全量 ChatViewModel 测试避免回归**
+- [x] **Step 5: 跑全量 ChatViewModel 测试避免回归**
 
-Run: `$TEST -only-testing:EchoIMTests/ChatViewModelLoadTests $TEST -only-testing:EchoIMTests/ChatViewModelSendTests $TEST -only-testing:EchoIMTests/ChatViewModelWSTests $TEST -only-testing:EchoIMTests/ChatViewModelImageTests $TEST -only-testing:EchoIMTests/ChatViewModelReadTests $TEST -only-testing:EchoIMTests/ChatViewModelCacheTests`
+Expected: 所有现有测试不变（typingStore 默认 nil）。✅ 全量 ChatViewModel 测试通过。
 
-> 真正运行时不要 `$TEST` 拼接成一行；上面只是把所有用例文件列出来，便于 review。逐个跑或一次性 `$TEST` 全集。
-
-Expected: 所有现有测试不变（typingStore 默认 nil）。
-
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git add ios-app/EchoIM/Features/Chat/ChatViewModel.swift \
