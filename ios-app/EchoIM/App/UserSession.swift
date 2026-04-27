@@ -9,6 +9,11 @@ final class UserSession {
     let modelContainer: ModelContainer
     private(set) var wsClient: WebSocketClient
 
+    // P6：在线状态 / 输入指示 store（不变式 1：store 不直接订阅 WS，由此处路由）
+    let presenceStore: PresenceStore
+    let typingStore: TypingStore
+    private var routingSubscriptions: [WSSubscription] = []
+
     private let apiClient: APIClient
     private let tokenLoader: @MainActor () -> String?
     private let onUnauthorized: @MainActor () async -> Void
@@ -46,6 +51,38 @@ final class UserSession {
             tokenProvider: tokenLoader,
             onUnauthorized: { Task { await onUnauthorized() } }
         )
+
+        presenceStore = PresenceStore()
+        typingStore = TypingStore()
+
+        // 把 wsClient 上的事件路由到对应 store（不变式 1）。
+        routingSubscriptions.append(
+            wsClient.subscribe { [presenceStore, typingStore] event in
+                switch event {
+                case .presenceOnline(let payload):
+                    presenceStore.setOnline(payload.userId)
+                case .presenceOffline(let payload):
+                    presenceStore.setOffline(payload.userId)
+                case .typingStart(let payload):
+                    typingStore.handleTypingStart(conversationId: payload.conversationId)
+                case .typingStop(let payload):
+                    typingStore.handleTypingStop(conversationId: payload.conversationId)
+                default:
+                    break
+                }
+            }
+        )
+        routingSubscriptions.append(
+            wsClient.onReady { [presenceStore] in
+                // 设计 §7.5 step 5：先清空，让后续 presence.online 重建集合（不变式 3）。
+                presenceStore.clearAll()
+            }
+        )
+    }
+
+    /// P6：业务层调用；wsClient 内部已有 .ready state guard，非 ready 状态静默丢弃。
+    func sendTyping(conversationId: Int, isStart: Bool) {
+        wsClient.sendTyping(conversationId: conversationId, isStart: isStart)
     }
 
     func makeMessageRepository() -> MessageRepository {
