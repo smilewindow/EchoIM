@@ -429,7 +429,7 @@ git commit -m "feat(ios): add TypingStore with safety timer"
 
 ---
 
-## Task 3: WebSocketClient.sendTyping — 客户端唯一一种主动 WS 帧
+## Task 3: WebSocketClient.sendTyping — 客户端唯一一种主动 WS 帧 ✅
 
 **Files:**
 - Modify: `ios-app/EchoIM/Core/Networking/WebSocketClient.swift`
@@ -437,7 +437,9 @@ git commit -m "feat(ios): add TypingStore with safety timer"
 
 设计依据：§7.8 表 "客户端发的 WS 事件（仅这两种）"。服务端 `ws.ts:253-277` 期望 `{type:'typing.start'|'typing.stop', conversation_id:N}` 这种平铺 JSON（**不是** `{type, payload:{conversation_id}}` 那种嵌套）。`URLSessionWebSocketTask.send` 的真实 task 不好测，所以把序列化抽出来做一层纯函数 `Self.typingFrameJSON(...) -> Data` 单测，发送路径用编译期 state guard 保护。
 
-- [ ] **Step 1: 写测试 — typingFrameJSON 输出形状**
+> **实现说明**：Task 4 所需的 `_dispatchForTesting` / `_fireReadyForTesting` DEBUG 测试入口也随本 Task 一并加入 WebSocketClient，放在同一文件的 `#if DEBUG extension`，与计划 Task 4 Step 2 保持同步，避免 Task 4 编译失败。
+
+- [x] **Step 1: 写测试 — typingFrameJSON 输出形状**
 
 ```swift
 // ios-app/EchoIMTests/WebSocketClientTypingFrameTests.swift
@@ -477,12 +479,12 @@ struct WebSocketClientTypingFrameTests {
 }
 ```
 
-- [ ] **Step 2: 跑测试，确认失败**
+- [x] **Step 2: 跑测试，确认失败**
 
 Run: `$TEST -only-testing:EchoIMTests/WebSocketClientTypingFrameTests`
 Expected: 编译失败（`WebSocketClient.typingFrameJSON` 不存在）。
 
-- [ ] **Step 3: 在 WebSocketClient 加 typingFrameJSON 静态函数 + sendTyping 方法**
+- [x] **Step 3: 在 WebSocketClient 加 typingFrameJSON 静态函数 + sendTyping 方法**
 
 在 `ios-app/EchoIM/Core/Networking/WebSocketClient.swift` 末尾追加：
 
@@ -521,17 +523,17 @@ extension WebSocketClient {
 }
 ```
 
-- [ ] **Step 4: 跑测试，确认通过**
+- [x] **Step 4: 跑测试，确认通过**
 
 Run: `$TEST -only-testing:EchoIMTests/WebSocketClientTypingFrameTests`
-Expected: 2 条全过。
+Expected: 2 条全过。✅ 实际：2 条全过。ReconnectPolicyTests 也无回归。
 
 同时跑全部 WebSocket 相关测试避免回归：
 
 Run: `$TEST -only-testing:EchoIMTests/ReconnectPolicyTests`
-Expected: 不变。
+Expected: 不变。✅
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add ios-app/EchoIM/Core/Networking/WebSocketClient.swift \
