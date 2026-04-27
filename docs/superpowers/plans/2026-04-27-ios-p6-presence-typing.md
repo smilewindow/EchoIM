@@ -543,7 +543,7 @@ git commit -m "feat(ios): add WebSocketClient.sendTyping for client typing frame
 
 ---
 
-## Task 4: UserSession 路由订阅 — presence/typing 事件灌进 store + onReady 清空 PresenceStore
+## Task 4: UserSession 路由订阅 — presence/typing 事件灌进 store + onReady 清空 PresenceStore ✅
 
 **Files:**
 - Modify: `ios-app/EchoIM/App/UserSession.swift`
@@ -558,7 +558,9 @@ git commit -m "feat(ios): add WebSocketClient.sendTyping for client typing frame
 
 订阅句柄保存到 `private var routingSubscriptions: [WSSubscription]` 数组里，随 UserSession / wsClient 整体释放自然失效——`WSSubscription.cancel()` 是幂等的、对已释放的 client 只是 no-op。**不加 deinit**：UserSession 是 `@MainActor` 类，cancel 也得在 MainActor 上跑，deinit 里强行 `Task { @MainActor in ... }` 反而引入异步释放窗口。如果未来发现订阅在 wsClient 还活着的时候需要单独解绑，再补显式 `tearDown()` 方法。
 
-- [ ] **Step 1: 写测试 — 模拟 wsClient handler 注入事件，断言 store 状态**
+> **实际偏差**：TypingStoreTests 的定时器测试（`safetyTimerAutoStops` / `consecutiveStartsResetSafetyTimer` / `explicitStopCancelsSafetyTimer`）在全量并行运行时出现 flaky——0.05s / 0.06s / 0.10s 的 sleep 在模拟器高负载下精度不够。将参数统一上调：`safetyDuration` 改为 0.10 / 0.20，等待时间改为 0.30s / 0.50s，确保全量测试稳定通过。此调整已同步更新 `TypingStoreTests.swift`，一并在本 Task 提交。
+
+- [x] **Step 1: 写测试 — 模拟 wsClient handler 注入事件，断言 store 状态**
 
 > 实现思路：`WebSocketClient` 的 init 已支持注入 `tokenProvider` / `onUnauthorized`，但 subscribe 把订阅返回给上层、handlers 字典是 private。要测"UserSession 内部建立的订阅"最干净的方式是给 `WebSocketClient` 加一个 `#if DEBUG _dispatchForTesting(_:)` / `_fireReadyForTesting()` 内部入口（Step 2 实施），让测试直接派发事件、走 UserSession init 已经注册好的真实 routing handler——这与 P5 在 ChatViewModel 上 `_injectFailedImageBubbleForTesting` 的处理方式一致。
 >
@@ -699,7 +701,9 @@ struct UserSessionRoutingTests {
 
 > 旧版（已废弃）：使用固定 `userId: 100` 会污染 `~/Library/Developer/CoreSimulator/.../Application Support/EchoIM/users/100/` 目录，且并行测试会撞库。务必走 `makeFixture()` 路径。
 
-- [ ] **Step 2: 给 WebSocketClient 加 DEBUG 测试入口**
+- [x] **Step 2: 给 WebSocketClient 加 DEBUG 测试入口**
+
+> 已在 Task 3 中提前实现，此处确认存在。
 
 在 `ios-app/EchoIM/Core/Networking/WebSocketClient.swift` 文件末尾追加：
 
@@ -724,12 +728,12 @@ extension WebSocketClient {
 #endif
 ```
 
-- [ ] **Step 3: 跑测试，确认失败（UserSession 还没暴露 stores 也没 attach 订阅）**
+- [x] **Step 3: 跑测试，确认失败（UserSession 还没暴露 stores 也没 attach 订阅）**
 
 Run: `$TEST -only-testing:EchoIMTests/UserSessionRoutingTests`
 Expected: 编译失败（`session.presenceStore` / `session.typingStore` 不存在）。
 
-- [ ] **Step 4: 实现 UserSession 路由订阅**
+- [x] **Step 4: 实现 UserSession 路由订阅**
 
 修改 `ios-app/EchoIM/App/UserSession.swift`：
 
@@ -782,17 +786,17 @@ func sendTyping(conversationId: Int, isStart: Bool) {
 }
 ```
 
-- [ ] **Step 5: 跑测试，确认通过**
+- [x] **Step 5: 跑测试，确认通过**
 
 Run: `$TEST -only-testing:EchoIMTests/UserSessionRoutingTests`
-Expected: 6 条全过。
+Expected: 6 条全过。✅ 实际：6 条全过。
 
-- [ ] **Step 6: 跑全量单测确认无回归**
+- [x] **Step 6: 跑全量单测确认无回归**
 
 Run: `$TEST`
-Expected: 与 P5 末态相比，仅多出本任务新增的测试。`AppContainerTests` / `UserSessionTests` 不应失败——presenceStore / typingStore 是新增成员，不影响既有路径。
+Expected: 与 P5 末态相比，仅多出本任务新增的测试。✅ 全量通过（含 TypingStoreTests timing fix）。
 
-- [ ] **Step 7: 提交**
+- [x] **Step 7: 提交**
 
 ```bash
 git add ios-app/EchoIM/App/UserSession.swift \
