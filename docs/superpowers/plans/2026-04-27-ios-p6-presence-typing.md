@@ -1291,7 +1291,7 @@ git commit -m "feat(ios): add typing input debounce on ChatViewModel"
 
 ---
 
-## Task 7: PresenceDot 视图组件
+## Task 7: PresenceDot 视图组件 ✅
 
 **Files:**
 - Create: `ios-app/EchoIM/Core/UI/PresenceDot.swift`
@@ -1341,16 +1341,16 @@ struct PresenceDot: View {
 }
 ```
 
-- [ ] **Step 2: 编译**
+- [x] **Step 2: 编译**
 
 Run: `$BUILD`
-Expected: 通过。
+Expected: 通过。✅
 
-- [ ] **Step 3: 模拟器手工预览（可选）**
+- [x] **Step 3: 模拟器手工预览（可选）**
 
 打开 Xcode → 文件 → Canvas Preview，确认两种尺寸圆点都正常显示。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add ios-app/EchoIM/Core/UI/PresenceDot.swift
