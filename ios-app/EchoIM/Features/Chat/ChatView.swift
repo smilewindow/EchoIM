@@ -9,6 +9,7 @@ struct ChatView: View {
     @State private var draft = ""
     @State private var pickedItem: PhotosPickerItem?
     @State private var lightboxBubble: LocalMessage?
+    @FocusState private var isInputFocused: Bool
     private let presenceStore: PresenceStore?
 
     init(
@@ -154,13 +155,19 @@ struct ChatView: View {
                 .padding(.top, 10)
             }
             .background(Color(uiColor: .systemBackground))
+            .contentShape(Rectangle())
+            .simultaneousGesture(
+                TapGesture().onEnded {
+                    isInputFocused = false
+                }
+            )
             .overlay {
                 if vm.phase == .loading, vm.messages.isEmpty {
                     ProgressView()
                 }
             }
             .onChange(of: vm.messages.last?.localId) { _, newValue in
-                guard let newValue else { return }
+                guard newValue != nil else { return }
                 scrollToBottom(proxy)
             }
         }
@@ -183,10 +190,16 @@ struct ChatView: View {
             }
             .accessibilityLabel("发送图片")
             .accessibilityIdentifier("chatImagePicker")
+            .simultaneousGesture(
+                TapGesture().onEnded {
+                    isInputFocused = false
+                }
+            )
 
             TextField("说点什么...", text: $draft, axis: .vertical)
                 .textFieldStyle(.roundedBorder)
                 .lineLimit(1...5)
+                .focused($isInputFocused)
                 .submitLabel(.send)
                 .onChange(of: draft) { _, newValue in
                     let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
