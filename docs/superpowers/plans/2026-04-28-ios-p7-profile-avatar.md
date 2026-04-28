@@ -170,7 +170,7 @@ ios-app/EchoIM/
 
 > **实现说明**：项目使用 `PBXFileSystemSynchronizedRootGroup`（Xcode 16+），新建测试文件无需手动改 `project.pbxproj`，文件系统变更自动被 Xcode 识别。
 
-- [ ] **Step 1: 写测试 — PUT 路径 + body 字段 + 200 解码 + 401 映射**
+- [x] **Step 1: 写测试 — PUT 路径 + body 字段 + 200 解码 + 401 映射**
 
 ```swift
 // ios-app/EchoIMTests/UserRepositoryUpdateProfileTests.swift
@@ -272,12 +272,12 @@ struct UserRepositoryUpdateProfileTests {
 }
 ```
 
-- [ ] **Step 2: 跑测试，确认失败**
+- [x] **Step 2: 跑测试，确认失败**
 
 Run: `$TEST -only-testing:EchoIMTests/UserRepositoryUpdateProfileTests`
 Expected: 编译失败（`UserRepository.updateProfile` 未定义）。
 
-- [ ] **Step 3: 实现 `UpdateProfileRequest` + `UserRepository.updateProfile`**
+- [x] **Step 3: 实现 `UpdateProfileRequest` + `UserRepository.updateProfile`**
 
 ```swift
 // ios-app/EchoIM/Features/Contacts/UserRepository.swift
@@ -331,17 +331,17 @@ final class UserRepositoryImpl: UserRepository {
 }
 ```
 
-- [ ] **Step 4: 跑测试，确认通过**
+- [x] **Step 4: 跑测试，确认通过**
 
 Run: `$TEST -only-testing:EchoIMTests/UserRepositoryUpdateProfileTests`
 Expected: 3 条全过。
 
-- [ ] **Step 5: 同时跑既有 `UserRepositoryTests`，确认未回归**
+- [x] **Step 5: 同时跑既有 `UserRepositoryTests`，确认未回归**
 
 Run: `$TEST -only-testing:EchoIMTests/UserRepositoryTests`
 Expected: 既有 3 条仍全过（fetchMe + 401 + search 不受影响）。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 git add ios-app/EchoIM/Features/Contacts/UserRepository.swift \
