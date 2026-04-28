@@ -1309,7 +1309,7 @@ git commit -m "feat(ios): add ProfileEditViewModel with save/upload state machin
 
 设计依据：§8 P7、Web `client/src/pages/ProfileEditPage.tsx` 的字段结构（精简掉外链 URL 输入框）。本任务无单测——View 层只编译 + 手工 + 后续 Task 10 的 XCUITest 兜底。
 
-- [ ] **Step 1: 实现 ProfileEditView**
+- [x] **Step 1: 实现 ProfileEditView**
 
 ```swift
 // ios-app/EchoIM/Features/Me/ProfileEditView.swift
@@ -1488,22 +1488,24 @@ struct ProfileEditView: View {
 }
 ```
 
-- [ ] **Step 2: 跑构建确保编译通过**
+- [x] **Step 2: 跑构建确保编译通过**
 
 Run: `$BUILD`
 Expected: success。
 
-- [ ] **Step 3: 跑全套单测确认未回归**
+- [x] **Step 3: 跑全套单测确认未回归**
 
 Run: `$TEST`
 Expected: 既有所有用例 + Task 1-4 新增用例全过。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add ios-app/EchoIM/Features/Me/ProfileEditView.swift
 git commit -m "feat(ios): add ProfileEditView form with avatar picker and display name field"
 ```
+
+> **实际偏差：** 构建时出现 Xcode 已知警告 `"main actor-isolated property 'uploadStatus' can not be referenced from a Sendable closure"`（`@Observable` + SwiftUI 修饰符的已知 strict concurrency 警告），不影响运行时，不阻塞构建。
 
 ---
 
