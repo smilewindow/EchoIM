@@ -547,7 +547,7 @@ git commit -m "feat(ios): add AvatarImageCompressor for 400px square avatar JPEG
 
 设计依据：§6.1 + §8 P7。复用 `APIClient.upload(...)` multipart 通道（与 P5 `uploadMessageImage` 同一通道，不重写 multipart 框架）。
 
-- [ ] **Step 1: 写测试 — 路径 + multipart body + 200 解码 + 401 + 400**
+- [x] **Step 1: 写测试 — 路径 + multipart body + 200 解码 + 401 + 400**
 
 ```swift
 // ios-app/EchoIMTests/UploadRepositoryAvatarTests.swift
@@ -647,12 +647,12 @@ struct UploadRepositoryAvatarTests {
 }
 ```
 
-- [ ] **Step 2: 跑测试，确认失败**
+- [x] **Step 2: 跑测试，确认失败**
 
 Run: `$TEST -only-testing:EchoIMTests/UploadRepositoryAvatarTests`
 Expected: 编译失败（`UploadRepository.uploadAvatar` 未定义）。
 
-- [ ] **Step 3: 在 Endpoints 增加 avatar 路径常量**
+- [x] **Step 3: 在 Endpoints 增加 avatar 路径常量**
 
 ```swift
 // ios-app/EchoIM/Core/Networking/Endpoints.swift
@@ -664,7 +664,7 @@ Expected: 编译失败（`UploadRepository.uploadAvatar` 未定义）。
     }
 ```
 
-- [ ] **Step 4: 扩展 UploadRepository — 增加 uploadAvatar**
+- [x] **Step 4: 扩展 UploadRepository — 增加 uploadAvatar**
 
 ```swift
 // ios-app/EchoIM/Features/Chat/UploadRepository.swift
@@ -754,7 +754,7 @@ final class UploadRepositoryImpl: UploadRepository {
 }
 ```
 
-- [ ] **Step 5: 同步既有测试 helper — `ImageTestHelpers.swift` 里两个 mock 必须新增 `uploadAvatar` stub**
+- [x] **Step 5: 同步既有测试 helper — `ImageTestHelpers.swift` 里两个 mock 必须新增 `uploadAvatar` stub**
 
 ```swift
 // ios-app/EchoIMTests/ImageTestHelpers.swift
@@ -828,17 +828,17 @@ final class SuspendableUploadRepo: UploadRepository {
 
 > 不在 P7 范围内消费这俩新方法（既有 ChatViewModelImageTests 走的是 `uploadMessageImage` 路径），但协议方法不补会让既有测试 target 在 protocol-not-conformed 处全部红。
 
-- [ ] **Step 6: 跑测试，确认通过**
+- [x] **Step 6: 跑测试，确认通过**
 
 Run: `$TEST -only-testing:EchoIMTests/UploadRepositoryAvatarTests`
 Expected: 3 条全过。
 
-- [ ] **Step 7: 跑既有 UploadRepositoryTests + ChatViewModelImageTests 确认未回归**
+- [x] **Step 7: 跑既有 UploadRepositoryTests + ChatViewModelImageTests 确认未回归**
 
 Run: `$TEST -only-testing:EchoIMTests/UploadRepositoryTests -only-testing:EchoIMTests/ChatViewModelImageTests`
 Expected: 既有用例仍全过（uploadMessageImage 路径与 mock 行为不受影响；新加的 uploadAvatar stub 默认未被调用）。
 
-- [ ] **Step 8: 提交**
+- [x] **Step 8: 提交**
 
 ```bash
 git add ios-app/EchoIM/Core/Networking/Endpoints.swift \
