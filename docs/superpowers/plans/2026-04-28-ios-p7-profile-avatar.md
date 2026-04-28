@@ -1516,7 +1516,7 @@ git commit -m "feat(ios): add ProfileEditView form with avatar picker and displa
 
 设计依据：§8 P7。MeView 已经包了 NavigationStack（既有），加一行 NavigationLink 即可。
 
-- [ ] **Step 1: 在身份卡 Section 下方加"编辑资料"行**
+- [x] **Step 1: 在身份卡 Section 下方加"编辑资料"行**
 
 把现有 Form 中身份卡 Section 之后、清缓存 Section 之前的位置插入新 Section：
 
@@ -1657,12 +1657,12 @@ struct MeView: View {
 }
 ```
 
-- [ ] **Step 2: 跑构建确保编译通过**
+- [x] **Step 2: 跑构建确保编译通过**
 
 Run: `$BUILD`
 Expected: success。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add ios-app/EchoIM/Features/Me/MeView.swift
