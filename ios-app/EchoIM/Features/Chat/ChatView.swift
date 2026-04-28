@@ -3,6 +3,8 @@ import SwiftUI
 import UIKit
 
 struct ChatView: View {
+    private static let bottomAnchorId = "chatBottomAnchor"
+
     @State private var vm: ChatViewModel
     @State private var draft = ""
     @State private var pickedItem: PhotosPickerItem?
@@ -143,9 +145,13 @@ struct ChatView: View {
                         )
                         .id(message.localId)
                     }
+
+                    Color.clear
+                        .frame(height: 10)
+                        .id(Self.bottomAnchorId)
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 10)
+                .padding(.top, 10)
             }
             .background(Color(uiColor: .systemBackground))
             .overlay {
@@ -155,10 +161,16 @@ struct ChatView: View {
             }
             .onChange(of: vm.messages.last?.localId) { _, newValue in
                 guard let newValue else { return }
+                scrollToBottom(proxy)
+            }
+        }
+    }
 
-                withAnimation(.easeOut(duration: 0.2)) {
-                    proxy.scrollTo(newValue, anchor: .bottom)
-                }
+    private func scrollToBottom(_ proxy: ScrollViewProxy) {
+        DispatchQueue.main.async {
+            // 锚定列表尾部而不是最后一个气泡，避免底部留白被算丢后看起来差一点。
+            withAnimation(.easeOut(duration: 0.2)) {
+                proxy.scrollTo(Self.bottomAnchorId, anchor: .bottom)
             }
         }
     }
