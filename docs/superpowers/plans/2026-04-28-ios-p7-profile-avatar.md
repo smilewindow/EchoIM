@@ -1678,7 +1678,7 @@ git commit -m "feat(ios): wire MeView NavigationLink to ProfileEditView"
 
 设计依据：§8 P7、不变式 8。VM-less 纯展示组件，输入只有 `profile: UserProfile` + 可选的 `presenceStore: PresenceStore?`。
 
-- [ ] **Step 1: 实现 UserDetailView**
+- [x] **Step 1: 实现 UserDetailView**
 
 ```swift
 // ios-app/EchoIM/Features/Contacts/UserDetailView.swift
@@ -1742,12 +1742,12 @@ struct UserDetailView: View {
 }
 ```
 
-- [ ] **Step 2: 跑构建确保编译通过**
+- [x] **Step 2: 跑构建确保编译通过**
 
 Run: `$BUILD`
 Expected: success。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add ios-app/EchoIM/Features/Contacts/UserDetailView.swift
