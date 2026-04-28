@@ -97,5 +97,6 @@ enum Endpoints {
 
     enum Upload {
         static let messageImage = "api/upload/message-image"
+        static let avatar = "api/upload/avatar"
     }
 }

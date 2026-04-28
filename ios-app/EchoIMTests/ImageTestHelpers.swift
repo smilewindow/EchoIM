@@ -7,6 +7,11 @@ final class MockUploadRepo: UploadRepository {
     var uploadError: Error?
     private(set) var uploadCalls = 0
 
+    // P7：avatar 上传 stub。默认返回固定 URL；测试可按需覆盖。
+    var uploadAvatarResult: String = "/uploads/avatars/3-0.jpg"
+    var uploadAvatarError: Error?
+    private(set) var uploadAvatarCalls = 0
+
     func uploadMessageImage(data: Data, token: String) async throws -> String {
         uploadCalls += 1
         if let uploadError {
@@ -14,15 +19,30 @@ final class MockUploadRepo: UploadRepository {
         }
         return uploadResult
     }
+
+    func uploadAvatar(data: Data, token: String) async throws -> String {
+        uploadAvatarCalls += 1
+        if let uploadAvatarError {
+            throw uploadAvatarError
+        }
+        return uploadAvatarResult
+    }
 }
 
 @MainActor
 final class SuspendableUploadRepo: UploadRepository {
     private var continuation: CheckedContinuation<String, Error>?
+    private var avatarContinuation: CheckedContinuation<String, Error>?
 
     func uploadMessageImage(data: Data, token: String) async throws -> String {
         try await withCheckedThrowingContinuation { continuation in
             self.continuation = continuation
+        }
+    }
+
+    func uploadAvatar(data: Data, token: String) async throws -> String {
+        try await withCheckedThrowingContinuation { continuation in
+            self.avatarContinuation = continuation
         }
     }
 
@@ -34,6 +54,16 @@ final class SuspendableUploadRepo: UploadRepository {
     func resume(throwing error: Error) {
         continuation?.resume(throwing: error)
         continuation = nil
+    }
+
+    func resumeAvatar(with avatarURL: String) {
+        avatarContinuation?.resume(returning: avatarURL)
+        avatarContinuation = nil
+    }
+
+    func resumeAvatar(throwing error: Error) {
+        avatarContinuation?.resume(throwing: error)
+        avatarContinuation = nil
     }
 }
 

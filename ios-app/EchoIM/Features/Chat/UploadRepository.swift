@@ -4,10 +4,18 @@ protocol UploadRepository {
     /// 上传已压缩的消息图片 JPEG，返回服务端分配的 media_url。
     /// 调用方必须原样传给发消息接口，客户端不要自行拼路径。
     func uploadMessageImage(data: Data, token: String) async throws -> String
+    /// P7：上传已压缩的头像 JPEG，返回服务端写库的 avatar_url。
+    /// 服务端在响应内已 UPDATE users.avatar_url（不变式 1）；客户端调用方应再调
+    /// AppContainer.refreshCurrentUser() 拿完整 user 来同步本地 currentUser（不变式 4）。
+    func uploadAvatar(data: Data, token: String) async throws -> String
 }
 
 private struct UploadMessageImageResponse: Decodable {
     let mediaUrl: String
+}
+
+private struct UploadAvatarResponse: Decodable {
+    let avatarUrl: String
 }
 
 @MainActor
@@ -35,6 +43,25 @@ final class UploadRepositoryImpl: UploadRepository {
             token: token
         )
         return response.mediaUrl
+    }
+
+    func uploadAvatar(data: Data, token: String) async throws -> String {
+        let boundary = "Boundary-\(UUID().uuidString)"
+        let body = Self.makeMultipartBody(
+            fieldName: "file",
+            filename: "avatar.jpg",
+            contentType: "image/jpeg",
+            payload: data,
+            boundary: boundary
+        )
+
+        let response: UploadAvatarResponse = try await api.upload(
+            Endpoints.Upload.avatar,
+            boundary: boundary,
+            body: body,
+            token: token
+        )
+        return response.avatarUrl
     }
 
     /// CRLF 和字段名都要和服务端 multipart 解析契约对齐。
