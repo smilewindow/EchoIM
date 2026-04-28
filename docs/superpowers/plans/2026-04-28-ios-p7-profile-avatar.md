@@ -359,7 +359,7 @@ git commit -m "feat(ios): add UserRepository.updateProfile for PUT /api/users/me
 
 设计依据：§6.2 + §11 服务端 `AVATAR_CONFIG`（`outputSize: 400 / outputQuality: 80 / cover-fit / 白底 flatten`）。客户端先做相同处理可显著降低上行体积——服务端再 cover-resize 是 no-op，不会双重有损。
 
-- [ ] **Step 1: 写测试 — 横向图裁剪后输出方形 + JPEG 头字节 + 透明 PNG 白底**
+- [x] **Step 1: 写测试 — 横向图裁剪后输出方形 + JPEG 头字节 + 透明 PNG 白底**
 
 ```swift
 // ios-app/EchoIMTests/AvatarImageCompressorTests.swift
@@ -476,12 +476,12 @@ struct AvatarImageCompressorTests {
 }
 ```
 
-- [ ] **Step 2: 跑测试，确认失败**
+- [x] **Step 2: 跑测试，确认失败**
 
 Run: `$TEST -only-testing:EchoIMTests/AvatarImageCompressorTests`
 Expected: 编译失败（`AvatarImageCompressor` 未定义）。
 
-- [ ] **Step 3: 实现 AvatarImageCompressor**
+- [x] **Step 3: 实现 AvatarImageCompressor**
 
 ```swift
 // ios-app/EchoIM/Core/Utilities/AvatarImageCompressor.swift
@@ -523,12 +523,12 @@ enum AvatarImageCompressor {
 }
 ```
 
-- [ ] **Step 4: 跑测试，确认通过**
+- [x] **Step 4: 跑测试，确认通过**
 
 Run: `$TEST -only-testing:EchoIMTests/AvatarImageCompressorTests`
 Expected: 5 条全过。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add ios-app/EchoIM/Core/Utilities/AvatarImageCompressor.swift \
