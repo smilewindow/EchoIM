@@ -2055,7 +2055,36 @@ Expected: 通过。✅ 服务端 ws + messages 68 条全过。
 
 ## Self-Review（完成前必过）
 
-- [ ] **P6 覆盖设计 §8 P6 全部要点**：
+> 2026-04-27 复核结论：Self-Review 全部通过。双账号手工验证清单仍保留未勾选，
+> 仅表示那部分需要真实多设备/代理场景人工确认，不影响本节代码自查结论。
+
+**验证记录：**
+
+```bash
+xcodebuild -project ios-app/EchoIM.xcodeproj \
+  -scheme EchoIM \
+  -destination 'platform=iOS Simulator,OS=17.5,name=iPhone 15' \
+  test -only-testing:EchoIMTests
+
+xcodebuild -project ios-app/EchoIM.xcodeproj \
+  -scheme EchoIM \
+  -destination 'platform=iOS Simulator,OS=17.5,name=iPhone 15' \
+  test -only-testing:EchoIMUITests/PresenceTypingSmokeTests
+
+xcodebuild -project ios-app/EchoIM.xcodeproj \
+  -scheme EchoIM \
+  -destination 'platform=iOS Simulator,OS=17.5,name=iPhone 15' \
+  build 2>&1 | grep -i 'warning'
+
+npm test --prefix server -- ws messages
+```
+
+结果：iOS 单测通过；Presence/Typing UI smoke 通过；build warning 扫描仅出现 Xcode
+`DVTAssertions` 内部提示，无项目代码 warning；服务端 `ws/messages` 回归通过（2 files /
+68 tests）。初次使用 `OS=latest,name=iPhone 15` 运行时，本机没有匹配的 latest 设备，
+按文档备用参数改为 `OS=17.5,name=iPhone 15` 后通过。
+
+- [x] **P6 覆盖设计 §8 P6 全部要点**：
   - `PresenceStore`（处理 presence.online / .offline，重连 clearAll → 重建） → Task 1 + Task 4
   - 好友列表 / 会话列表 / 聊天页顶部在线圆点 → Task 7 + Task 8 + Task 9
   - `TypingStore` 带 5 秒安全定时器 → Task 2 + Task 4
@@ -2063,7 +2092,7 @@ Expected: 通过。✅ 服务端 ws + messages 68 条全过。
   - 本端 debounce 发 typing.start / typing.stop → Task 3 + Task 6
   - 重连后 PresenceStore 状态与实际在线好友一致 → Task 4（test `wsReadyClearsBeforeSubsequentPresenceOnlineEvents`）
 
-- [ ] **Placeholder 扫描**：
+- [x] **Placeholder 扫描**：
 
 ```bash
 grep -rn -iE "t[b]d|t[o]do|implement[ -]later|similar[ -]to[ -]task|\\.\\.\\." \
@@ -2072,8 +2101,9 @@ grep -rn -iE "t[b]d|t[o]do|implement[ -]later|similar[ -]to[ -]task|\\.\\.\\." \
   | grep -v "现有 .* 不变\|相同模式\|占位\|预演"
 ```
 应只剩 README 风格提示（"// ... 既有实现不变 ..." 这类），不应有未完成代码占位。
+实际核验：源码侧无未完成占位；计划文档内命中项为说明文本、示例片段、范围语法或中文省略号。
 
-- [ ] **类型一致性**（跨任务用到的符号必须自洽）：
+- [x] **类型一致性**（跨任务用到的符号必须自洽）：
   - `PresenceStore` 公开 API：`onlineUserIds: Set<Int>`、`setOnline(_)` / `setOffline(_)` / `isOnline(_)` / `clearAll()` — Task 1 引入；Task 4 / 8 / 9 使用
   - `TypingStore` 公开 API：`typingConversationIds: Set<Int>`、`init(safetyDuration:)` / `handleTypingStart(conversationId:)` / `handleTypingStop(conversationId:)` / `isTyping(_)` — Task 2 引入；Task 4 / 5 使用
   - `WebSocketClient.typingFrameJSON(conversationId:isStart:)` / `sendTyping(conversationId:isStart:)` — Task 3 引入；Task 4 / 8 使用
@@ -2084,57 +2114,57 @@ grep -rn -iE "t[b]d|t[o]do|implement[ -]later|similar[ -]to[ -]task|\\.\\.\\." \
   - `PresenceDot(size: borderWidth:)` — Task 7 引入；Task 8 / 9 使用
   - `FriendsListView(friends:presenceStore:)` / `ConversationsListView(... presenceStore: typingStore: typingSender: ...)` / `ContactsView(... presenceStore: typingStore: typingSender: ...)` / `ChatView(... presenceStore: typingStore: typingSender: ...)` — Task 8 / 9 引入；MainTabView 调用
 
-- [ ] **不变式 1（store 不订阅 WS，由 UserSession 路由）**：检查 `PresenceStore.swift` / `TypingStore.swift` 都不 import `WebSocketClient`、不持有 wsClient 引用。
+- [x] **不变式 1（store 不订阅 WS，由 UserSession 路由）**：检查 `PresenceStore.swift` / `TypingStore.swift` 都不 import `WebSocketClient`、不持有 wsClient 引用。
 
-- [ ] **不变式 3（clearAll 在 presence.online 之前）**：Task 4 测试 `wsReadyClearsBeforeSubsequentPresenceOnlineEvents` 已断言重连后顺序。
+- [x] **不变式 3（clearAll 在 presence.online 之前）**：Task 4 测试 `wsReadyClearsBeforeSubsequentPresenceOnlineEvents` 已断言重连后顺序。
 
-- [ ] **不变式 4（typing.stop 三种触发点）**：
+- [x] **不变式 4（typing.stop 三种触发点）**：
   - idle 3 秒兜底 → Task 6 测试 `idleTimeoutSendsTypingStop`
   - sendText / sendImage 入口 stopTyping → Task 6 Step 3 改造点 4
   - ChatView.onDisappear → Task 9 Step 1 已在 `.onDisappear` 加 `vm.stopTyping()`
 
-- [ ] **不变式 5（typing.start dedupe）**：Task 6 测试 `consecutiveInputsDoNotResendStart`。
+- [x] **不变式 5（typing.start dedupe）**：Task 6 测试 `consecutiveInputsDoNotResendStart`。
 
-- [ ] **不变式 6（TypingStore 安全定时器可重置）**：Task 2 测试 `consecutiveStartsResetSafetyTimer`。
+- [x] **不变式 6（TypingStore 安全定时器可重置）**：Task 2 测试 `consecutiveStartsResetSafetyTimer`。
 
-- [ ] **不变式 7（5s > 3s）**：TypingStore 默认 `safetyDuration = 5.0`，ChatViewModel 默认 `idleTypingDuration = 3.0`，常量在 Task 2 / 6 实现里固定。
+- [x] **不变式 7（5s > 3s）**：TypingStore 默认 `safetyDuration = 5.0`，ChatViewModel 默认 `idleTypingDuration = 3.0`，常量在 Task 2 / 6 实现里固定。
 
-- [ ] **不变式 8（VM 不重复路由 typing/presence）**：UserSession 是 typingStore / presenceStore 的唯一写入方——Task 4 测试 `UserSessionRoutingTests` 覆盖路由；Task 5 测试 `handleWSEventIgnoresTypingForOtherConversation` 验证 ChatViewModel 对 typing/presence 事件保持 no-op，不重写 store 状态。
+- [x] **不变式 8（VM 不重复路由 typing/presence）**：UserSession 是 typingStore / presenceStore 的唯一写入方——Task 4 测试 `UserSessionRoutingTests` 覆盖路由；Task 5 测试 `handleWSEventIgnoresTypingForOtherConversation` 验证 ChatViewModel 对 typing/presence 事件保持 no-op，不重写 store 状态。
 
-- [ ] **服务端契约 0 改动**：
+- [x] **服务端契约 0 改动**：
 
 ```bash
-git diff <P5-tip>..HEAD -- server/
+git diff 0432fd3^..HEAD -- server/
 ```
 应为空。整个 P6 不应该有任何 server/ 下的改动。
 
-- [ ] **`ChatView.init` 多了 presenceStore / typingStore / typingSender → 三个调用方都更新**（Task 8 Step 4 + Task 9 Step 2）：
+- [x] **`ChatView.init` 多了 presenceStore / typingStore / typingSender → 三个调用方都更新**（Task 8 Step 4 + Task 9 Step 2）：
 
 ```bash
 grep -rn "ChatView(" ios-app/EchoIM/Features ios-app/EchoIMUITests
 ```
 全部应包含 `presenceStore:` 与 `typingStore:`。
 
-- [ ] **`ChatViewModel.init` 多了 typingStore / typingSender / idleTypingDuration → 测试 mock 同步更新**：
+- [x] **`ChatViewModel.init` 多了 typingStore / typingSender / idleTypingDuration → 测试 mock 同步更新**：
 
 ```bash
 grep -rn "ChatViewModel(" ios-app/EchoIMTests
 ```
 P5 既有调用如不传新参数，编译应仍能通过（默认值已铺好）；新增的 ChatViewModelTypingTests / ChatViewModelPresenceTests 显式传入。
 
-- [ ] **`FriendsListView` / `ContactsView` / `ConversationsListView` 入参变化 → MainTabView + UI 测试**：
+- [x] **`FriendsListView` / `ContactsView` / `ConversationsListView` 入参变化 → MainTabView + UI 测试**：
 
 ```bash
 grep -rn "FriendsListView(\|ContactsView(\|ConversationsListView(" ios-app/EchoIM ios-app/EchoIMTests ios-app/EchoIMUITests
 ```
 所有调用方都应包含 `presenceStore:` 参数。
 
-- [ ] **Lint**：（与 P1-P5 一致）
+- [x] **Lint**：（与 P1-P5 一致）
   - 服务端：未改，无需跑
   - iOS：`$BUILD` warning 为零（项目代码部分）
   - 检查：`xcodebuild ... build 2>&1 | grep -i 'warning'`，应只有第三方包内部 warning
 
-- [ ] **工作目录一致**：所有路径以 `ios-app/EchoIM/...` 开头，无裸相对路径。
+- [x] **工作目录一致**：所有实现路径以 `ios-app/EchoIM/...` 开头；测试路径以 `ios-app/EchoIMTests/...` / `ios-app/EchoIMUITests/...` 开头。
 
 ---
 
