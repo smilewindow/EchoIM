@@ -1818,7 +1818,7 @@ git commit -m "feat(ios): register UserProfile navigation destinations on chats 
 
 设计依据：§8 P7、不变式 7。ChatView 的 `principalTitle` 改成"小头像 + displayTitle + 圆点 / typing 子行"，整体包 `NavigationLink(value: vm.peer)` 跳到 UserDetailView。
 
-- [ ] **Step 1: 改写 principalTitle**
+- [x] **Step 1: 改写 principalTitle**
 
 ```swift
 // ios-app/EchoIM/Features/Chat/ChatView.swift
@@ -1857,17 +1857,17 @@ git commit -m "feat(ios): register UserProfile navigation destinations on chats 
 
 > 注意：`NavigationLink(value:)` 在 SwiftUI iOS 17 上等价于"按下后向最近 NavigationStack push 一个 value"。父 NavigationStack（ConversationsListView 或 ContactsView）的 `.navigationDestination(for: UserProfile.self)`（Task 8 已注册）会接住这个 value 并渲染 `UserDetailView`。
 
-- [ ] **Step 2: 跑构建确保编译通过**
+- [x] **Step 2: 跑构建确保编译通过**
 
 Run: `$BUILD`
 Expected: success。
 
-- [ ] **Step 3: 跑既有 ChatView 相关 XCUITest（PresenceTypingSmokeTests + ChatSmokeTests）确认未回归**
+- [x] **Step 3: 跑既有 ChatView 相关 XCUITest（PresenceTypingSmokeTests + ChatSmokeTests）确认未回归**
 
 Run: `$UITEST -only-testing:EchoIMUITests/PresenceTypingSmokeTests -only-testing:EchoIMUITests/ChatSmokeTests`
 Expected: 既有断言 `chatPrincipalTitle` 仍然在场（新结构里仍然外包了 accessibilityIdentifier）。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add ios-app/EchoIM/Features/Chat/ChatView.swift
