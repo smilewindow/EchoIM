@@ -858,7 +858,7 @@ git commit -m "feat(ios): add UploadRepository.uploadAvatar for POST /api/upload
 
 设计依据：§4.3 ViewModel 形态、§8 P7、不变式 3 / 4 / 5。VM 保存"表单稿"（`displayNameDraft`）和"两条网络飞行状态"（`saveStatus` / `uploadStatus`）；通过依赖注入的 repo + currentUser 读取器 + currentUser 写入器 + onUnauthorized 回调与外部解耦，便于单测。
 
-- [ ] **Step 1: 写测试 — load / save 成功 / save 401 / upload 成功 / upload 失败 / canSave 互斥**
+- [x] **Step 1: 写测试 — load / save 成功 / save 401 / upload 成功 / upload 失败 / canSave 互斥**
 
 ```swift
 // ios-app/EchoIMTests/ProfileEditViewModelTests.swift
@@ -1151,12 +1151,12 @@ struct ProfileEditViewModelTests {
 }
 ```
 
-- [ ] **Step 2: 跑测试，确认失败**
+- [x] **Step 2: 跑测试，确认失败**
 
 Run: `$TEST -only-testing:EchoIMTests/ProfileEditViewModelTests`
 Expected: 编译失败（`ProfileEditViewModel` 未定义）。
 
-- [ ] **Step 3: 实现 ProfileEditViewModel**
+- [x] **Step 3: 实现 ProfileEditViewModel**
 
 ```swift
 // ios-app/EchoIM/Features/Me/ProfileEditViewModel.swift
@@ -1283,18 +1283,22 @@ final class ProfileEditViewModel {
 }
 ```
 
-- [ ] **Step 4: 跑测试，确认通过**
+- [x] **Step 4: 跑测试，确认通过**
 
 Run: `$TEST -only-testing:EchoIMTests/ProfileEditViewModelTests`
 Expected: 11 条全过。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add ios-app/EchoIM/Features/Me/ProfileEditViewModel.swift \
         ios-app/EchoIMTests/ProfileEditViewModelTests.swift
 git commit -m "feat(ios): add ProfileEditViewModel with save/upload state machine"
 ```
+
+> **实际偏差：**
+> 1. **测试 helper `makeVM` 签名修改**：计划原版用 `StubUserRepository = StubUserRepository()` / `StubUploadRepository = StubUploadRepository()` 作默认参数值，编译报错（`@MainActor`-isolated 初始化器不能用于默认参数表达式）。改为 `StubUserRepository? = nil` / `StubUploadRepository? = nil`，在函数体内用 `?? StubUserRepository()` 构造，编译通过。
+> 2. **`canSaveIsFalseWhileUploading` 测试 flaky 修复**：计划原版用两次 `Task.yield()` 等待子任务进入 stub 的挂起点，实测在并行 simulator 下出现时序竞争导致偶发失败。改为"双 AsyncStream 信号 + `for await _ in signalStream { break }`"的同步模式：stub 在设好状态后主动 `signalCont.yield(())`，当前任务等收到信号后才断言——确保 `uploadStatus == .uploading` 已写入再读取，消除 flaky。共 12 条测试（计划写 11，差一条系两 simulator 各跑一次统计），全部通过。
 
 ---
 
