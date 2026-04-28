@@ -1884,7 +1884,7 @@ git commit -m "feat(ios): add tappable avatar and navigation to peer profile in 
 
 设计依据：与 P5 / P6 既有 smoke 测试一致风格——只断言"屏幕能进、关键 element 在场"，不模拟网络与 PhotosPicker 交互（PhotosPicker 在模拟器上会打开系统相册组件，无法可靠自动化；本地手工测）。
 
-- [ ] **Step 1: 写 ProfileEditSmokeTests — 从 Me tab 进入编辑资料页**
+- [x] **Step 1: 写 ProfileEditSmokeTests — 从 Me tab 进入编辑资料页**
 
 ```swift
 // ios-app/EchoIMUITests/ProfileEditSmokeTests.swift
@@ -1947,7 +1947,7 @@ final class ProfileEditSmokeTests: XCTestCase {
 }
 ```
 
-- [ ] **Step 2: 写 UserDetailFromChatSmokeTests — 聊天页头像 → UserDetailView**
+- [x] **Step 2: 写 UserDetailFromChatSmokeTests — 聊天页头像 → UserDetailView**
 
 ```swift
 // ios-app/EchoIMUITests/UserDetailFromChatSmokeTests.swift
@@ -2018,12 +2018,12 @@ final class UserDetailFromChatSmokeTests: XCTestCase {
 }
 ```
 
-- [ ] **Step 3: 跑两个 smoke 测试，确认通过（fixture 账号需提前在测试服务端建好；与 P5 / P6 一致）**
+- [x] **Step 3: 跑两个 smoke 测试，确认通过（fixture 账号需提前在测试服务端建好；与 P5 / P6 一致）**
 
 Run: `$UITEST -only-testing:EchoIMUITests/ProfileEditSmokeTests -only-testing:EchoIMUITests/UserDetailFromChatSmokeTests`
 Expected: 2 个用例通过；如果环境缺 fixture 数据，参考 P6 PresenceTypingSmokeTests 的处理方式记录到 plan 末尾偏差节，但断言路径与 ID 是真实编译过的。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add ios-app/EchoIMUITests/ProfileEditSmokeTests.swift \
