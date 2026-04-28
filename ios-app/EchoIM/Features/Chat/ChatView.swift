@@ -78,23 +78,31 @@ struct ChatView: View {
     }
 
     private var principalTitle: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 6) {
-                Text(vm.peer.displayTitle)
-                    .font(.body.weight(.semibold))
-                    .lineLimit(1)
-                if presenceStore?.isOnline(vm.peer.id) == true {
-                    PresenceDot(size: 8)
-                        .accessibilityIdentifier("chatPeerOnlineDot")
+        NavigationLink(value: vm.peer) {
+            HStack(spacing: 8) {
+                AvatarView(profile: vm.peer, size: 28)
+                    .accessibilityIdentifier("chatPeerAvatar")
+
+                VStack(spacing: 0) {
+                    HStack(spacing: 6) {
+                        Text(vm.peer.displayTitle)
+                            .font(.body.weight(.semibold))
+                            .lineLimit(1)
+                        if presenceStore?.isOnline(vm.peer.id) == true {
+                            PresenceDot(size: 8)
+                                .accessibilityIdentifier("chatPeerOnlineDot")
+                        }
+                    }
+                    if vm.peerIsTyping {
+                        Text("正在输入...")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("chatPeerTyping")
+                    }
                 }
             }
-            if vm.peerIsTyping {
-                Text("正在输入...")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("chatPeerTyping")
-            }
         }
+        .buttonStyle(.plain)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("chatPrincipalTitle")
     }
