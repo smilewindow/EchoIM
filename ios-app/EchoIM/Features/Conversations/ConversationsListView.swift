@@ -69,6 +69,9 @@ struct ConversationsListView: View {
                 .navigationDestination(for: ChatRoute.self) { route in
                     destination(for: route)
                 }
+                .navigationDestination(for: UserProfile.self) { profile in
+                    UserDetailView(profile: profile, presenceStore: presenceStore)
+                }
         }
     }
 

@@ -116,6 +116,9 @@ struct ContactsView: View {
                         }
                     )
                 }
+                .navigationDestination(for: UserProfile.self) { profile in
+                    UserDetailView(profile: profile, presenceStore: presenceStore)
+                }
                 .sheet(isPresented: $showRequests, onDismiss: refreshAfterSheet) {
                     FriendRequestsSheetView(vm: vm) {
                         showRequests = false
