@@ -38,6 +38,19 @@ struct MeView: View {
                         .padding(.vertical, 4)
                     }
 
+                    // P7：编辑资料入口
+                    Section {
+                        NavigationLink {
+                            ProfileEditView(
+                                username: user.username,
+                                viewModel: makeProfileEditViewModel()
+                            )
+                        } label: {
+                            Label("编辑资料", systemImage: "person.crop.circle")
+                        }
+                        .accessibilityIdentifier("meEditProfile")
+                    }
+
                     Section {
                         Button(role: .destructive) {
                             showClearCacheConfirm = true
@@ -92,5 +105,27 @@ struct MeView: View {
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
             }
         }
+    }
+
+    /// VM 的依赖全部从 container 取；currentUser setter 直接写 container.currentUser，
+    /// 让 SwiftUI 沿 @Observable 链路重渲染（不变式 5）。
+    @MainActor
+    private func makeProfileEditViewModel() -> ProfileEditViewModel {
+        ProfileEditViewModel(
+            currentUser: { container.currentUser },
+            currentUserSetter: { container.currentUser = $0 },
+            tokenProvider: { [tokenStore = container.tokenStore] in
+                (try? tokenStore.load())?.token
+            },
+            userRepo: container.makeUserRepository(),
+            uploadRepo: container.session?.makeUploadRepository()
+                ?? UploadRepositoryImpl(api: container.apiClient),
+            refreshCurrentUser: { [weak container] in
+                await container?.refreshCurrentUser()
+            },
+            onUnauthorized: { [weak container] in
+                await container?.handleUnauthorized()
+            }
+        )
     }
 }
