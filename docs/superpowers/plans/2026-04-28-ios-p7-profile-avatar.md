@@ -1764,7 +1764,7 @@ git commit -m "feat(ios): add UserDetailView read-only peer profile card"
 
 设计依据：不变式 6——`navigationDestination(for: UserProfile.self)` 必须在两个 NavigationStack 各自的根处注册，否则 ChatView 内部的 `NavigationLink(value: peer)` push 会静默失败。
 
-- [ ] **Step 1: ConversationsListView 注册 UserProfile destination**
+- [x] **Step 1: ConversationsListView 注册 UserProfile destination**
 
 在既有的 `.navigationDestination(for: ChatRoute.self)` 同级追加：
 
@@ -1781,7 +1781,7 @@ git commit -m "feat(ios): add UserDetailView read-only peer profile card"
                 }
 ```
 
-- [ ] **Step 2: ContactsView 注册 UserProfile destination**
+- [x] **Step 2: ContactsView 注册 UserProfile destination**
 
 ContactsView 也有自己的 NavigationStack，做同样的事：
 
@@ -1796,12 +1796,12 @@ ContactsView 也有自己的 NavigationStack，做同样的事：
 
 > ContactsView 内部已经持有 `presenceStore: PresenceStore?` 参数（P6 加的），直接复用即可。
 
-- [ ] **Step 3: 跑构建确保编译通过**
+- [x] **Step 3: 跑构建确保编译通过**
 
 Run: `$BUILD`
 Expected: success。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add ios-app/EchoIM/Features/Conversations/ConversationsListView.swift \
