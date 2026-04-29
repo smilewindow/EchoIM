@@ -210,7 +210,7 @@ ios-app/
 >
 > **Info.plist 当前值**：`CFBundleDevelopmentRegion = $(DEVELOPMENT_LANGUAGE)`，其中 `$(DEVELOPMENT_LANGUAGE)` 在 build 时被 Xcode 替换为 `developmentRegion`（PBX 字段）。Step 1 改完 PBX 后即生效，Info.plist 的 `CFBundleDevelopmentRegion` 不需要写死字符串；但 Step 2 把 `CFBundleLocalizations` 数组显式声明，让"未来增加新 lproj"时 Xcode 也能稳定识别。
 
-- [ ] **Step 1: 改 project.pbxproj 的 developmentRegion 与 knownRegions**
+- [x] **Step 1: 改 project.pbxproj 的 developmentRegion 与 knownRegions**
 
 Read `ios-app/EchoIM.xcodeproj/project.pbxproj` 定位到 line 195-210 区段（搜索 `developmentRegion = en;`）。
 
@@ -237,7 +237,7 @@ developmentRegion = "zh-Hans";
 
 > `zh-Hans` 含连字符，pbxproj 里**必须加双引号**；`en` / `Base` 不含特殊字符可不加（保持原样）。改完后跑 `xcodebuild -project ios-app/EchoIM.xcodeproj -list` 确认无 PBX 解析错误。
 
-- [ ] **Step 2: 显式声明 Info.plist 的 CFBundleLocalizations**
+- [x] **Step 2: 显式声明 Info.plist 的 CFBundleLocalizations**
 
 Read `ios-app/Info.plist` 完整内容确认结构。
 
@@ -253,7 +253,7 @@ Edit 在 `<key>CFBundleDevelopmentRegion</key><string>$(DEVELOPMENT_LANGUAGE)</s
 
 > `CFBundleDevelopmentRegion = $(DEVELOPMENT_LANGUAGE)` 保留原样——它会在 build 时被 PBX 的 `developmentRegion`（Step 1 已改成 `zh-Hans`）替换。
 
-- [ ] **Step 3: 创建空的 Strings Catalog**
+- [x] **Step 3: 创建空的 Strings Catalog**
 
 Use Write 创建 `ios-app/EchoIM/Localizable.xcstrings`，内容：
 
@@ -267,7 +267,7 @@ Use Write 创建 `ios-app/EchoIM/Localizable.xcstrings`，内容：
 
 > 这是 Strings Catalog 的最小空壳，跟 Xcode 16 "New File → Strings Catalog" 等价。`strings : {}` 由 Xcode 在后续 build 时自动填充收集到的 key。
 
-- [ ] **Step 4: 编译，验证 Strings Catalog 被识别且打包**
+- [x] **Step 4: 编译，验证 Strings Catalog 被识别且打包**
 
 Run: `$BUILD`
 
@@ -281,7 +281,7 @@ find ~/Library/Developer/Xcode/DerivedData/EchoIM-* -name "Localizable.strings" 
 
 Expected: 至少一条路径，形如 `.../Build/Products/Debug-iphonesimulator/EchoIM.app/zh-Hans.lproj/Localizable.strings`（catalog 在 build 时被 Xcode 编译成传统 `.strings` 双 lproj 输出）。如果没有 .lproj 路径出现，说明 catalog 没加进 target 或 PBX `developmentRegion` 改动未生效。**调试**：在 Xcode GUI 打开 project → Info tab → Localizations 应能看到 "Chinese, Simplified - Development Language" 与 "English"；以及 Localizable.xcstrings 的 Target Membership 勾上 EchoIM。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ios-app/EchoIM/Localizable.xcstrings \
@@ -289,6 +289,12 @@ git add ios-app/EchoIM/Localizable.xcstrings \
         ios-app/EchoIM.xcodeproj/project.pbxproj
 git commit -m "feat(ios): add empty Localizable.xcstrings + zh-Hans development language"
 ```
+
+**Task 1 实现记录（2026-04-29）**
+
+- 已完成：`developmentRegion` 改为 `"zh-Hans"`，`knownRegions` 增加 `"zh-Hans"`；`Info.plist` 增加 `CFBundleLocalizations`（`zh-Hans` / `en`）；新增空 `ios-app/EchoIM/Localizable.xcstrings`。
+- 验证：`xcodebuild -project ios-app/EchoIM.xcodeproj -list` 通过；`xcodebuild -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,OS=17.5,name=iPhone 15' build` 通过；`xcrun xcstringstool compile --dry-run --output-directory /tmp/echoim-xcstrings-check ios-app/EchoIM/Localizable.xcstrings` 通过；`jq empty ios-app/EchoIM/Localizable.xcstrings` 通过。
+- 实现中问题：计划里的默认 destination `platform=iOS Simulator,name=iPhone 15` 在本机解析为 `OS=latest`，但本机没有 latest 版 iPhone 15 模拟器；已按计划备用路径改用 `OS=17.5`。另外空 catalog 构建后不会生成空的 `zh-Hans.lproj/Localizable.strings`，但 build 日志显示 `xcstringstool compile --dry-run` 处理了 `Localizable.xcstrings`，DerivedData 里也生成了 `GeneratedStringSymbols_Localizable*`，因此判断为“空 catalog 无输出”而非 target 未识别。
 
 ---
 

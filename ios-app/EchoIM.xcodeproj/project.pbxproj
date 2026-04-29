@@ -198,9 +198,10 @@
 				};
 			};
 			buildConfigurationList = AD6671092F91E6CC003730FB /* Build configuration list for PBXProject "EchoIM" */;
-			developmentRegion = en;
+			developmentRegion = "zh-Hans";
 			hasScannedForEncodings = 0;
 			knownRegions = (
+				"zh-Hans",
 				en,
 				Base,
 			);
