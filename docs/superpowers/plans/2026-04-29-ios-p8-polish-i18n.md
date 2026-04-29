@@ -1310,7 +1310,7 @@ git commit -m "i18n(ios): localize all view-layer strings via Strings Catalog au
 
 本 Task 是文案翻译工作；产出物是 catalog 内每个 key 的 en localization 都从 `state: "new"` 变成 `state: "translated"`。
 
-- [ ] **Step 1: 用对照表批量填 en 翻译**
+- [x] **Step 1: 用对照表批量填 en 翻译**
 
 `Localizable.xcstrings` 是 JSON，可以编辑器直接改。对每个 zh-Hans key，在 `localizations` 下加 `en` 子树：
 
@@ -1415,6 +1415,7 @@ git commit -m "i18n(ios): localize all view-layer strings via Strings Catalog au
 | 说点什么... | Say something... |
 | 发送中... | Sending... |
 | 发送图片 | Send image |
+| 发送消息 | Send message |
 | 完成 | Done |
 
 **Me：**
@@ -1441,7 +1442,9 @@ git commit -m "i18n(ios): localize all view-layer strings via Strings Catalog au
 
 > 如果实际 catalog 收集到的 key 不止上面这些（例如某条文案我漏写），按相同语义补 en 翻译，并把新条目追加到本 plan 的对照表（让计划文档与 catalog 同步）。
 
-- [ ] **Step 2: 验证 catalog 状态**
+> 实测新增一条消歧 key：聊天发送按钮 a11y label 从 `"发送"` 改为 `"发送消息"`，避免与好友申请历史方向里的 `"发送"` 共用同一个英文翻译。`"发送"` 译为 `Sent`，`"发送消息"` 译为 `Send message`。
+
+- [x] **Step 2: 验证 catalog 状态**
 
 ```bash
 python3 -c "
@@ -1460,7 +1463,7 @@ print(f'total={total}, en_translated={translated}, en_new={new_state}, stale={st
 
 Expected: `en_translated == total`，`en_new == 0`，`stale == 0`。如有 stale，删 catalog 里那条 key（源码已不再用）。
 
-- [ ] **Step 3: 编译 + 切英文 Locale 跑既有 UITest 一次**
+- [x] **Step 3: 编译 + 切英文 Locale 跑既有 UITest 一次**
 
 Run: `$BUILD`
 
@@ -1480,12 +1483,18 @@ Expected: `LoginSmokeTests` 仍通过 —— 它依赖 `loginEmail` / `loginPass
 
 手工验证（可选）：在 Simulator 切英文跑一遍登录 / 聊天页 / Me 页，确认显示英文文案。
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add ios-app/EchoIM/Localizable.xcstrings docs/superpowers/plans/2026-04-29-ios-p8-polish-i18n.md
 git commit -m "i18n(ios): add english translations to Strings Catalog"
 ```
+
+**Task 8 实现记录（2026-04-29）**
+
+- 已完成：`Localizable.xcstrings` 90 个 key 全部补 `en` 翻译，并将状态设为 `translated`；为避免 `"发送"` 同时表示 `Send` / `Sent`，新增 `"发送消息"` 作为聊天发送按钮的 a11y label key。
+- 验证：catalog 状态检查结果为 `total=90, en_translated=90, stale=0`；`xcodebuild -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,OS=17.5,name=iPhone 15' build` 通过，且 build 日志显示生成 `en.lproj/Localizable.strings`。
+- 实现中问题：按用户最新指令未跑英文 Locale 下的 UITest；本轮只做 catalog 结构验证 + build。`JPEG / PNG / HEIC` 与 `400x400` 等技术文案保持直译，`%@` / `%lld` 插值 key 保持占位符顺序不变。
 
 ---
 

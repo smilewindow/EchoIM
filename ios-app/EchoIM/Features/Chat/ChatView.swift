@@ -232,7 +232,7 @@ struct ChatView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .disabled(!canSend)
-            .accessibilityLabel(Text("发送"))
+            .accessibilityLabel(Text("发送消息"))
             .accessibilityIdentifier("chatSend")
         }
         .padding(.horizontal, 12)
