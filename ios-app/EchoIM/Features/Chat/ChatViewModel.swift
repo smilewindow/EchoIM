@@ -36,6 +36,7 @@ final class ChatViewModel {
     private let metaStore: ConversationMetaStore?
     weak var wsClient: WebSocketClient?
     private let tokenProvider: @MainActor () -> String?
+    private let haptics: HapticFeedbackProvider
 
     // P6：只读 typingStore（不变式 8：VM 不路由 typing 事件，UserSession 是唯一写入方）
     private let typingStore: TypingStore?
@@ -66,7 +67,8 @@ final class ChatViewModel {
         typingStore: TypingStore? = nil,
         typingSender: @escaping @MainActor (Int, Bool) -> Void = { _, _ in },
         idleTypingDuration: TimeInterval = 3.0,
-        tokenProvider: @escaping @MainActor () -> String?
+        tokenProvider: @escaping @MainActor () -> String?,
+        haptics: HapticFeedbackProvider? = nil
     ) {
         switch route {
         case .conversation(let conversation):
@@ -89,6 +91,7 @@ final class ChatViewModel {
         self.typingSender = typingSender
         self.idleTypingDuration = idleTypingDuration
         self.tokenProvider = tokenProvider
+        self.haptics = haptics ?? UIKitHapticFeedback()
     }
 
     /// 对方是否正在输入。仅当 conversationId 已知且 typingStore 命中时为 true（不变式 8）。
@@ -335,6 +338,7 @@ final class ChatViewModel {
                 token: token
             )
             mergeServerResult(result, tempId: tempId)
+            haptics.lightImpact()
         } catch {
             markFailed(tempId: tempId, error: error)
         }
@@ -368,6 +372,7 @@ final class ChatViewModel {
             )
             mergeServerResult(result, tempId: tempId)
             imageSendStages.removeValue(forKey: tempId)
+            haptics.lightImpact()
         } catch {
             markFailed(tempId: tempId, error: error)
         }

@@ -308,7 +308,7 @@ git commit -m "feat(ios): add empty Localizable.xcstrings + zh-Hans development 
 
 设计依据：spec §8 P8 "触觉反馈（发消息、好友通过）"、不变式 3 / 4、front matter "TDD 适用范围"。
 
-- [ ] **Step 1: 写测试 — HapticFeedback 注入断言**
+- [x] **Step 1: 写测试 — HapticFeedback 注入断言**
 
 ```swift
 // ios-app/EchoIMTests/HapticFeedbackInjectionTests.swift
@@ -495,7 +495,7 @@ struct HapticFeedbackInjectionTests {
 
 > 测试中 `MessageRepository` / `FriendRepository` / `FriendRequestRepository` 的具体方法签名与项目现状一致；如签名漂移，按 `ios-app/EchoIM/Features/Chat/MessageRepository.swift` / `Features/Contacts/FriendRepository.swift` / `Features/Contacts/FriendRequestRepository.swift` 实际形态对齐。
 
-- [ ] **Step 2: 跑测试，验证失败**
+- [x] **Step 2: 跑测试，验证失败**
 
 Run: `$TEST` 或更精细：
 ```bash
@@ -506,7 +506,7 @@ xcodebuild -project ios-app/EchoIM.xcodeproj -scheme EchoIM \
 
 Expected: 编译失败 ——`HapticFeedbackProvider` 类型不存在 / `ChatViewModel.init` 没有 `haptics:` 参数 / `ContactsViewModel.init` 没有 `haptics:` 参数。这是 TDD 第一阶段的预期。
 
-- [ ] **Step 3: 实现 HapticFeedback.swift**
+- [x] **Step 3: 实现 HapticFeedback.swift**
 
 Use Write 创建 `ios-app/EchoIM/Core/Utilities/HapticFeedback.swift`：
 
@@ -547,7 +547,7 @@ final class NoOpHapticFeedback: HapticFeedbackProvider {
 
 > 不做 `prepare()`：见 front matter "关键 iOS 17 / SwiftUI 契约速查" 最后一条；首次稍迟一点不影响 UX。
 
-- [ ] **Step 4: 改 ChatViewModel —— init 注入 haptics + 在 REST 成功路径调 light()**
+- [x] **Step 4: 改 ChatViewModel —— init 注入 haptics + 在 REST 成功路径调 light()**
 
 Edit `ios-app/EchoIM/Features/Chat/ChatViewModel.swift`：
 
@@ -598,7 +598,7 @@ do {
 
 > **关键不放 `mergeServerResult` 内部的原因**：`mergeServerResult` 同时被 REST 成功路径（`performSend` / `executeImageSend`）和 WS echo 路径（`handleIncomingMessage` 里 `incoming.senderId == currentUserId && clientTempId != nil` 分支）调用 —— 一条自己发的消息会被合并两次。如果在 mergeServerResult 第一行触发 haptic，用户发一条会震两下。**只在 REST 成功路径触发**，WS echo 是"已经震过的消息又被服务端再确认一遍"，不重复反馈。
 
-- [ ] **Step 5: 改 ContactsViewModel —— init 注入 haptics + respond 成功后按 accept 调 success/warning**
+- [x] **Step 5: 改 ContactsViewModel —— init 注入 haptics + respond 成功后按 accept 调 success/warning**
 
 Edit `ios-app/EchoIM/Features/Contacts/ContactsViewModel.swift`：
 
@@ -634,7 +634,7 @@ func respond(requestId: Int, accept: Bool) async {
 
 > 触觉只在 `try` 不抛错的成功路径触发；catch 里**不**触发任何反馈（不变式 3）。
 
-- [ ] **Step 6: 跑测试，验证通过**
+- [x] **Step 6: 跑测试，验证通过**
 
 Run: `$TEST` 全量。
 
@@ -642,7 +642,7 @@ Expected: HapticFeedbackInjectionTests 4 条全过；其它既有 ChatViewModel 
 
 如果出现"既有测试编译错"，多半是某个旧测试也在 `init` 后续传了 typingSender / idleTypingDuration 等位置参数 —— 因为 `haptics` 加到了参数末尾且有默认值，应该不破。如果仍破，把新 `haptics:` 参数挪到既有所有 default-valued 参数之后即可。
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add ios-app/EchoIM/Core/Utilities/HapticFeedback.swift \
@@ -651,6 +651,12 @@ git add ios-app/EchoIM/Core/Utilities/HapticFeedback.swift \
         ios-app/EchoIMTests/HapticFeedbackInjectionTests.swift
 git commit -m "feat(ios): add haptic feedback for send / friend request response"
 ```
+
+**Task 2 实现记录（2026-04-29）**
+
+- 已完成：新增 `HapticFeedbackProvider`、`UIKitHapticFeedback`、`NoOpHapticFeedback`；`ChatViewModel.sendText` / `sendCompressedImage` 在 REST 成功合并后触发 `lightImpact()`；`ContactsViewModel.respond` 成功后按 accept/decline 触发 `success()` / `warning()`；新增 5 条注入点测试（含 sendText 失败不触发 haptic）。
+- 验证：TDD RED 阶段定向测试按预期编译失败（缺 `HapticFeedbackProvider` 与 `haptics:` init 参数）；GREEN 后 `xcodebuild -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,OS=17.5,name=iPhone 15' test -only-testing:EchoIMTests/HapticFeedbackInjectionTests` 通过，5 条测试全过；`xcodebuild -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,OS=17.5,name=iPhone 15' test -only-testing:EchoIMTests -parallel-testing-enabled NO` 通过，218 tests / 48 suites 全过。
+- 实现中问题：`@MainActor` 协议默认实现如果直接写成 `haptics: HapticFeedbackProvider = UIKitHapticFeedback()`，Swift 会把默认参数求值视为非隔离上下文并报错；已改为 `haptics: HapticFeedbackProvider? = nil`，在 VM 的 `@MainActor` init 内构造 `UIKitHapticFeedback()`。另外按计划原始 `$TEST` 不带 `-parallel-testing-enabled NO` 时，本机出现 `UserSessionRoutingTests.makeFixture()` 触发的测试进程崩溃，166 个用例被同一 crash 标失败；单独跑 `UserSessionRoutingTests` 通过，串行全量通过，且日志里有 SwiftData/SQLite `vnode unlinked while in use`，判断为既有 SwiftData cache 清理与并行 runner 的资源碰撞，不是 Task 2 代码回归。
 
 ---
 

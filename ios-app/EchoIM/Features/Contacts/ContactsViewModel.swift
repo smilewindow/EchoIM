@@ -14,15 +14,18 @@ final class ContactsViewModel {
     private let friendRepo: FriendRepository
     private let requestRepo: FriendRequestRepository
     private let tokenProvider: () -> String?
+    private let haptics: HapticFeedbackProvider
 
     init(
         friendRepo: FriendRepository,
         requestRepo: FriendRequestRepository,
-        tokenProvider: @escaping () -> String?
+        tokenProvider: @escaping () -> String?,
+        haptics: HapticFeedbackProvider? = nil
     ) {
         self.friendRepo = friendRepo
         self.requestRepo = requestRepo
         self.tokenProvider = tokenProvider
+        self.haptics = haptics ?? UIKitHapticFeedback()
     }
 
     var pendingIncomingCount: Int {
@@ -70,6 +73,11 @@ final class ContactsViewModel {
 
         do {
             _ = try await requestRepo.respond(id: requestId, accept: accept, token: token)
+            if accept {
+                haptics.success()
+            } else {
+                haptics.warning()
+            }
             await refresh()
         } catch {
             errorMessage = String(describing: error)
