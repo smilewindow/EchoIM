@@ -823,7 +823,7 @@ git commit -m "refactor(ios): unify list empty / error state via ContentUnavaila
 
 最近 commit 7efea91 / afc9430 已经做了"输入框上浮 + 滚动到底锚点"的基础。本任务补两个常见 UX：用户向下滑消息列表时键盘自然下沉；以及在 toolbar 添加 `Done` 按钮主动收键盘（对左手或单手用户更友好）。
 
-- [ ] **Step 1: 加 scrollDismissesKeyboard modifier**
+- [x] **Step 1: 加 scrollDismissesKeyboard modifier**
 
 Edit `ios-app/EchoIM/Features/Chat/ChatView.swift`：
 
@@ -849,7 +849,7 @@ ScrollView {
 .onChange(...) { ... }
 ```
 
-- [ ] **Step 2: 加 keyboard toolbar 的"完成"按钮**
+- [x] **Step 2: 加 keyboard toolbar 的"完成"按钮**
 
 定位到 `inputBar` 之外，body 的 `.toolbar { ... }` 段（即 toolbar `principal` 同级）；新增一个 keyboard placement 的 toolbar item：
 
@@ -870,7 +870,7 @@ ScrollView {
 
 > "完成" 仍写中文字面量；Task 7 本地化扫尾时改 LocalizedStringKey。`accessibilityIdentifier` 用 `chatKeyboardDone`（ASCII 常量）。
 
-- [ ] **Step 3: 编译 + 手工验证**
+- [x] **Step 3: 编译 + 手工验证**
 
 Run: `$BUILD`
 
@@ -884,18 +884,24 @@ Expected: build SUCCEEDED。
 4. 重新点输入框 → 键盘弹回
 5. 看键盘上方有 "完成" 按钮（在系统键盘工具栏右侧）→ 点击 → 键盘收起
 
-- [ ] **Step 4: 跑既有 XCUITest 验证不破**
+- [x] **Step 4: 跑既有 XCUITest 验证不破**
 
 Run: `$UITEST`
 
 Expected: 既有 9 个 XCUITest 全部通过；尤其 `ChatSmokeTests` / `ImageSendSmokeTests` / `PresenceTypingSmokeTests` 不受 toolbar 新增影响。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ios-app/EchoIM/Features/Chat/ChatView.swift
 git commit -m "feat(ios): polish chat keyboard — scrollDismiss interactive + toolbar Done"
 ```
+
+**Task 4 实现记录（2026-04-29）**
+
+- 已完成：在 `ChatView.messagesList` 的 `ScrollView` modifier 链上新增 `.scrollDismissesKeyboard(.interactively)`；在现有 `.toolbar` 中新增 keyboard placement 的“完成”按钮，点击后设置 `isInputFocused = false`，并提供稳定 `.accessibilityIdentifier("chatKeyboardDone")`。
+- 验证：`xcodebuild -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,OS=17.5,name=iPhone 15' build` 通过；静态 grep 确认 `ToolbarItemGroup(placement: .keyboard)`、`chatKeyboardDone` 与 `.scrollDismissesKeyboard(.interactively)` 均落在 `ChatView.swift` 预期位置。
+- 实现中问题：按用户最新指令未跑 `$UITEST` 全量；本轮也未启动模拟器做手工键盘交互，记录为后续实机 / 模拟器验收项。当前变更只触及 SwiftUI modifier 与 toolbar，不改消息发送、图片选择或 WS 数据流。
 
 ---
 

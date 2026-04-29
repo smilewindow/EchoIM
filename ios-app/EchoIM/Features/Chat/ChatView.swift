@@ -55,6 +55,13 @@ struct ChatView: View {
             ToolbarItem(placement: .principal) {
                 principalTitle
             }
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("完成") {
+                    isInputFocused = false
+                }
+                .accessibilityIdentifier("chatKeyboardDone")
+            }
         }
         .task {
             vm.attachWSSubscription()
@@ -155,6 +162,7 @@ struct ChatView: View {
                 .padding(.top, 10)
             }
             .background(Color(uiColor: .systemBackground))
+            .scrollDismissesKeyboard(.interactively)
             .contentShape(Rectangle())
             .simultaneousGesture(
                 TapGesture().onEnded {
