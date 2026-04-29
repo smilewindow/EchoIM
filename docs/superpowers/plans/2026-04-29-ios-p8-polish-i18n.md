@@ -989,7 +989,7 @@ git commit -m "docs(ios): record P8 dark mode visual audit results"
 
 设计依据：spec §8 P8 "i18n: zh / en"、不变式 1（自定义中文 → `String(localized:)`；`String(describing: error)` 透传不本地化）。
 
-- [ ] **Step 1: 改 LoginViewModel.swift**
+- [x] **Step 1: 改 LoginViewModel.swift**
 
 Edit `ios-app/EchoIM/Features/Auth/LoginViewModel.swift`：
 
@@ -1012,7 +1012,7 @@ return String(localized: "登录失败，请重试")
 
 > Replace 时全文搜索字符串再 Edit；不要 replace_all 因为字符串可能在注释里。
 
-- [ ] **Step 2: 改 RegisterViewModel.swift**
+- [x] **Step 2: 改 RegisterViewModel.swift**
 
 Edit `ios-app/EchoIM/Features/Auth/RegisterViewModel.swift`：
 
@@ -1030,7 +1030,7 @@ Edit `ios-app/EchoIM/Features/Auth/RegisterViewModel.swift`：
 - `usernameError = "用户名已被占用"` → `String(localized: "用户名已被占用")`
 - `toast = "网络错误，请检查连接"` → `String(localized: "网络错误，请检查连接")`
 
-- [ ] **Step 3: 改 ContactsViewModel.swift**
+- [x] **Step 3: 改 ContactsViewModel.swift**
 
 Edit `ios-app/EchoIM/Features/Contacts/ContactsViewModel.swift`：
 
@@ -1038,7 +1038,9 @@ Edit `ios-app/EchoIM/Features/Contacts/ContactsViewModel.swift`：
 
 如果 grep 出 `errorMessage = "..."` 或 `_ = "中文"` 这种自定义文案，按上述模式改 `String(localized:)`；如果没有，本 Step **跳过**并在 plan 内 inline 注明"已确认无自定义中文文案需要本地化"。
 
-- [ ] **Step 4: 编译 + 跑单测全量**
+> 实测确认：`ContactsViewModel` 只有 `String(describing: error)` 错误透传，没有自定义中文错误文案需要本地化。
+
+- [x] **Step 4: 编译 + 跑单测全量**
 
 Run: `$BUILD` && `$TEST`
 
@@ -1046,7 +1048,7 @@ Expected: build SUCCEEDED；所有既有 LoginViewModel / RegisterViewModel / Co
 
 如果某个测试 `#expect(vm.toast == "登录失败，请重试")` 失败，原因是 `String(localized:)` 在测试 bundle 下可能查到 en 翻译（Test bundle 默认走 host system locale）。如出现，把测试断言改成 `String(localized: "登录失败，请重试")` 即可对齐。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ios-app/EchoIM/Features/Auth/LoginViewModel.swift \
@@ -1054,6 +1056,12 @@ git add ios-app/EchoIM/Features/Auth/LoginViewModel.swift \
         ios-app/EchoIM/Features/Contacts/ContactsViewModel.swift
 git commit -m "i18n(ios): wrap viewmodel error strings in String(localized:)"
 ```
+
+**Task 6 实现记录（2026-04-29）**
+
+- 已完成：`LoginViewModel` 与 `RegisterViewModel` 中所有自定义中文错误 / toast 文案改为 `String(localized:)`；`ContactsViewModel` 保持 `String(describing:)` 错误透传不变。
+- 验证：`xcodebuild -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,OS=17.5,name=iPhone 15' build` 通过；定向测试 `LoginViewModelTests` / `RegisterViewModelTests` / `ContactsViewModelTests` 通过。
+- 实现中问题：按用户最新指令未跑 `$TEST` 全量；本任务风险面集中在三个 VM，因此使用相关测试套件代替全量单测。
 
 ---
 

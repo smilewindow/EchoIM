@@ -39,23 +39,26 @@ final class RegisterViewModel {
         let trimmedInviteCode = inviteCode.trimmingCharacters(in: .whitespaces)
 
         if trimmedInviteCode.isEmpty {
-            inviteCodeError = "邀请码不能为空"
+            inviteCodeError = String(localized: "邀请码不能为空")
         }
         if trimmedUsername.count < 3 {
-            usernameError = "用户名至少 3 位"
+            usernameError = String(localized: "用户名至少 3 位")
         }
         if !Self.isValidEmail(trimmedEmail) {
-            emailError = "邮箱格式不正确"
+            emailError = String(localized: "邮箱格式不正确")
         }
         if password.count < 8 {
-            passwordError = "密码至少 8 位"
+            passwordError = String(localized: "密码至少 8 位")
         }
 
         guard inviteCodeError == nil,
               usernameError == nil,
               emailError == nil,
               passwordError == nil else {
-            state = .failed(.fieldValidation(field: nil, message: "客户端校验未通过"))
+            state = .failed(.fieldValidation(
+                field: nil,
+                message: String(localized: "客户端校验未通过")
+            ))
             return
         }
 
@@ -74,7 +77,7 @@ final class RegisterViewModel {
             mapServerError(error)
             state = .failed(error)
         } catch {
-            toast = "注册失败，请重试"
+            toast = String(localized: "注册失败，请重试")
             state = .failed(.unknown(String(describing: error)))
         }
     }
@@ -91,12 +94,12 @@ final class RegisterViewModel {
         switch error {
         case .invalidInviteCode:
             // 设计文档要求邀请码错误既有字段红字，也要有 toast。
-            inviteCodeError = "邀请码无效"
-            toast = "邀请码无效"
+            inviteCodeError = String(localized: "邀请码无效")
+            toast = String(localized: "邀请码无效")
         case .emailTaken:
-            emailError = "邮箱已被注册"
+            emailError = String(localized: "邮箱已被注册")
         case .usernameTaken:
-            usernameError = "用户名已被占用"
+            usernameError = String(localized: "用户名已被占用")
         case .fieldValidation(let field, let message):
             switch field {
             case .inviteCode:
@@ -111,9 +114,9 @@ final class RegisterViewModel {
                 toast = message
             }
         case .network:
-            toast = "网络错误，请检查连接"
+            toast = String(localized: "网络错误，请检查连接")
         default:
-            toast = "注册失败，请重试"
+            toast = String(localized: "注册失败，请重试")
         }
     }
 

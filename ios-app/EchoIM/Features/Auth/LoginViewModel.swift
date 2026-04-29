@@ -30,7 +30,7 @@ final class LoginViewModel {
         let trimmedEmail = email.trimmingCharacters(in: .whitespaces)
 
         guard !trimmedEmail.isEmpty, !password.isEmpty else {
-            let message = "邮箱和密码不能为空"
+            let message = String(localized: "邮箱和密码不能为空")
             toast = message
             state = .failed(.fieldValidation(field: nil, message: message))
             return
@@ -47,20 +47,20 @@ final class LoginViewModel {
             toast = Self.toastMessage(for: error)
         } catch {
             state = .failed(.unknown(String(describing: error)))
-            toast = "登录失败，请重试"
+            toast = String(localized: "登录失败，请重试")
         }
     }
 
     nonisolated static func toastMessage(for error: AuthError) -> String {
         switch error {
         case .invalidCredentials:
-            return "邮箱或密码错误"
+            return String(localized: "邮箱或密码错误")
         case .network:
-            return "网络错误，请检查连接"
+            return String(localized: "网络错误，请检查连接")
         case .fieldValidation(_, let message):
             return message
         default:
-            return "登录失败，请重试"
+            return String(localized: "登录失败，请重试")
         }
     }
 }
