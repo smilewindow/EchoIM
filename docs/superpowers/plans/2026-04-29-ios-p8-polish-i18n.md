@@ -1511,7 +1511,7 @@ git commit -m "i18n(ios): add english translations to Strings Catalog"
 
 > Task 7 Step 4 同时给 `MessageBubble` 与 `ImageMessageBubble` 都加了 a11y identifier，是为未来一旦补 simctl addmedia 自动化时即用即得。本 Task 不依赖 `chatBubble_image_*` 断言。
 
-- [ ] **Step 1: 写测试 — 端到端 golden path**
+- [x] **Step 1: 写测试 — 端到端 golden path**
 
 Use Write 创建 `ios-app/EchoIMUITests/GoldenPathSmokeTests.swift`：
 
@@ -1589,7 +1589,7 @@ final class GoldenPathSmokeTests: XCTestCase {
 >
 > 如果项目已经有"测试种子图片"机制（grep 一遍 `simctl addmedia` 或 `XCUIScreenshot.attachment`），扩展本测试到完整发图也可以；不强求。
 
-- [ ] **Step 2: 跑测试**
+- [x] **Step 2: 跑测试**
 
 Run:
 ```bash
@@ -1604,18 +1604,24 @@ Expected: PASS。
 
 如果 `firstRow.tap()` 之后未进入聊天页 —— 测试账号 `smoke@test.local` 可能没有任何会话；本测试依赖测试种子数据。检查 `e2e/` 或 `server/tests/` 里的 seed 流程是否在跑前已生成至少一个会话。如未，写一个先决条件检查：用 `XCTSkipIf(conversationsList.descendants(matching: .cell).count == 0, "no seed conversations")`。
 
-- [ ] **Step 3: 跑全量 UITest 验证不破**
+- [x] **Step 3: 跑全量 UITest 验证不破**
 
 Run: `$UITEST`
 
 Expected: 既有 9 个 + 新增 1 个共 10 个 XCUITest 全部通过（如果 GoldenPathSmokeTests 因 seed 数据被 skip，是 9 通过 + 1 skipped，也算通过）。
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add ios-app/EchoIMUITests/GoldenPathSmokeTests.swift
 git commit -m "test(ios): add golden path UITest — login + send text + open photo picker"
 ```
+
+**Task 9 实现记录（2026-04-29）**
+
+- 已完成：新增 `GoldenPathSmokeTests`，覆盖登录 smoke 账号 → 进入首个会话 → 发送唯一文字消息 → 断言本次消息出现在 `chatBubble_text_*` → 打开图片 picker → 关闭后回到聊天页。
+- 验证：`xcodebuild -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,OS=17.5,name=iPhone 15' build-for-testing` 通过；`xcodebuild -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,OS=17.5,name=iPhone 15' test -only-testing:EchoIMUITests/GoldenPathSmokeTests` 通过（1 test, 0 failures）。
+- 实现中问题：未跑 `$UITEST` 全量套件；按用户最新指令“非必要情况下不要进行全量测试”，本轮只跑新增用例的定向 UITest。该测试仍依赖本地 seed：`smoke@test.local` 需要至少有一个会话。
 
 ---
 
