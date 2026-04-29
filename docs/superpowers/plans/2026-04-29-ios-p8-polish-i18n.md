@@ -671,7 +671,7 @@ git commit -m "feat(ios): add haptic feedback for send / friend request response
 
 设计依据：spec §8 P8 "加载/空/错误态统一（spinner / empty / retry）"、不变式 5、front matter "已知妥协"第三条（包装而非替换）。
 
-- [ ] **Step 1: 创建 StateView.swift**
+- [x] **Step 1: 创建 StateView.swift**
 
 Use Write 创建 `ios-app/EchoIM/Core/UI/StateView.swift`：
 
@@ -739,7 +739,7 @@ extension StateView {
 
 > "重试" 仍写中文字面量；本地化在 Task 7 集中扫一遍。
 
-- [ ] **Step 2: 重构 ConversationsListView 的 empty / error**
+- [x] **Step 2: 重构 ConversationsListView 的 empty / error**
 
 Edit `ios-app/EchoIM/Features/Conversations/ConversationsListView.swift`：
 
@@ -763,7 +763,7 @@ private func errorState(_ message: String) -> some View {
 
 > 删掉原 `VStack { Image; Text; Text; Button("重试") { ... } }` 实现。`accessibilityIdentifier` 不要在 StateView 内部加；如外层调用点本来就没加 a11y id（grep 一遍确认），删除前后行为等价。
 
-- [ ] **Step 3: 重构 FriendsListView 的 emptyState**
+- [x] **Step 3: 重构 FriendsListView 的 emptyState**
 
 Edit `ios-app/EchoIM/Features/Contacts/FriendsListView.swift`：
 
@@ -783,7 +783,7 @@ private var emptyState: some View {
 
 > 保留 `accessibilityIdentifier("friendsEmpty")` —— 既有 `FriendRequestCrossAccountSmokeTests` 等可能依赖。
 
-- [ ] **Step 4: 编译 + 跑 UITest 全量验证 a11y identifier 不破**
+- [x] **Step 4: 编译 + 跑 UITest 全量验证 a11y identifier 不破**
 
 Run: `$BUILD` && `$UITEST`
 
@@ -791,13 +791,13 @@ Expected: build SUCCEEDED；既有 XCUITest 全部通过（包括 `LoginSmokeTes
 
 如果某个 test 失败，多半是它在 element tree 里查 `friendsEmpty` / `conversationsList` / `errorMessage` 这种 a11y identifier；按报错指向的 query 在 StateView 调用点补 `.accessibilityIdentifier(...)`。
 
-- [ ] **Step 5: 跑单测全量**
+- [x] **Step 5: 跑单测全量**
 
 Run: `$TEST`
 
 Expected: 既有所有单测通过（StateView 是 view-only，无 VM 影响）。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add ios-app/EchoIM/Core/UI/StateView.swift \
@@ -805,6 +805,12 @@ git add ios-app/EchoIM/Core/UI/StateView.swift \
         ios-app/EchoIM/Features/Contacts/FriendsListView.swift
 git commit -m "refactor(ios): unify list empty / error state via ContentUnavailableView wrapper"
 ```
+
+**Task 3 实现记录（2026-04-29）**
+
+- 已完成：新增 `Core/UI/StateView.swift`，用 iOS 17 `ContentUnavailableView` 统一列表全屏空态 / 错态；`ConversationsListView` 的 `emptyState` / `errorState(_:)` 改用 `StateView`；`FriendsListView.emptyState` 改用 `StateView.empty(...)`，并保留 `.accessibilityIdentifier("friendsEmpty")`。
+- 验证：`xcodebuild -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,OS=17.5,name=iPhone 15' build` 通过；静态 grep 确认 `friendsEmpty` 仍在空态调用点，`conversationsList` 仍保留在会话列表 `List` 上，相关 UITest 查询入口未被改名。
+- 实现中问题：按用户最新指令“非必要情况下不要进行全量测试”，本任务没有跑 `$UITEST` / `$TEST` 全量；本次变更是 view-only 且不改 ViewModel / 数据流，使用 build + a11y identifier 静态检查作为本轮验证。若后续某个空态查询在 XCUITest 中变得更严格，再在具体调用点补充稳定 identifier。
 
 ---
 

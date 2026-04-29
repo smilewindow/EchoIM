@@ -50,17 +50,11 @@ struct FriendsListView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "person.2")
-                .font(.system(size: 40))
-                .foregroundStyle(.secondary)
-            Text("还没有好友")
-                .foregroundStyle(.secondary)
-            Text("点右上角 + 搜索用户添加好友")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        StateView.empty(
+            title: "还没有好友",
+            systemImage: "person.2",
+            hint: "点右上角 + 搜索用户添加好友"
+        )
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("friendsEmpty")
     }

@@ -122,36 +122,19 @@ struct ConversationsListView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 40))
-                .foregroundStyle(.secondary)
-            Text("暂无会话")
-                .foregroundStyle(.secondary)
-            Text("从「联系人」里选一个好友开始聊天")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        StateView.empty(
+            title: "暂无会话",
+            systemImage: "bubble.left.and.bubble.right",
+            hint: "从「联系人」里选一个好友开始聊天"
+        )
     }
 
     private func errorState(_ message: String) -> some View {
-        VStack(spacing: 8) {
-            Image(systemName: "exclamationmark.triangle")
-                .foregroundStyle(.orange)
-            Text("加载失败")
-                .foregroundStyle(.secondary)
-            Text(message)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Button("重试") {
-                Task {
-                    await vm.load()
-                }
+        StateView.error(message: message) {
+            Task {
+                await vm.load()
             }
-            .buttonStyle(.bordered)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func destination(for route: ChatRoute) -> some View {
