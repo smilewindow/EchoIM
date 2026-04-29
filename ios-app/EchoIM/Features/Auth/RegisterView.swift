@@ -62,7 +62,7 @@ struct RegisterView: View {
     /// 用户名 / 邮箱 / 邀请码都要求精确输入，默认禁用自动首字母大写。
     @ViewBuilder
     private func field(
-        _ title: String,
+        _ title: LocalizedStringKey,
         text: Binding<String>,
         error: String?,
         id: String,
@@ -87,7 +87,7 @@ struct RegisterView: View {
 
     @ViewBuilder
     private func secureField(
-        _ title: String,
+        _ title: LocalizedStringKey,
         text: Binding<String>,
         error: String?,
         id: String

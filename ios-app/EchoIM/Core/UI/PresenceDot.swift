@@ -15,7 +15,7 @@ struct PresenceDot: View {
                 Circle()
                     .stroke(Color(uiColor: .systemBackground), lineWidth: borderWidth)
             )
-            .accessibilityLabel("在线")
+            .accessibilityLabel(Text("在线"))
             .accessibilityHidden(false)
     }
 }

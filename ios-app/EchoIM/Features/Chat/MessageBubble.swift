@@ -43,6 +43,7 @@ struct MessageBubble: View {
                 Spacer(minLength: 40)
             }
         }
+        .accessibilityIdentifier("chatBubble_text_\(message.localId)")
     }
 
     @ViewBuilder

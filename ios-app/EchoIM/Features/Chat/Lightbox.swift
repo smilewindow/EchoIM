@@ -38,7 +38,7 @@ struct Lightbox: View {
                             .padding(10)
                             .background(Color.black.opacity(0.4), in: Circle())
                     }
-                    .accessibilityLabel("关闭")
+                    .accessibilityLabel(Text("关闭"))
                     .accessibilityIdentifier("lightboxClose")
                     .padding()
                 }

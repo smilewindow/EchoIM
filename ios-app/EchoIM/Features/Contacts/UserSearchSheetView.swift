@@ -98,9 +98,9 @@ struct UserSearchSheetView: View {
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if query.trimmingCharacters(in: .whitespaces).count < 2 {
-            emptyHint("至少输入两个字符")
+            emptyHint(String(localized: "至少输入两个字符"))
         } else if results.isEmpty {
-            emptyHint("没有匹配的用户")
+            emptyHint(String(localized: "没有匹配的用户"))
         } else {
             List(results) { user in
                 HStack(spacing: 12) {
@@ -144,14 +144,14 @@ struct UserSearchSheetView: View {
 
     private func buttonLabel(for user: UserProfile) -> String {
         if isAlreadySent(user.id) {
-            return "已发送"
+            return String(localized: "已发送")
         }
 
         if sendingId == user.id {
             return "…"
         }
 
-        return "添加"
+        return String(localized: "添加")
     }
 
     private func isAlreadySent(_ userId: Int) -> Bool {

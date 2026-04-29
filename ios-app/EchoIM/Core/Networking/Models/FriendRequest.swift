@@ -21,7 +21,7 @@ struct FriendRequest: Identifiable, Equatable, Decodable, Sendable {
     let avatarUrl: String?
 
     /// 好友申请里的用户摘要可能来自联表，也可能在刚 POST/PUT 后暂缺。
-    func displayTitle(fallback: String = "用户") -> String {
+    func displayTitle(fallback: String = String(localized: "用户")) -> String {
         let trimmedDisplayName = displayName?.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmedDisplayName?.isEmpty == false {
             return trimmedDisplayName!

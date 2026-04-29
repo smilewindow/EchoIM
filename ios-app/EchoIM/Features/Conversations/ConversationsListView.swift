@@ -214,10 +214,10 @@ private struct ConversationRow: View {
         }
 
         if conversation.lastMessageType == "image" {
-            return "[图片]"
+            return String(localized: "[图片]")
         }
 
-        return "暂无消息"
+        return String(localized: "暂无消息")
     }
 
     private var timeString: String {

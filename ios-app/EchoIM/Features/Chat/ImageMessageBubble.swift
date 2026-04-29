@@ -41,6 +41,7 @@ struct ImageMessageBubble: View {
                 Spacer(minLength: 40)
             }
         }
+        .accessibilityIdentifier("chatBubble_image_\(message.localId)")
     }
 
     @ViewBuilder

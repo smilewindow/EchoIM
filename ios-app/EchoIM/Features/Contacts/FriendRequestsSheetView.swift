@@ -58,7 +58,7 @@ struct FriendRequestsSheetView: View {
             avatarFor(request)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(request.displayTitle(fallback: "用户\(request.senderId)"))
+                Text(request.displayTitle(fallback: String(localized: "用户 \(request.senderId)")))
                     .font(.subheadline.weight(.medium))
 
                 if let usernameSubtitle = request.usernameSubtitle {
@@ -104,7 +104,7 @@ struct FriendRequestsSheetView: View {
             avatarFor(request)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(request.displayTitle(fallback: "用户\(request.recipientId)"))
+                Text(request.displayTitle(fallback: String(localized: "用户 \(request.recipientId)")))
                     .font(.subheadline.weight(.medium))
 
                 if let usernameSubtitle = request.usernameSubtitle {
@@ -130,7 +130,7 @@ struct FriendRequestsSheetView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(request.displayTitle())
                     .font(.subheadline)
-                Text(request.status == .accepted ? "已接受" : "已拒绝")
+                Text(request.status == .accepted ? String(localized: "已接受") : String(localized: "已拒绝"))
                     .font(.caption)
                     .foregroundStyle(request.status == .accepted ? .green : .red)
             }
@@ -138,7 +138,7 @@ struct FriendRequestsSheetView: View {
             Spacer()
 
             if let direction = request.direction {
-                Text(direction == "sent" ? "发送" : "收到")
+                Text(direction == "sent" ? String(localized: "发送") : String(localized: "收到"))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }

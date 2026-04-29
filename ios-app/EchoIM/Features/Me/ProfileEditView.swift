@@ -85,6 +85,8 @@ struct ProfileEditView: View {
 
     @ViewBuilder
     private var avatarRow: some View {
+        let isUploading = vm.uploadStatus == .uploading
+
         HStack(spacing: 16) {
             avatarPreview
                 .frame(width: 72, height: 72)
@@ -96,12 +98,13 @@ struct ProfileEditView: View {
                     matching: .images,
                     photoLibrary: .shared()
                 ) {
-                    Label(
-                        vm.uploadStatus == .uploading ? "上传中…" : "更换头像",
-                        systemImage: "photo.on.rectangle.angled"
-                    )
+                    if isUploading {
+                        Label("上传中…", systemImage: "photo.on.rectangle.angled")
+                    } else {
+                        Label("更换头像", systemImage: "photo.on.rectangle.angled")
+                    }
                 }
-                .disabled(vm.uploadStatus == .uploading)
+                .disabled(isUploading)
                 .accessibilityIdentifier("profileEditPickAvatar")
 
                 Text("JPEG / PNG / HEIC，自动压缩为 400×400")

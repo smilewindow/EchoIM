@@ -196,7 +196,7 @@ struct ChatView: View {
                 Image(systemName: "photo")
                     .font(.system(size: 18, weight: .regular))
             }
-            .accessibilityLabel("发送图片")
+            .accessibilityLabel(Text("发送图片"))
             .accessibilityIdentifier("chatImagePicker")
             .simultaneousGesture(
                 TapGesture().onEnded {
@@ -232,7 +232,7 @@ struct ChatView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .disabled(!canSend)
-            .accessibilityLabel("发送")
+            .accessibilityLabel(Text("发送"))
             .accessibilityIdentifier("chatSend")
         }
         .padding(.horizontal, 12)

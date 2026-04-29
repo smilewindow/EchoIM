@@ -37,7 +37,7 @@ struct UserDetailView: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    Text(isOnline ? "在线" : "离线")
+                    Text(isOnline ? String(localized: "在线") : String(localized: "离线"))
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .padding(.top, 8)

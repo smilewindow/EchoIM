@@ -1101,13 +1101,15 @@ git commit -m "i18n(ios): wrap viewmodel error strings in String(localized:)"
 
 实际操作分文件：
 
-- [ ] **Step 1: LoginView.swift / RegisterView.swift —— accessibilityLabel 改为 Text() 形式**
+- [x] **Step 1: LoginView.swift / RegisterView.swift —— accessibilityLabel 改为 Text() 形式**
 
 Edit `LoginView.swift` / `RegisterView.swift`：grep 一遍 `accessibilityLabel\(".*[一-龥]` 出现的位置。如果有，统一改成 `accessibilityLabel(Text("xxx"))`。
 
 > 截至 Task 1 开始的代码扫读，Login/Register 的 accessibilityLabel 都是 ASCII（如 `"loginEmail"`）—— 这是 a11y identifier 不是 label，不归本 Task 管。如果 grep 结果为空，本 Step **跳过**并 inline 注明"已确认无中文 accessibilityLabel"。
 
-- [ ] **Step 2: ChatView.swift —— accessibilityLabel("发送图片") / "发送" / "关闭" / "完成"**
+> 实测确认：Login/Register 无中文 `accessibilityLabel`；额外把 `RegisterView` 的 `field` / `secureField` helper 参数从 `String` 改为 `LocalizedStringKey`，避免 helper 内部的 `Section(title)` / `TextField(title)` 走普通 String 路径。
+
+- [x] **Step 2: ChatView.swift —— accessibilityLabel("发送图片") / "发送" / "关闭" / "完成"**
 
 Edit `ios-app/EchoIM/Features/Chat/ChatView.swift`：
 
@@ -1123,7 +1125,7 @@ Edit `ios-app/EchoIM/Features/Chat/ChatView.swift`：
 
 `Button("完成")`（Task 4 新加的 keyboard toolbar）已经是 LocalizedStringKey，自动走。
 
-- [ ] **Step 3: Lightbox.swift —— accessibilityLabel("关闭")**
+- [x] **Step 3: Lightbox.swift —— accessibilityLabel("关闭")**
 
 Edit `ios-app/EchoIM/Features/Chat/Lightbox.swift`：
 
@@ -1132,7 +1134,7 @@ Edit `ios-app/EchoIM/Features/Chat/Lightbox.swift`：
 .accessibilityLabel(Text("关闭"))
 ```
 
-- [ ] **Step 4: MessageBubble.swift / ImageMessageBubble.swift —— accessibilityIdentifier 给 bubble 加上**
+- [x] **Step 4: MessageBubble.swift / ImageMessageBubble.swift —— accessibilityIdentifier 给 bubble 加上**
 
 Edit `ios-app/EchoIM/Features/Chat/MessageBubble.swift`：
 
@@ -1154,7 +1156,7 @@ Edit `ios-app/EchoIM/Features/Chat/ImageMessageBubble.swift`：
 
 > 注意：`message` 是参数（`LocalMessage`）。如参数名不同按现有命名调整。
 
-- [ ] **Step 5: FriendRequestsSheetView.swift —— "用户\(id)" 插值**
+- [x] **Step 5: FriendRequestsSheetView.swift —— "用户\(id)" 插值**
 
 Edit `ios-app/EchoIM/Features/Contacts/FriendRequestsSheetView.swift`：
 
@@ -1170,7 +1172,7 @@ Text(request.displayTitle(fallback: String(localized: "用户 \(request.recipien
 >
 > 中文字面量里"用户" 与 `\(id)` 之间**加一个空格**——为的是英文翻译时"User" 与数字之间也有空格，符合 English typography。实操：原代码 `"用户\(senderId)"` 没空格，改成 `"用户 \(senderId)"`（zh 多一个空格视觉无害，en 翻译则恰好正常）。
 
-- [ ] **Step 6: ConversationsListView.swift —— "暂无消息"等 String 返回的本地化**
+- [x] **Step 6: ConversationsListView.swift —— "暂无消息"等 String 返回的本地化**
 
 Edit `ios-app/EchoIM/Features/Conversations/ConversationsListView.swift`：
 
@@ -1188,7 +1190,7 @@ private var previewText: String {
 }
 ```
 
-- [ ] **Step 7: UserSearchSheetView.swift —— "已发送" / "添加" String 返回的本地化**
+- [x] **Step 7: UserSearchSheetView.swift —— "已发送" / "添加" String 返回的本地化**
 
 Edit `ios-app/EchoIM/Features/Contacts/UserSearchSheetView.swift`：
 
@@ -1204,7 +1206,7 @@ return String(localized: "添加")
 
 `emptyHint("至少输入两个字符")` / `emptyHint("没有匹配的用户")` —— `emptyHint` 参数若是 `String`，改成 `String(localized: "...")`；若是 `LocalizedStringKey`，保持。**先 Read 该文件确认 `emptyHint` 签名**再决定。
 
-- [ ] **Step 8: ProfileEditView.swift —— "上传失败：\(error)" 与 "留空将显示用户名 @\(username)"**
+- [x] **Step 8: ProfileEditView.swift —— "上传失败：\(error)" 与 "留空将显示用户名 @\(username)"**
 
 Edit `ios-app/EchoIM/Features/Me/ProfileEditView.swift`：
 
@@ -1212,7 +1214,7 @@ Edit `ios-app/EchoIM/Features/Me/ProfileEditView.swift`：
 
 `Text("好友看到的名字。留空将显示用户名 @\(username)。")` —— 同理，保持源码。catalog key 是 `"好友看到的名字。留空将显示用户名 @%@。"`。
 
-- [ ] **Step 9: Core/ 层修复（PresenceDot + FriendRequest.displayTitle）**
+- [x] **Step 9: Core/ 层修复（PresenceDot + FriendRequest.displayTitle）**
 
 Edit `ios-app/EchoIM/Core/UI/PresenceDot.swift`：
 
@@ -1239,7 +1241,7 @@ func displayTitle(fallback: String = String(localized: "用户")) -> String {
 
 > **Swift 可用性提示**：`String(localized:)` 作为函数参数默认值在 Swift 5.9+ / iOS 17+ 合法（默认值表达式不要求编译期常量）。本项目 baseline iOS 17+，没问题。
 
-- [ ] **Step 10: 全局扫一遍确认无漏（Code Hygiene Pass）**
+- [x] **Step 10: 全局扫一遍确认无漏（Code Hygiene Pass）**
 
 Run（搜索整个 ios-app/EchoIM/ 下所有 `.swift` 文件中残留的中文 String 字面量在 String 上下文出现）：
 
@@ -1254,7 +1256,7 @@ Expected: 命中行**全部**是 SwiftUI Text/Button/Section/Label 等接受 `Lo
 
 > 之所以要做这一步：Step 1-8 是按已知文件列表逐个改，这一步是兜底——保证没有任何"用户可见中文"被遗漏。
 
-- [ ] **Step 11: 编译，验证 catalog 自动收集 key**
+- [x] **Step 11: 编译，验证 catalog 自动收集 key**
 
 Run: `$BUILD`
 
@@ -1266,6 +1268,8 @@ python3 -c "import json; data = json.load(open('ios-app/EchoIM/Localizable.xcstr
 
 Expected: `keys` 数量 ≥ 80（约 100 条；具体数依视图字面量精确数）。前 20 条 key 包含 `"登录"` / `"注册"` / `"我"` / `"暂无会话"` 等。
 
+> 实测：`xcodebuild` 只产出 `.stringsdata`，不会自动把 key 回写到源码中的 `Localizable.xcstrings`；已使用 `xcrun xcstringstool sync ios-app/EchoIM/Localizable.xcstrings --stringsdata <arm64/*.stringsdata>` 合并回 catalog。同步后 catalog 共有 89 个 key。
+
 如果 catalog `strings` 仍为空 —— 最常见原因是 Xcode build 没真触发 swift 编译（cache 命中）。clean 后重 build：
 
 ```bash
@@ -1274,13 +1278,13 @@ xcodebuild -project ios-app/EchoIM.xcodeproj -scheme EchoIM \
   clean build
 ```
 
-- [ ] **Step 12: 跑单测 + UITest 全量**
+- [x] **Step 12: 跑单测 + UITest 全量**
 
 Run: `$TEST` && `$UITEST`
 
 Expected: 全部通过。`accessibilityLabel(Text("发送图片"))` 与原 `accessibilityLabel("发送图片")` 在 a11y tree 上等价，UITest 不破。
 
-- [ ] **Step 13: Commit**
+- [x] **Step 13: Commit**
 
 ```bash
 git add ios-app/EchoIM/Localizable.xcstrings \
@@ -1288,6 +1292,12 @@ git add ios-app/EchoIM/Localizable.xcstrings \
         ios-app/EchoIM/Core/UI/StateView.swift
 git commit -m "i18n(ios): localize all view-layer strings via Strings Catalog auto-extraction"
 ```
+
+**Task 7 实现记录（2026-04-29）**
+
+- 已完成：中文 `accessibilityLabel` 改为 `Text(...)`；文字 / 图片消息 bubble 增加 `chatBubble_text_*` / `chatBubble_image_*` identifier；普通 `String` 返回路径（会话预览、用户搜索按钮、好友请求 fallback / 状态 / 方向、在线离线状态）改为 `String(localized:)`；`RegisterView` helper 改用 `LocalizedStringKey`；同步生成 `Localizable.xcstrings` 89 个 key。
+- 验证：中文字符串 hygiene pass 已跑；`xcodebuild -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,OS=17.5,name=iPhone 15' build` 通过；`swift` 读取 catalog 确认 key count 为 89。
+- 实现中问题：按用户最新指令未跑 `$TEST` / `$UITEST` 全量；本任务以 build + 静态扫描 + catalog key count 作为验证。另发现计划里“build 后 catalog 自动回写”不符合 CLI 实测，已用 `xcstringstool sync` 明确同步。
 
 ---
 
