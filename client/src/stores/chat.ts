@@ -30,6 +30,8 @@ export interface Message {
   client_temp_id?: string
   message_type?: 'text' | 'image'
   media_url?: string | null
+  media_width?: number | null
+  media_height?: number | null
   _status?: 'pending' | 'failed'
   _tempId?: string
   _localMediaUrl?: string
@@ -369,11 +371,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
     // 图片消息重试
     void (async () => {
       let mediaUrl = msg.media_url ?? null
+      let mediaWidth = msg.media_width ?? null
+      let mediaHeight = msg.media_height ?? null
 
       // 阶段 1：如果还没有上传成功的 URL，重新上传
       if (msg._uploadStage === 'uploading' && msg._localBlob) {
-        mediaUrl = await uploadImageBlob(msg._localBlob)
-        if (!mediaUrl) {
+        const uploaded = await uploadImageBlob(msg._localBlob)
+        if (!uploaded) {
           set({
             messages: get().messages.map((m) =>
               m._tempId === tempId
@@ -383,10 +387,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
           })
           return
         }
+        mediaUrl = uploaded.mediaUrl
+        mediaWidth = uploaded.mediaWidth
+        mediaHeight = uploaded.mediaHeight
         set({
           messages: get().messages.map((m) =>
             m._tempId === tempId
-              ? { ...m, _uploadStage: 'sending', media_url: mediaUrl }
+              ? {
+                  ...m,
+                  _uploadStage: 'sending',
+                  media_url: mediaUrl,
+                  media_width: mediaWidth,
+                  media_height: mediaHeight,
+                }
               : m,
           ),
         })
@@ -403,6 +416,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
               recipient_id: recipientId,
               message_type: 'image',
               media_url: mediaUrl,
+              ...(mediaWidth && mediaHeight
+                ? { media_width: mediaWidth, media_height: mediaHeight }
+                : {}),
               client_temp_id: tempId,
             }),
           }),
@@ -523,8 +539,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ messages: [...stateAfterCompress.messages, optimistic] })
 
     // 4. 上传图片
-    const mediaUrl = await uploadImageBlob(blob)
-    if (!mediaUrl) {
+    const uploaded = await uploadImageBlob(blob)
+    if (!uploaded) {
       set({
         messages: get().messages.map((m) =>
           m._tempId === tempId
@@ -536,11 +552,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return
     }
 
-    // 更新气泡进入 sending 阶段
+    // 更新气泡进入 sending 阶段（顺便把真实尺寸带上，给本地占位预留正确比例）
     set({
       messages: get().messages.map((m) =>
         m._tempId === tempId
-          ? { ...m, _uploadStage: 'sending', media_url: mediaUrl }
+          ? {
+              ...m,
+              _uploadStage: 'sending',
+              media_url: uploaded.mediaUrl,
+              media_width: uploaded.mediaWidth,
+              media_height: uploaded.mediaHeight,
+            }
           : m,
       ),
     })
@@ -553,7 +575,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
           body: JSON.stringify({
             recipient_id: recipientId,
             message_type: 'image',
-            media_url: mediaUrl,
+            media_url: uploaded.mediaUrl,
+            media_width: uploaded.mediaWidth,
+            media_height: uploaded.mediaHeight,
             client_temp_id: tempId,
           }),
         }),

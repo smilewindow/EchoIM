@@ -683,6 +683,13 @@ function MessageBubble({ msg, isSelf, isGroupStart, isGroupEnd, isLastMessage, p
               className="echo-bubble-image"
               alt=""
               draggable={false}
+              // 用真实宽高比预留占位；解码完成前就有正确高度，避免列表 reflow 把"滚到底部"挤偏。
+              // 老消息没带 dims 时降级回原 img 默认行为（加载完成后才拿到尺寸）。
+              style={
+                msg.media_width && msg.media_height
+                  ? { aspectRatio: `${msg.media_width} / ${msg.media_height}` }
+                  : undefined
+              }
               onLoad={isLastMessage ? onImageLoaded : undefined}
               onClick={() => {
                 if (isPending) return

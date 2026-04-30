@@ -55,7 +55,13 @@ export async function uploadAvatar(blob: Blob): Promise<{ avatar_url: string }> 
   return (await res.json()) as { avatar_url: string }
 }
 
-export async function uploadImageBlob(blob: Blob): Promise<string | null> {
+export interface UploadedImage {
+  mediaUrl: string
+  mediaWidth: number
+  mediaHeight: number
+}
+
+export async function uploadImageBlob(blob: Blob): Promise<UploadedImage | null> {
   const token = localStorage.getItem('token')
   const formData = new FormData()
   formData.append('file', blob, 'image.jpg')
@@ -69,8 +75,17 @@ export async function uploadImageBlob(blob: Blob): Promise<string | null> {
 
     if (!res.ok) return null
 
-    const data = (await res.json()) as { media_url?: string }
-    return data.media_url ?? null
+    const data = (await res.json()) as {
+      media_url?: string
+      media_width?: number
+      media_height?: number
+    }
+    if (!data.media_url || !data.media_width || !data.media_height) return null
+    return {
+      mediaUrl: data.media_url,
+      mediaWidth: data.media_width,
+      mediaHeight: data.media_height,
+    }
   } catch {
     return null
   }
