@@ -4,20 +4,19 @@ import sharp from 'sharp'
 import { mkdir, writeFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { authenticate } from '../hooks/authenticate.js'
+import { getAvatarUploadsDir, getMessageUploadsDir } from '../lib/uploads.js'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB (front-end compresses before upload)
 
 const AVATAR_CONFIG = {
   outputSize: 400,
   outputQuality: 80,
-  uploadsDir: join(process.cwd(), 'uploads', 'avatars'),
   urlPrefix: '/uploads/avatars',
 }
 
 const MESSAGE_IMAGE_CONFIG = {
   maxDimension: 1600,
   outputQuality: 80,
-  uploadsDir: join(process.cwd(), 'uploads', 'messages'),
   urlPrefix: '/uploads/messages',
 }
 
@@ -54,11 +53,12 @@ const uploadRoutes: FastifyPluginAsync = async (fastify) => {
 
     // Generate filename
     const filename = `${request.user.id}-${Date.now()}.jpg`
-    const filepath = join(AVATAR_CONFIG.uploadsDir, filename)
+    const uploadsDir = getAvatarUploadsDir()
+    const filepath = join(uploadsDir, filename)
     const avatarUrl = `${AVATAR_CONFIG.urlPrefix}/${filename}`
 
     // Ensure directory exists
-    await mkdir(AVATAR_CONFIG.uploadsDir, { recursive: true })
+    await mkdir(uploadsDir, { recursive: true })
 
     // Get old avatar URL before update
     const oldAvatarResult = await fastify.pool.query(
@@ -97,7 +97,7 @@ const uploadRoutes: FastifyPluginAsync = async (fastify) => {
     if (oldAvatarUrl?.startsWith(AVATAR_CONFIG.urlPrefix + '/')) {
       const oldFilename = oldAvatarUrl.split('/').pop()
       if (oldFilename && oldFilename !== filename) {
-        await rm(join(AVATAR_CONFIG.uploadsDir, oldFilename), { force: true }).catch((err) => {
+        await rm(join(uploadsDir, oldFilename), { force: true }).catch((err) => {
           fastify.log.warn({ err, oldFilename }, 'failed to cleanup old avatar file')
         })
       }
@@ -138,11 +138,12 @@ const uploadRoutes: FastifyPluginAsync = async (fastify) => {
 
     // Generate filename
     const filename = `${request.user.id}-${Date.now()}.jpg`
-    const filepath = join(MESSAGE_IMAGE_CONFIG.uploadsDir, filename)
+    const uploadsDir = getMessageUploadsDir()
+    const filepath = join(uploadsDir, filename)
     const mediaUrl = `${MESSAGE_IMAGE_CONFIG.urlPrefix}/${filename}`
 
     // Ensure directory exists
-    await mkdir(MESSAGE_IMAGE_CONFIG.uploadsDir, { recursive: true })
+    await mkdir(uploadsDir, { recursive: true })
 
     // Save file
     await writeFile(filepath, processedBuffer)

@@ -3,10 +3,11 @@ import { mkdir, writeFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { getApp } from './helpers.js'
 import type { App } from './helpers.js'
+import { getAvatarUploadsDir } from '../src/lib/uploads.js'
 
 describe('Static file serving', () => {
   let app: App
-  const uploadsDir = join(process.cwd(), 'uploads', 'avatars')
+  const uploadsDir = getAvatarUploadsDir()
   const testFile = 'test-static.txt'
   const testFilePath = join(uploadsDir, testFile)
 

@@ -43,6 +43,9 @@ export async function registerUser(app: App, overrides: RegisterPayload = {}) {
     url: '/api/auth/register',
     payload: body,
   })
+  if (res.statusCode !== 201) {
+    throw new Error(`registerUser failed: ${res.statusCode} ${res.body}`)
+  }
   return res.json() as UserInfo
 }
 

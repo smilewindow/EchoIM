@@ -4,12 +4,13 @@ import { rm, readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { getApp, truncateAll, registerUser } from './helpers.js'
 import type { App } from './helpers.js'
+import { getAvatarUploadsDir, getMessageUploadsDir } from '../src/lib/uploads.js'
 
 describe('POST /api/upload/avatar', () => {
   let app: App
   let token: string
   let userId: number
-  const uploadsDir = join(process.cwd(), 'uploads', 'avatars')
+  const uploadsDir = getAvatarUploadsDir()
 
   beforeAll(async () => {
     app = await getApp()
@@ -21,7 +22,11 @@ describe('POST /api/upload/avatar', () => {
 
   beforeEach(async () => {
     await truncateAll(app)
-    const result = await registerUser(app)
+    const result = await registerUser(app, {
+      username: 'imageuploader',
+      email: 'imageuploader@test.com',
+      password: 'password123',
+    })
     token = result.token
     userId = result.user.id
     // Clean up test uploads
@@ -251,7 +256,7 @@ describe('POST /api/upload/message-image', () => {
   let app: App
   let token: string
   let userId: number
-  const messagesUploadsDir = join(process.cwd(), 'uploads', 'messages')
+  const messagesUploadsDir = getMessageUploadsDir()
 
   beforeAll(async () => {
     app = await getApp()
@@ -263,7 +268,11 @@ describe('POST /api/upload/message-image', () => {
 
   beforeEach(async () => {
     await truncateAll(app)
-    const result = await registerUser(app)
+    const result = await registerUser(app, {
+      username: 'messageuploader',
+      email: 'messageuploader@test.com',
+      password: 'password123',
+    })
     token = result.token
     userId = result.user.id
     // Clean up test uploads

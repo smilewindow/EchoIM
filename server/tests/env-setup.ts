@@ -13,3 +13,6 @@ process.env['DATABASE_URL'] = base.replace(/\/[^/]+$/, '/echoim_test')
 process.env['JWT_SECRET'] = process.env['JWT_SECRET'] ?? 'test-secret-for-vitest'
 // Test Redis uses DB 1 to avoid flushing dev data
 process.env['REDIS_URL'] = process.env['TEST_REDIS_URL'] ?? 'redis://localhost:6379/1'
+process.env['UPLOADS_DIR'] =
+  process.env['UPLOADS_DIR'] ??
+  path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../test-uploads')

@@ -3,6 +3,7 @@ import { mkdir, writeFile, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { getApp, truncateAll, registerUser } from './helpers.js'
 import type { App } from './helpers.js'
+import { getAvatarUploadsDir } from '../src/lib/uploads.js'
 
 describe('GET /api/users/me', () => {
   let app: App
@@ -61,12 +62,18 @@ describe('GET /api/users/me', () => {
 describe('PUT /api/users/me', () => {
   let app: App
   let token: string
+  let username: string
 
   beforeAll(async () => { app = await getApp() })
   afterAll(async () => { await app.close() })
   beforeEach(async () => {
     await truncateAll(app)
-    const result = await registerUser(app)
+    username = 'aliceput'
+    const result = await registerUser(app, {
+      username,
+      email: 'aliceput@test.com',
+      password: 'password123',
+    })
     token = result.token
   })
 
@@ -119,7 +126,7 @@ describe('PUT /api/users/me', () => {
 
     const dbUser = await app.pool.query(
       'SELECT display_name, avatar_url FROM users WHERE username = $1',
-      ['alice'],
+      [username],
     )
     expect(dbUser.rows[0]?.display_name).toBe('')
     expect(dbUser.rows[0]?.avatar_url).toBe('')
@@ -160,7 +167,7 @@ describe('PUT /api/users/me', () => {
   })
 
   it('deletes old local avatar file when avatar_url changes to external URL', async () => {
-    const uploadsDir = join(process.cwd(), 'uploads', 'avatars')
+    const uploadsDir = getAvatarUploadsDir()
     await mkdir(uploadsDir, { recursive: true })
 
     // Simulate an existing local avatar
@@ -172,7 +179,7 @@ describe('PUT /api/users/me', () => {
     // Set user's avatar to local file
     await app.pool.query('UPDATE users SET avatar_url = $1 WHERE username = $2', [
       oldAvatarUrl,
-      'alice',
+      username,
     ])
 
     // Update to external URL
@@ -192,7 +199,7 @@ describe('PUT /api/users/me', () => {
   })
 
   it('deletes old local avatar file when avatar_url is cleared', async () => {
-    const uploadsDir = join(process.cwd(), 'uploads', 'avatars')
+    const uploadsDir = getAvatarUploadsDir()
     await mkdir(uploadsDir, { recursive: true })
 
     // Simulate an existing local avatar
@@ -204,7 +211,7 @@ describe('PUT /api/users/me', () => {
     // Set user's avatar to local file
     await app.pool.query('UPDATE users SET avatar_url = $1 WHERE username = $2', [
       oldAvatarUrl,
-      'alice',
+      username,
     ])
 
     // Clear avatar

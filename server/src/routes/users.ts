@@ -2,8 +2,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { authenticate } from '../hooks/authenticate.js'
-
-const UPLOADS_DIR = join(process.cwd(), 'uploads', 'avatars')
+import { getAvatarUploadsDir } from '../lib/uploads.js'
 
 const userRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('preHandler', authenticate)
@@ -77,7 +76,7 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
     ) {
       const oldFilename = oldAvatarUrl.split('/').pop()
       if (oldFilename) {
-        await rm(join(UPLOADS_DIR, oldFilename), { force: true }).catch((err) => {
+        await rm(join(getAvatarUploadsDir(), oldFilename), { force: true }).catch((err) => {
           fastify.log.warn({ err, oldFilename }, 'failed to cleanup old avatar file')
         })
       }
