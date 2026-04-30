@@ -5,40 +5,57 @@ import Testing
 @Suite("Chat initial scroll policy")
 struct ChatInitialScrollPolicyTests {
     @Test
-    func initialMessagesPinWithoutAnimationAndLaterScrollsAnimate() {
+    func defersMessageChangesUntilInitialLoadFinishes() {
         var policy = ChatInitialScrollPolicy()
 
-        #expect(policy.shouldAnimateNextScroll() == false)
-        #expect(policy.shouldAnimateNextScroll() == true)
-        #expect(policy.shouldAnimateNextScroll() == true)
+        #expect(policy.consumeMessageChangeForScroll() == false)
+        #expect(policy.markInitialLoadFinished() == true)
     }
 
     @Test
-    func emptyInitialLoadMakesFirstNewMessageAnimate() {
+    func laterMessageChangesScrollImmediatelyAfterInitialLoad() {
         var policy = ChatInitialScrollPolicy()
 
-        policy.markInitialLoadFinished(hasMessages: false)
-
-        #expect(policy.shouldAnimateNextScroll() == true)
+        #expect(policy.markInitialLoadFinished() == false)
+        #expect(policy.consumeMessageChangeForScroll() == true)
     }
 
     @Test
-    func nonEmptyInitialLoadStillPinsFirstScrollWithoutAnimation() {
+    func emptyInitialLoadMakesFirstNewMessageScrollImmediately() {
         var policy = ChatInitialScrollPolicy()
 
-        policy.markInitialLoadFinished(hasMessages: true)
-
-        #expect(policy.shouldAnimateNextScroll() == false)
-        #expect(policy.shouldAnimateNextScroll() == true)
+        #expect(policy.markInitialLoadFinished() == false)
+        #expect(policy.consumeMessageChangeForScroll() == true)
     }
 
     @Test
-    func newPolicyStartsWithInitialPinAgain() {
+    func repeatedLoadFinishCallsStayStable() {
         var policy = ChatInitialScrollPolicy()
-        _ = policy.shouldAnimateNextScroll()
+
+        #expect(policy.markInitialLoadFinished() == false)
+        #expect(policy.markInitialLoadFinished() == false)
+
+        #expect(policy.consumeMessageChangeForScroll() == true)
+    }
+
+    @Test
+    func resetPolicyClearsPendingCatchUpScroll() {
+        var policy = ChatInitialScrollPolicy()
+        #expect(policy.consumeMessageChangeForScroll() == false)
 
         policy = ChatInitialScrollPolicy()
 
-        #expect(policy.shouldAnimateNextScroll() == false)
+        #expect(policy.markInitialLoadFinished() == false)
+        #expect(policy.consumeMessageChangeForScroll() == true)
+    }
+
+    @Test
+    func multipleMessageChangesBeforeInitialLoadOnlyNeedOneCatchUpScroll() {
+        var policy = ChatInitialScrollPolicy()
+
+        #expect(policy.consumeMessageChangeForScroll() == false)
+        #expect(policy.consumeMessageChangeForScroll() == false)
+        #expect(policy.markInitialLoadFinished() == true)
+        #expect(policy.markInitialLoadFinished() == false)
     }
 }

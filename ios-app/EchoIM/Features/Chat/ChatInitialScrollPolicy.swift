@@ -1,24 +1,21 @@
 struct ChatInitialScrollPolicy {
-    private enum State {
-        case waitingForInitialLoad
-        case waitingForInitialScroll
-        case didPinInitialMessages
+    private var didFinishInitialLoad = false
+    private var hasPendingInitialCatchUpScroll = false
+
+    mutating func markInitialLoadFinished() -> Bool {
+        guard !didFinishInitialLoad else { return false }
+        didFinishInitialLoad = true
+        let shouldCatchUpScroll = hasPendingInitialCatchUpScroll
+        hasPendingInitialCatchUpScroll = false
+        return shouldCatchUpScroll
     }
 
-    private var state: State = .waitingForInitialLoad
-
-    mutating func markInitialLoadFinished(hasMessages: Bool) {
-        guard state == .waitingForInitialLoad else { return }
-        state = hasMessages ? .waitingForInitialScroll : .didPinInitialMessages
-    }
-
-    mutating func shouldAnimateNextScroll() -> Bool {
-        switch state {
-        case .waitingForInitialLoad, .waitingForInitialScroll:
-            state = .didPinInitialMessages
+    mutating func consumeMessageChangeForScroll() -> Bool {
+        guard didFinishInitialLoad else {
+            // 首屏加载期间如果尾消息变了，等 load 完成后补一次无动画滚底。
+            hasPendingInitialCatchUpScroll = true
             return false
-        case .didPinInitialMessages:
-            return true
         }
+        return true
     }
 }

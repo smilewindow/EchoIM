@@ -10,6 +10,7 @@ struct ChatView: View {
     @State private var pickedItem: PhotosPickerItem?
     @State private var lightboxBubble: LocalMessage?
     @State private var initialScrollPolicy = ChatInitialScrollPolicy()
+    @State private var initialCatchUpScrollTrigger = 0
     @FocusState private var isInputFocused: Bool
     private let presenceStore: PresenceStore?
 
@@ -67,7 +68,9 @@ struct ChatView: View {
         .task {
             vm.attachWSSubscription()
             await vm.load()
-            initialScrollPolicy.markInitialLoadFinished(hasMessages: !vm.messages.isEmpty)
+            if initialScrollPolicy.markInitialLoadFinished() {
+                initialCatchUpScrollTrigger += 1
+            }
         }
         .onDisappear {
             vm.stopTyping()                  // 不变式 4 触发点 ③
@@ -163,6 +166,7 @@ struct ChatView: View {
                 .padding(.horizontal, 12)
                 .padding(.top, 10)
             }
+            .modifier(ChatDefaultScrollAnchor())
             .background(Color(uiColor: .systemBackground))
             .scrollDismissesKeyboard(.interactively)
             .contentShape(Rectangle())
@@ -178,7 +182,11 @@ struct ChatView: View {
             }
             .onChange(of: vm.messages.last?.localId) { _, newValue in
                 guard newValue != nil else { return }
-                scrollToBottom(proxy, animated: initialScrollPolicy.shouldAnimateNextScroll())
+                guard initialScrollPolicy.consumeMessageChangeForScroll() else { return }
+                scrollToBottom(proxy, animated: true)
+            }
+            .onChange(of: initialCatchUpScrollTrigger) { _, _ in
+                scrollToBottom(proxy, animated: false)
             }
         }
     }
@@ -261,5 +269,17 @@ struct ChatView: View {
         }
 
         await vm.sendImage(image)
+    }
+}
+
+private struct ChatDefaultScrollAnchor: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *) {
+            content
+                .defaultScrollAnchor(.bottom)
+                .defaultScrollAnchor(.bottom, for: .initialOffset)
+        } else {
+            content.defaultScrollAnchor(.bottom)
+        }
     }
 }
