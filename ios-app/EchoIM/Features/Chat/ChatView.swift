@@ -9,6 +9,7 @@ struct ChatView: View {
     @State private var draft = ""
     @State private var pickedItem: PhotosPickerItem?
     @State private var lightboxBubble: LocalMessage?
+    @State private var initialScrollPolicy = ChatInitialScrollPolicy()
     @FocusState private var isInputFocused: Bool
     private let presenceStore: PresenceStore?
 
@@ -66,6 +67,7 @@ struct ChatView: View {
         .task {
             vm.attachWSSubscription()
             await vm.load()
+            initialScrollPolicy.markInitialLoadFinished(hasMessages: !vm.messages.isEmpty)
         }
         .onDisappear {
             vm.stopTyping()                  // 不变式 4 触发点 ③
@@ -176,16 +178,24 @@ struct ChatView: View {
             }
             .onChange(of: vm.messages.last?.localId) { _, newValue in
                 guard newValue != nil else { return }
-                scrollToBottom(proxy)
+                scrollToBottom(proxy, animated: initialScrollPolicy.shouldAnimateNextScroll())
             }
         }
     }
 
-    private func scrollToBottom(_ proxy: ScrollViewProxy) {
+    private func scrollToBottom(_ proxy: ScrollViewProxy, animated: Bool) {
         DispatchQueue.main.async {
             // 锚定列表尾部而不是最后一个气泡，避免底部留白被算丢后看起来差一点。
-            withAnimation(.easeOut(duration: 0.2)) {
-                proxy.scrollTo(Self.bottomAnchorId, anchor: .bottom)
+            if animated {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    proxy.scrollTo(Self.bottomAnchorId, anchor: .bottom)
+                }
+            } else {
+                var transaction = Transaction(animation: nil)
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    proxy.scrollTo(Self.bottomAnchorId, anchor: .bottom)
+                }
             }
         }
     }
