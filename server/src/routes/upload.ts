@@ -115,17 +115,23 @@ const uploadRoutes: FastifyPluginAsync = async (fastify) => {
 
     const buffer = await file.toBuffer()
 
-    // Validate and process with sharp (validates magic bytes implicitly)
+    // Validate and process with sharp (validates magic bytes implicitly).
+    // 用 toBuffer({resolveWithObject:true}) 一次拿到处理后字节 + info，避免对 buffer 再调一次 metadata()。
     let processedBuffer: Buffer
+    let outputWidth: number
+    let outputHeight: number
     try {
-      processedBuffer = await sharp(buffer)
+      const result = await sharp(buffer)
         .flatten({ background: { r: 255, g: 255, b: 255 } })
         .resize(MESSAGE_IMAGE_CONFIG.maxDimension, MESSAGE_IMAGE_CONFIG.maxDimension, {
           fit: 'inside',
           withoutEnlargement: true,
         })
         .jpeg({ quality: MESSAGE_IMAGE_CONFIG.outputQuality })
-        .toBuffer()
+        .toBuffer({ resolveWithObject: true })
+      processedBuffer = result.data
+      outputWidth = result.info.width
+      outputHeight = result.info.height
     } catch {
       return reply.status(400).send({ error: 'Invalid image file' })
     }
@@ -141,7 +147,11 @@ const uploadRoutes: FastifyPluginAsync = async (fastify) => {
     // Save file
     await writeFile(filepath, processedBuffer)
 
-    return reply.status(200).send({ media_url: mediaUrl })
+    return reply.status(200).send({
+      media_url: mediaUrl,
+      media_width: outputWidth,
+      media_height: outputHeight,
+    })
   })
 }
 

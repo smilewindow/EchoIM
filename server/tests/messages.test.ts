@@ -214,6 +214,47 @@ describe('POST /api/messages', () => {
     expect(body.message_type).toBe('image')
     expect(body.media_url).toBe(validMediaUrl)
     expect(body.body).toBeNull()
+    // 老客户端不传尺寸：DB 列保持 NULL，响应原样回传 null。
+    expect(body.media_width).toBeNull()
+    expect(body.media_height).toBeNull()
+  })
+
+  it('returns 201 and persists media_width/media_height for image message', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const validMediaUrl = `/uploads/messages/${alice.user.id}-1234567890123.jpg`
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/messages',
+      headers: { authorization: `Bearer ${alice.token}` },
+      payload: {
+        recipient_id: bob.user.id,
+        message_type: 'image',
+        media_url: validMediaUrl,
+        media_width: 1600,
+        media_height: 900,
+      },
+    })
+    expect(res.statusCode).toBe(201)
+    const body = res.json()
+    expect(body.media_width).toBe(1600)
+    expect(body.media_height).toBe(900)
+  })
+
+  it('returns 400 when image message provides only one of media_width/media_height', async () => {
+    const { alice, bob } = await setupFriends(app)
+    const validMediaUrl = `/uploads/messages/${alice.user.id}-1234567890123.jpg`
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/messages',
+      headers: { authorization: `Bearer ${alice.token}` },
+      payload: {
+        recipient_id: bob.user.id,
+        message_type: 'image',
+        media_url: validMediaUrl,
+        media_width: 1600,
+      },
+    })
+    expect(res.statusCode).toBe(400)
   })
 
   // Known limitation: server only validates media_url ownership pattern, not file existence.

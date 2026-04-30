@@ -339,8 +339,31 @@ describe('POST /api/upload/message-image', () => {
       payload: form.body,
     })
     expect(res.statusCode).toBe(200)
-    const data = res.json<{ media_url: string }>()
+    const data = res.json<{ media_url: string; media_width: number; media_height: number }>()
     expect(data.media_url).toMatch(new RegExp(`^/uploads/messages/${userId}-\\d{10,16}\\.jpg$`))
+    // 1x1 PNG 不会被 sharp 放大（withoutEnlargement），输出仍是 1x1。
+    expect(data.media_width).toBe(1)
+    expect(data.media_height).toBe(1)
+  })
+
+  it('returns media_width/media_height capped to maxDimension preserving aspect ratio', async () => {
+    // 3000x1500 横图 → maxDimension=1600，按 fit:inside 缩放为 1600x800（保持 2:1）。
+    const wideBuffer = await sharp({
+      create: { width: 3000, height: 1500, channels: 3, background: { r: 200, g: 100, b: 50 } },
+    })
+      .png()
+      .toBuffer()
+    const form = createMultipartForm('file', wideBuffer, 'wide.png', 'image/png')
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/upload/message-image',
+      headers: { authorization: `Bearer ${token}`, ...form.headers },
+      payload: form.body,
+    })
+    expect(res.statusCode).toBe(200)
+    const data = res.json<{ media_width: number; media_height: number }>()
+    expect(data.media_width).toBe(1600)
+    expect(data.media_height).toBe(800)
   })
 
   it('saves file to disk on successful upload', async () => {

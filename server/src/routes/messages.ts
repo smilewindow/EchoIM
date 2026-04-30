@@ -16,16 +16,28 @@ const messageRoutes: FastifyPluginAsync = async (fastify) => {
           client_temp_id: { type: 'string', minLength: 1 },
           message_type: { type: 'string', enum: ['text', 'image'], default: 'text' },
           media_url: { type: 'string', minLength: 1 },
+          media_width: { type: 'integer', minimum: 1 },
+          media_height: { type: 'integer', minimum: 1 },
         },
       },
     },
   }, async (request, reply) => {
-    const { recipient_id, body, client_temp_id, message_type = 'text', media_url } = request.body as {
+    const {
+      recipient_id,
+      body,
+      client_temp_id,
+      message_type = 'text',
+      media_url,
+      media_width,
+      media_height,
+    } = request.body as {
       recipient_id: number
       body?: string | null
       client_temp_id?: string
       message_type?: 'text' | 'image'
       media_url?: string
+      media_width?: number
+      media_height?: number
     }
     const sender_id = request.user.id
 
@@ -42,6 +54,10 @@ const messageRoutes: FastifyPluginAsync = async (fastify) => {
       const mediaUrlPattern = new RegExp(`^/uploads/messages/${sender_id}-\\d{10,16}\\.jpg$`)
       if (!mediaUrlPattern.test(media_url)) {
         return reply.status(400).send({ error: 'Invalid media_url' })
+      }
+      // 客户端要么两个尺寸都给，要么都不给（兼容老客户端）；只给一个视为非法。
+      if ((media_width === undefined) !== (media_height === undefined)) {
+        return reply.status(400).send({ error: 'media_width and media_height must be provided together' })
       }
     }
 
@@ -88,13 +104,15 @@ const messageRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       const msgResult = await client.query(
-        'INSERT INTO messages (conversation_id, sender_id, body, message_type, media_url) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+        'INSERT INTO messages (conversation_id, sender_id, body, message_type, media_url, media_width, media_height) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
         [
           conversation_id,
           sender_id,
           message_type === 'text' ? (body ?? null) : null,
           message_type,
           message_type === 'image' ? (media_url ?? null) : null,
+          message_type === 'image' ? (media_width ?? null) : null,
+          message_type === 'image' ? (media_height ?? null) : null,
         ]
       )
       msgRow = msgResult.rows[0]
