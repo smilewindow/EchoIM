@@ -25,10 +25,10 @@ private final class StubUserRepository: UserRepository {
 
 @MainActor
 private final class StubUploadRepository: UploadRepository {
-    var uploadMessageImageStub: ((Data, String) async throws -> String)?
+    var uploadMessageImageStub: ((Data, String) async throws -> UploadedMessageImage)?
     var uploadAvatarStub: ((Data, String) async throws -> String)?
 
-    func uploadMessageImage(data: Data, token: String) async throws -> String {
+    func uploadMessageImage(data: Data, token: String) async throws -> UploadedMessageImage {
         try await (uploadMessageImageStub ?? { _, _ in throw APIError.invalidResponse })(data, token)
     }
 

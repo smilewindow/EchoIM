@@ -111,6 +111,8 @@ struct ChatViewModelCacheTests {
             func sendImage(
                 recipientId: Int,
                 mediaUrl: String,
+                mediaWidth: Int,
+                mediaHeight: Int,
                 clientTempId: String,
                 token: String
             ) async throws -> Message {
@@ -210,6 +212,8 @@ struct ChatViewModelCacheTests {
             func sendImage(
                 recipientId: Int,
                 mediaUrl: String,
+                mediaWidth: Int,
+                mediaHeight: Int,
                 clientTempId: String,
                 token: String
             ) async throws -> Message {
@@ -298,6 +302,8 @@ struct ChatViewModelCacheTests {
             func sendImage(
                 recipientId: Int,
                 mediaUrl: String,
+                mediaWidth: Int,
+                mediaHeight: Int,
                 clientTempId: String,
                 token: String
             ) async throws -> Message {
@@ -423,6 +429,8 @@ struct ChatViewModelCacheTests {
             func sendImage(
                 recipientId: Int,
                 mediaUrl: String,
+                mediaWidth: Int,
+                mediaHeight: Int,
                 clientTempId: String,
                 token: String
             ) async throws -> Message {
@@ -554,6 +562,8 @@ struct ChatViewModelCacheTests {
             func sendImage(
                 recipientId: Int,
                 mediaUrl: String,
+                mediaWidth: Int,
+                mediaHeight: Int,
                 clientTempId: String,
                 token: String
             ) async throws -> Message {
@@ -610,7 +620,11 @@ struct ChatViewModelCacheTests {
         let metaStore = ConversationMetaStore(modelContainer: container)
 
         let upload = MockUploadRepo()
-        upload.uploadResult = "/uploads/messages/3-2.jpg"
+        upload.uploadResult = UploadedMessageImage(
+            mediaUrl: "/uploads/messages/3-2.jpg",
+            mediaWidth: 1600,
+            mediaHeight: 1200
+        )
         let messages = MockMessageRepo()
         messages.sendImageResult = .success(
             Message(

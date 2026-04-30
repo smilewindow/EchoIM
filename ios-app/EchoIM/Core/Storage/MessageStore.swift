@@ -26,6 +26,8 @@ actor MessageStore {
                     body: message.body,
                     messageType: message.messageType,
                     mediaUrl: message.mediaUrl,
+                    mediaWidth: message.mediaWidth,
+                    mediaHeight: message.mediaHeight,
                     createdAt: message.createdAt
                 )
             )

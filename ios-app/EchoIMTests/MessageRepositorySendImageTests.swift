@@ -38,6 +38,8 @@ struct MessageRepositorySendImageTests {
         let result = try await repo.sendImage(
             recipientId: 9,
             mediaUrl: "/uploads/messages/3-1745800000000.jpg",
+            mediaWidth: 1600,
+            mediaHeight: 900,
             clientTempId: "tmp-img-1",
             token: "tok"
         )
@@ -56,6 +58,8 @@ struct MessageRepositorySendImageTests {
         let parsed = try JSONSerialization.jsonObject(with: bodyData) as? [String: Any]
         #expect(parsed?["recipient_id"] as? Int == 9)
         #expect(parsed?["media_url"] as? String == "/uploads/messages/3-1745800000000.jpg")
+        #expect(parsed?["media_width"] as? Int == 1600)
+        #expect(parsed?["media_height"] as? Int == 900)
         #expect(parsed?["message_type"] as? String == "image")
         #expect(parsed?["client_temp_id"] as? String == "tmp-img-1")
         #expect(parsed?["body"] == nil, "image 消息不应带 body 字段")
@@ -81,6 +85,8 @@ struct MessageRepositorySendImageTests {
             _ = try await repo.sendImage(
                 recipientId: 9,
                 mediaUrl: "/uploads/messages/3-1745800000000.jpg",
+                mediaWidth: 1600,
+                mediaHeight: 900,
                 clientTempId: "tmp",
                 token: "tok"
             )
@@ -110,6 +116,8 @@ struct MessageRepositorySendImageTests {
             _ = try await repo.sendImage(
                 recipientId: 9,
                 mediaUrl: "/wrongprefix/abc.jpg",
+                mediaWidth: 1600,
+                mediaHeight: 900,
                 clientTempId: "tmp",
                 token: "tok"
             )

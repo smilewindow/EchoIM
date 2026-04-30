@@ -1,9 +1,17 @@
 import Foundation
 
+/// 服务端 message-image 上传响应。width/height 是 sharp 压缩后的真实像素，
+/// 客户端本地 ImageCompressor 算出的可能略有差异（向下取整等），以服务端为准。
+struct UploadedMessageImage: Sendable, Equatable {
+    let mediaUrl: String
+    let mediaWidth: Int
+    let mediaHeight: Int
+}
+
 protocol UploadRepository {
-    /// 上传已压缩的消息图片 JPEG，返回服务端分配的 media_url。
-    /// 调用方必须原样传给发消息接口，客户端不要自行拼路径。
-    func uploadMessageImage(data: Data, token: String) async throws -> String
+    /// 上传已压缩的消息图片 JPEG，返回服务端分配的 media_url + 真实像素尺寸。
+    /// 调用方必须原样传给发消息接口，客户端不要自行拼路径或自行测尺寸。
+    func uploadMessageImage(data: Data, token: String) async throws -> UploadedMessageImage
     /// P7：上传已压缩的头像 JPEG，返回服务端写库的 avatar_url。
     /// 服务端在响应内已 UPDATE users.avatar_url（不变式 1）；客户端调用方应再调
     /// AppContainer.refreshCurrentUser() 拿完整 user 来同步本地 currentUser（不变式 4）。
@@ -12,6 +20,8 @@ protocol UploadRepository {
 
 private struct UploadMessageImageResponse: Decodable {
     let mediaUrl: String
+    let mediaWidth: Int
+    let mediaHeight: Int
 }
 
 private struct UploadAvatarResponse: Decodable {
@@ -26,7 +36,7 @@ final class UploadRepositoryImpl: UploadRepository {
         self.api = api
     }
 
-    func uploadMessageImage(data: Data, token: String) async throws -> String {
+    func uploadMessageImage(data: Data, token: String) async throws -> UploadedMessageImage {
         let boundary = "Boundary-\(UUID().uuidString)"
         let body = Self.makeMultipartBody(
             fieldName: "file",
@@ -42,7 +52,11 @@ final class UploadRepositoryImpl: UploadRepository {
             body: body,
             token: token
         )
-        return response.mediaUrl
+        return UploadedMessageImage(
+            mediaUrl: response.mediaUrl,
+            mediaWidth: response.mediaWidth,
+            mediaHeight: response.mediaHeight
+        )
     }
 
     func uploadAvatar(data: Data, token: String) async throws -> String {

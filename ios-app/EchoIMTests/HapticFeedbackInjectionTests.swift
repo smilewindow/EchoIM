@@ -49,6 +49,8 @@ struct HapticFeedbackInjectionTests {
         func sendImage(
             recipientId: Int,
             mediaUrl: String,
+            mediaWidth: Int,
+            mediaHeight: Int,
             clientTempId: String,
             token: String
         ) async throws -> Message {
@@ -59,8 +61,8 @@ struct HapticFeedbackInjectionTests {
     }
 
     final class UploadRepo: UploadRepository {
-        func uploadMessageImage(data: Data, token: String) async throws -> String {
-            "/uploads/messages/test.jpg"
+        func uploadMessageImage(data: Data, token: String) async throws -> UploadedMessageImage {
+            UploadedMessageImage(mediaUrl: "/uploads/messages/test.jpg", mediaWidth: 100, mediaHeight: 100)
         }
 
         func uploadAvatar(data: Data, token: String) async throws -> String {

@@ -284,6 +284,7 @@ final class ChatViewModel {
         guard let uploadRepo else { return }
 
         let tempId = makeTempId()
+        // 乐观气泡先用本地压缩尺寸占位；REST 201 回来后会替换为服务端尺寸（一般等同）。
         let optimistic = Message(
             id: -Int.random(in: 1...Int.max),
             conversationId: conversationId ?? -1,
@@ -291,6 +292,8 @@ final class ChatViewModel {
             body: nil,
             messageType: "image",
             mediaUrl: nil,
+            mediaWidth: width,
+            mediaHeight: height,
             createdAt: Date(),
             clientTempId: tempId
         )
@@ -350,13 +353,17 @@ final class ChatViewModel {
         token: String,
         uploadRepo: UploadRepository
     ) async {
-        let mediaURL: String
-        if case .uploaded(let cached) = imageSendStages[tempId] {
-            mediaURL = cached
+        let uploaded: UploadedMessageImage
+        if case .uploaded(let url, let width, let height) = imageSendStages[tempId] {
+            uploaded = UploadedMessageImage(mediaUrl: url, mediaWidth: width, mediaHeight: height)
         } else {
             do {
-                mediaURL = try await uploadRepo.uploadMessageImage(data: data, token: token)
-                imageSendStages[tempId] = .uploaded(mediaURL: mediaURL)
+                uploaded = try await uploadRepo.uploadMessageImage(data: data, token: token)
+                imageSendStages[tempId] = .uploaded(
+                    mediaURL: uploaded.mediaUrl,
+                    mediaWidth: uploaded.mediaWidth,
+                    mediaHeight: uploaded.mediaHeight
+                )
             } catch {
                 markFailed(tempId: tempId, error: error)
                 return
@@ -366,7 +373,9 @@ final class ChatViewModel {
         do {
             let result = try await messageRepo.sendImage(
                 recipientId: peer.id,
-                mediaUrl: mediaURL,
+                mediaUrl: uploaded.mediaUrl,
+                mediaWidth: uploaded.mediaWidth,
+                mediaHeight: uploaded.mediaHeight,
                 clientTempId: tempId,
                 token: token
             )

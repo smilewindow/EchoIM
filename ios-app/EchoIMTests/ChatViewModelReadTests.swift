@@ -30,6 +30,8 @@ struct ChatViewModelReadTests {
         func sendImage(
             recipientId: Int,
             mediaUrl: String,
+            mediaWidth: Int,
+            mediaHeight: Int,
             clientTempId: String,
             token: String
         ) async throws -> Message {

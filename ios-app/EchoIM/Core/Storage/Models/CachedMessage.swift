@@ -11,6 +11,10 @@ final class CachedMessage {
     var body: String?
     var messageType: String
     var mediaUrl: String?
+    /// 服务端返回的图片像素尺寸；非 image 消息或老消息为 nil。
+    /// SwiftData 自动 schema 演进：新增可选字段对老库读出 nil，不需要手写 migration。
+    var mediaWidth: Int?
+    var mediaHeight: Int?
     var createdAt: Date
 
     init(
@@ -20,6 +24,8 @@ final class CachedMessage {
         body: String?,
         messageType: String,
         mediaUrl: String?,
+        mediaWidth: Int?,
+        mediaHeight: Int?,
         createdAt: Date
     ) {
         self.id = id
@@ -28,6 +34,8 @@ final class CachedMessage {
         self.body = body
         self.messageType = messageType
         self.mediaUrl = mediaUrl
+        self.mediaWidth = mediaWidth
+        self.mediaHeight = mediaHeight
         self.createdAt = createdAt
     }
 
@@ -40,6 +48,8 @@ final class CachedMessage {
             body: body,
             messageType: messageType,
             mediaUrl: mediaUrl,
+            mediaWidth: mediaWidth,
+            mediaHeight: mediaHeight,
             createdAt: createdAt,
             clientTempId: nil
         )

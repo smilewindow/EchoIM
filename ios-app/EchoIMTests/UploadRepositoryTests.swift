@@ -17,17 +17,19 @@ struct UploadRepositoryTests {
                     httpVersion: nil,
                     headerFields: nil
                 )!,
-                "{\"media_url\":\"/uploads/messages/7-1745800000000.jpg\"}".data(using: .utf8)!
+                "{\"media_url\":\"/uploads/messages/7-1745800000000.jpg\",\"media_width\":1600,\"media_height\":900}".data(using: .utf8)!
             )
         }
         let api = APIClient(session: URLSession(configuration: config))
         let repo = UploadRepositoryImpl(api: api)
 
-        let url = try await repo.uploadMessageImage(
+        let uploaded = try await repo.uploadMessageImage(
             data: Data([0xFF, 0xD8, 0xFF, 0xE0]),
             token: "tok"
         )
-        #expect(url == "/uploads/messages/7-1745800000000.jpg")
+        #expect(uploaded.mediaUrl == "/uploads/messages/7-1745800000000.jpg")
+        #expect(uploaded.mediaWidth == 1600)
+        #expect(uploaded.mediaHeight == 900)
 
         let request = try #require(capturedRequest)
         #expect(request.httpMethod == "POST")
@@ -107,7 +109,7 @@ struct UploadRepositoryTests {
                     httpVersion: nil,
                     headerFields: nil
                 )!,
-                "{\"media_url\":\"/uploads/messages/1-1.jpg\"}".data(using: .utf8)!
+                "{\"media_url\":\"/uploads/messages/1-1.jpg\",\"media_width\":10,\"media_height\":10}".data(using: .utf8)!
             )
         }
         let api = APIClient(session: URLSession(configuration: config))

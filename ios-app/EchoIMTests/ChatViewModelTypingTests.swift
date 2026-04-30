@@ -134,7 +134,7 @@ private struct TypingNoopMessageRepository: MessageRepository {
     func sendText(recipientId: Int, body: String, clientTempId: String, token: String) async throws -> Message {
         throw URLError(.badServerResponse)
     }
-    func sendImage(recipientId: Int, mediaUrl: String, clientTempId: String, token: String) async throws -> Message {
+    func sendImage(recipientId: Int, mediaUrl: String, mediaWidth: Int, mediaHeight: Int, clientTempId: String, token: String) async throws -> Message {
         throw URLError(.badServerResponse)
     }
     func markRead(conversationId: Int, lastReadMessageId: Int, token: String) async throws {}

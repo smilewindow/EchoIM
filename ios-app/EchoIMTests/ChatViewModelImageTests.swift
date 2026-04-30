@@ -8,7 +8,11 @@ struct ChatViewModelImageTests {
     @Test
     func sendImageHappyPathInsertsPendingThenConfirms() async throws {
         let upload = MockUploadRepo()
-        upload.uploadResult = "/uploads/messages/3-1745800000000.jpg"
+        upload.uploadResult = UploadedMessageImage(
+            mediaUrl: "/uploads/messages/3-1745800000000.jpg",
+            mediaWidth: 1600,
+            mediaHeight: 1200
+        )
 
         let messages = MockMessageRepo()
         messages.sendImageResult = .success(
@@ -110,7 +114,11 @@ struct ChatViewModelImageTests {
     @Test
     func sendImageMarksFailedWhenSendFailsButKeepsUploadedStage() async throws {
         let upload = MockUploadRepo()
-        upload.uploadResult = "/uploads/messages/3-1745800000000.jpg"
+        upload.uploadResult = UploadedMessageImage(
+            mediaUrl: "/uploads/messages/3-1745800000000.jpg",
+            mediaWidth: 1600,
+            mediaHeight: 1200
+        )
         let messages = MockMessageRepo()
         messages.sendImageResult = .failure(APIError.network(URLError(.timedOut)))
 
@@ -130,7 +138,7 @@ struct ChatViewModelImageTests {
         } else {
             Issue.record("expected .failed")
         }
-        #expect(vm.imageSendStages[local.localId] == .uploaded(mediaURL: "/uploads/messages/3-1745800000000.jpg"))
+        #expect(vm.imageSendStages[local.localId] == .uploaded(mediaURL: "/uploads/messages/3-1745800000000.jpg", mediaWidth: 1600, mediaHeight: 1200))
         #expect(upload.uploadCalls == 1)
         #expect(messages.sendImageCalls == 1)
     }
@@ -138,7 +146,11 @@ struct ChatViewModelImageTests {
     @Test
     func retrySkipsUploadWhenStageIsUploaded() async throws {
         let upload = MockUploadRepo()
-        upload.uploadResult = "/uploads/messages/3-1745800000000.jpg"
+        upload.uploadResult = UploadedMessageImage(
+            mediaUrl: "/uploads/messages/3-1745800000000.jpg",
+            mediaWidth: 1600,
+            mediaHeight: 1200
+        )
 
         let messages = MockMessageRepo()
         messages.sendImageResult = .failure(APIError.network(URLError(.timedOut)))
@@ -197,7 +209,11 @@ struct ChatViewModelImageTests {
         let localId = try #require(vm.messages.first?.localId)
 
         upload.uploadError = nil
-        upload.uploadResult = "/uploads/messages/3-1745800000001.jpg"
+        upload.uploadResult = UploadedMessageImage(
+            mediaUrl: "/uploads/messages/3-1745800000001.jpg",
+            mediaWidth: 1600,
+            mediaHeight: 1200
+        )
         messages.sendImageResult = .success(
             Message(
                 id: 301,

@@ -45,6 +45,8 @@ struct ChatViewModelWSTests {
         func sendImage(
             recipientId: Int,
             mediaUrl: String,
+            mediaWidth: Int,
+            mediaHeight: Int,
             clientTempId: String,
             token: String
         ) async throws -> Message {
@@ -270,7 +272,11 @@ struct ChatViewModelWSTests {
     @Test
     func wsEchoFromSelfMergesIntoPendingImageBubblePreservingLocalData() async throws {
         let upload = MockUploadRepo()
-        upload.uploadResult = "/uploads/messages/3-1.jpg"
+        upload.uploadResult = UploadedMessageImage(
+            mediaUrl: "/uploads/messages/3-1.jpg",
+            mediaWidth: 1600,
+            mediaHeight: 1200
+        )
         let messages = MockMessageRepo()
         messages.sendImageResult = .success(
             Message(

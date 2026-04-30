@@ -15,6 +15,7 @@ struct ImageMessageBubble: View {
 
             VStack(alignment: isSelf ? .trailing : .leading, spacing: 4) {
                 imageContent
+                    .modifier(AspectRatioLockIfKnown(ratio: serverAspectRatio))
                     .frame(maxWidth: 220)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
                     .overlay(alignment: .center) {
@@ -50,26 +51,26 @@ struct ImageMessageBubble: View {
         if let data = message.localImageData, let image = UIImage(data: data) {
             Image(uiImage: image)
                 .resizable()
-                .scaledToFit()
+                .modifier(ScaleToFitIfRatioUnknown(ratio: serverAspectRatio))
         } else if let url = remoteURL {
             LazyImage(url: url) { state in
                 if let image = state.image {
                     image
                         .resizable()
-                        .scaledToFit()
+                        .modifier(ScaleToFitIfRatioUnknown(ratio: serverAspectRatio))
                 } else if state.error != nil {
-                    placeholder {
-                        Image(systemName: "photo.badge.exclamationmark")
-                    }
+                    errorPlaceholder
                 } else {
                     placeholder {
                         ProgressView()
+                            .tint(.secondary)
                     }
                 }
             }
         } else {
             placeholder {
                 Image(systemName: "photo")
+                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -78,15 +79,64 @@ struct ImageMessageBubble: View {
         Endpoints.absolute(message.message.mediaUrl)
     }
 
+    private var errorPlaceholder: some View {
+        placeholder {
+            VStack(spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(.orange)
+                Text("图片加载失败")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    /// 服务端发图时记录的像素宽高比；老消息没有这两列时返回 nil，由调用方退回原 scaledToFit 行为。
+    private var serverAspectRatio: CGFloat? {
+        if let width = message.message.mediaWidth, let height = message.message.mediaHeight,
+           width > 0, height > 0 {
+            return CGFloat(width) / CGFloat(height)
+        }
+        return nil
+    }
+
     @ViewBuilder
     private func placeholder<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        // 服务端暂不返回宽高；用常见照片比例占位，远端图加载后再按真实比例重排。
+        // 已知真实比例时，占位骨架也按最终比例铺开；未知时再回退到 4:3。
         ZStack {
             Color(uiColor: .secondarySystemBackground)
             content()
-                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .aspectRatio(4.0 / 3.0, contentMode: .fit)
+        .aspectRatio(serverAspectRatio ?? (4.0 / 3.0), contentMode: .fit)
+    }
+
+    /// 已知比例时锁定外层尺寸，让 ScrollView 在图片解码前就占用最终高度，消除 reflow。
+    /// 比例缺失（老消息）时不施加，外层尺寸由内层 scaledToFit 后的图像决定。
+    private struct AspectRatioLockIfKnown: ViewModifier {
+        let ratio: CGFloat?
+
+        func body(content: Content) -> some View {
+            if let ratio {
+                content.aspectRatio(ratio, contentMode: .fit)
+            } else {
+                content
+            }
+        }
+    }
+
+    /// 老消息没尺寸时仍按 scaledToFit，避免被 .resizable() 拉伸；新消息由 AspectRatioLockIfKnown 控制。
+    private struct ScaleToFitIfRatioUnknown: ViewModifier {
+        let ratio: CGFloat?
+
+        func body(content: Content) -> some View {
+            if ratio == nil {
+                content.scaledToFit()
+            } else {
+                content
+            }
+        }
     }
 
     @ViewBuilder

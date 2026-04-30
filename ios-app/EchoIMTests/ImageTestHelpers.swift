@@ -3,7 +3,11 @@ import Foundation
 
 @MainActor
 final class MockUploadRepo: UploadRepository {
-    var uploadResult: String = "/uploads/messages/3-0.jpg"
+    var uploadResult: UploadedMessageImage = UploadedMessageImage(
+        mediaUrl: "/uploads/messages/3-0.jpg",
+        mediaWidth: 1600,
+        mediaHeight: 1200
+    )
     var uploadError: Error?
     private(set) var uploadCalls = 0
 
@@ -12,7 +16,7 @@ final class MockUploadRepo: UploadRepository {
     var uploadAvatarError: Error?
     private(set) var uploadAvatarCalls = 0
 
-    func uploadMessageImage(data: Data, token: String) async throws -> String {
+    func uploadMessageImage(data: Data, token: String) async throws -> UploadedMessageImage {
         uploadCalls += 1
         if let uploadError {
             throw uploadError
@@ -31,10 +35,10 @@ final class MockUploadRepo: UploadRepository {
 
 @MainActor
 final class SuspendableUploadRepo: UploadRepository {
-    private var continuation: CheckedContinuation<String, Error>?
+    private var continuation: CheckedContinuation<UploadedMessageImage, Error>?
     private var avatarContinuation: CheckedContinuation<String, Error>?
 
-    func uploadMessageImage(data: Data, token: String) async throws -> String {
+    func uploadMessageImage(data: Data, token: String) async throws -> UploadedMessageImage {
         try await withCheckedThrowingContinuation { continuation in
             self.continuation = continuation
         }
@@ -46,8 +50,10 @@ final class SuspendableUploadRepo: UploadRepository {
         }
     }
 
-    func resume(with mediaURL: String) {
-        continuation?.resume(returning: mediaURL)
+    func resume(with mediaURL: String, width: Int = 1600, height: Int = 1200) {
+        continuation?.resume(
+            returning: UploadedMessageImage(mediaUrl: mediaURL, mediaWidth: width, mediaHeight: height)
+        )
         continuation = nil
     }
 
@@ -72,6 +78,8 @@ final class MockMessageRepo: MessageRepository {
     struct SendImagePayload {
         let recipientId: Int
         let mediaUrl: String
+        let mediaWidth: Int
+        let mediaHeight: Int
         let clientTempId: String
     }
 
@@ -104,12 +112,20 @@ final class MockMessageRepo: MessageRepository {
     func sendImage(
         recipientId: Int,
         mediaUrl: String,
+        mediaWidth: Int,
+        mediaHeight: Int,
         clientTempId: String,
         token: String
     ) async throws -> Message {
         sendImageCalls += 1
         sendImagePayloads.append(
-            .init(recipientId: recipientId, mediaUrl: mediaUrl, clientTempId: clientTempId)
+            .init(
+                recipientId: recipientId,
+                mediaUrl: mediaUrl,
+                mediaWidth: mediaWidth,
+                mediaHeight: mediaHeight,
+                clientTempId: clientTempId
+            )
         )
         return try sendImageResult.get()
     }

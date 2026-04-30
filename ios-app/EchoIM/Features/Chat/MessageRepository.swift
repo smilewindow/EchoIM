@@ -21,6 +21,8 @@ protocol MessageRepository {
     func sendImage(
         recipientId: Int,
         mediaUrl: String,
+        mediaWidth: Int,
+        mediaHeight: Int,
         clientTempId: String,
         token: String
     ) async throws -> Message
@@ -42,12 +44,16 @@ private struct SendTextBody: Encodable {
 private struct SendImageBody: Encodable {
     let recipientId: Int
     let mediaUrl: String
+    let mediaWidth: Int
+    let mediaHeight: Int
     let messageType: String
     let clientTempId: String
 
     enum CodingKeys: String, CodingKey {
         case recipientId = "recipient_id"
         case mediaUrl = "media_url"
+        case mediaWidth = "media_width"
+        case mediaHeight = "media_height"
         case messageType = "message_type"
         case clientTempId = "client_temp_id"
     }
@@ -113,6 +119,8 @@ final class MessageRepositoryImpl: MessageRepository {
     func sendImage(
         recipientId: Int,
         mediaUrl: String,
+        mediaWidth: Int,
+        mediaHeight: Int,
         clientTempId: String,
         token: String
     ) async throws -> Message {
@@ -123,6 +131,8 @@ final class MessageRepositoryImpl: MessageRepository {
             body: SendImageBody(
                 recipientId: recipientId,
                 mediaUrl: mediaUrl,
+                mediaWidth: mediaWidth,
+                mediaHeight: mediaHeight,
                 messageType: "image",
                 clientTempId: clientTempId
             )
