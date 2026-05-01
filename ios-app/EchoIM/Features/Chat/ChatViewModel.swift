@@ -52,6 +52,9 @@ final class ChatViewModel {
     private var subscription: WSSubscription?
     private var readySubscription: WSSubscription?
 
+    // MARK: - Load guard
+    private var isLoadingInitial = false
+
     // MARK: - Tempid seq
     private var tempSeq = 0
 
@@ -103,6 +106,10 @@ final class ChatViewModel {
     // MARK: - Load
 
     func load() async {
+        guard !isLoadingInitial else { return }
+        isLoadingInitial = true
+        defer { isLoadingInitial = false }
+
         if conversationId == nil {
             await resolveDraftConversationIfNeeded()
         }
@@ -123,7 +130,7 @@ final class ChatViewModel {
         if messages.isEmpty, let messageStore {
             if let cached = try? await messageStore.loadLatest(conversationId: conversationId, limit: 50),
                !cached.isEmpty {
-                messages = cached.reversed().map(LocalMessage.confirmed)
+                mergeLoadedMessages(cached.reversed().map(LocalMessage.confirmed))
                 phase = .loaded
             }
         }
@@ -138,7 +145,7 @@ final class ChatViewModel {
                     token: token
                 )
                 // 服务端最新在前；聊天窗口内部统一保存为从旧到新的时间序。
-                messages = rows.reversed().map(LocalMessage.confirmed)
+                mergeLoadedMessages(rows.reversed().map(LocalMessage.confirmed))
                 hasMoreOlder = rows.count == 50
                 phase = .loaded
                 await writeThroughAndMeta(rows)
@@ -149,6 +156,21 @@ final class ChatViewModel {
         } else {
             await refetchMissedMessages()
             await markReadIfNeeded()
+        }
+    }
+
+    /// 把批量加载的消息与 await 期间通过 WS 写入 messages 的消息合并，
+    /// 避免全量赋值覆盖掉网络等待期间到达的对方消息。
+    private func mergeLoadedMessages(_ fetched: [LocalMessage]) {
+        let fetchedIds = Set(fetched.map(\.message.id))
+        // WS 在等待期间追加的确认消息（正 id、不在 fetched 集合里）
+        let wsExtras = messages.filter { $0.message.id > 0 && !fetchedIds.contains($0.message.id) }
+        // 仍在发送中或失败的乐观气泡（负 id）始终置于末尾
+        let pending = messages.filter { $0.message.id <= 0 }
+        if wsExtras.isEmpty {
+            messages = fetched + pending
+        } else {
+            messages = (fetched + wsExtras).sorted { $0.message.id < $1.message.id } + pending
         }
     }
 
@@ -393,12 +415,19 @@ final class ChatViewModel {
             conversationId = message.conversationId
         }
 
-        if let index = messages.firstIndex(where: { $0.localId == tempId }) {
-            messages[index] = LocalMessage(
+        let pendingIndex = messages.firstIndex(where: { $0.localId == tempId })
+        if let confirmedIndex = messages.firstIndex(where: { $0.message.id == message.id }) {
+            // 首屏 load 已经把这条 confirmed 混进来时，只需要删掉对应 pending，
+            // 不再覆盖现有 confirmed，避免误伤本地附带状态（如 localImageData）。
+            if let pendingIndex, pendingIndex != confirmedIndex {
+                messages.remove(at: pendingIndex)
+            }
+        } else if let pendingIndex {
+            messages[pendingIndex] = LocalMessage(
                 localId: "id-\(message.id)",
                 message: message,
                 sendState: .confirmed,
-                localImageData: messages[index].localImageData
+                localImageData: messages[pendingIndex].localImageData
             )
         } else if !messages.contains(where: { $0.message.id == message.id }) {
             messages.append(LocalMessage.confirmed(message))

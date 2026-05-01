@@ -3,6 +3,15 @@ import SwiftData
 import Testing
 @testable import EchoIM
 
+private extension MessageStore {
+    /// 测试专用：短暂占住 actor，稳定制造 `loadLatest()` 的等待窗口，
+    /// 让 MainActor 有机会在 cache 读取期间注入 WS 消息。
+    func testBusyWait(nanoseconds: UInt64) {
+        let start = DispatchTime.now().uptimeNanoseconds
+        while DispatchTime.now().uptimeNanoseconds - start < nanoseconds {}
+    }
+}
+
 @Suite
 struct ChatViewModelCacheTests {
     private func makeContainer() throws -> ModelContainer {
@@ -166,6 +175,146 @@ struct ChatViewModelCacheTests {
         await repo.waitUntilStarted()
         #expect(vm.messages.count == 3)
         #expect(vm.messages.map(\.message.id) == [1, 2, 3])
+
+        await repo.release()
+        await loading
+        #expect(vm.phase == .loaded)
+    }
+
+    @MainActor
+    @Test
+    func cacheHitMergePreservesPeerWSMessageArrivingDuringCacheLoad() async throws {
+        let container = try makeContainer()
+        let messageStore = MessageStore(modelContainer: container)
+
+        try await messageStore.append([
+            Message(
+                id: 1,
+                conversationId: 7,
+                senderId: 20,
+                body: "cached-1",
+                messageType: "text",
+                mediaUrl: nil,
+                createdAt: Date(timeIntervalSince1970: 1_700_000_001),
+                clientTempId: nil
+            )
+        ])
+
+        actor BlockingRepo: MessageRepository {
+            private var started = false
+            private var startWaiters: [CheckedContinuation<Void, Never>] = []
+            private var releaseWaiter: CheckedContinuation<Void, Never>?
+            private var released = false
+
+            func list(
+                conversationId: Int,
+                cursor: MessageCursor?,
+                limit: Int?,
+                token: String
+            ) async throws -> [Message] {
+                started = true
+                startWaiters.forEach { $0.resume() }
+                startWaiters.removeAll()
+
+                await withCheckedContinuation { continuation in
+                    if released {
+                        continuation.resume()
+                    } else {
+                        releaseWaiter = continuation
+                    }
+                }
+                return []
+            }
+
+            func sendText(
+                recipientId: Int,
+                body: String,
+                clientTempId: String,
+                token: String
+            ) async throws -> Message {
+                fatalError()
+            }
+
+            func sendImage(
+                recipientId: Int,
+                mediaUrl: String,
+                mediaWidth: Int,
+                mediaHeight: Int,
+                clientTempId: String,
+                token: String
+            ) async throws -> Message {
+                fatalError()
+            }
+
+            func markRead(conversationId: Int, lastReadMessageId: Int, token: String) async throws {}
+
+            func waitUntilStarted() async {
+                if started {
+                    return
+                }
+
+                await withCheckedContinuation { continuation in
+                    startWaiters.append(continuation)
+                }
+            }
+
+            func release() {
+                released = true
+                releaseWaiter?.resume()
+                releaseWaiter = nil
+            }
+        }
+
+        let repo = BlockingRepo()
+        let vm = ChatViewModel(
+            route: .conversation(
+                Conversation(
+                    id: 7,
+                    createdAt: Date(),
+                    peer: makePeer(),
+                    lastMessageBody: nil,
+                    lastMessageType: nil,
+                    lastMessageSenderId: nil,
+                    lastMessageAt: nil,
+                    lastReadMessageId: nil,
+                    unreadCount: 0
+                )
+            ),
+            currentUserId: 10,
+            messageRepo: repo,
+            wsClient: nil,
+            conversationRepository: nil,
+            messageStore: messageStore,
+            metaStore: nil,
+            tokenProvider: { "t" }
+        )
+
+        let cacheBlocker = Task { await messageStore.testBusyWait(nanoseconds: 50_000_000) }
+        async let loading: Void = vm.load()
+
+        // `load()` 此时卡在 `await messageStore.loadLatest(...)` 上，MainActor 空出来后
+        // 注入一条对方 WS 消息，验证 cache 分支的 mergeLoadedMessages 也能保住它。
+        await Task.yield()
+        vm.handleWSEvent(
+            .messageNew(
+                Message(
+                    id: 2,
+                    conversationId: 7,
+                    senderId: 20,
+                    body: "peer-live",
+                    messageType: "text",
+                    mediaUrl: nil,
+                    createdAt: Date(timeIntervalSince1970: 1_700_000_002),
+                    clientTempId: nil
+                )
+            )
+        )
+        #expect(vm.messages.count == 1, "WS 消息应当能先进入列表")
+
+        await cacheBlocker.value
+        await repo.waitUntilStarted()
+
+        #expect(vm.messages.map(\.message.id) == [1, 2], "cache 命中分支也应保留等待期间到达的 WS 消息")
 
         await repo.release()
         await loading
