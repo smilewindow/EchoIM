@@ -25,6 +25,18 @@ final class AppContainer {
         self.tokenStore = tokenStore ?? KeychainTokenStore()
         self.apiClient = apiClient ?? APIClient()
         self.resetKeychainOnLaunch = resetKeychainOnLaunch
+
+        configureImagePipelineCache()
+    }
+
+    // MARK: - Configuration
+
+    private func configureImagePipelineCache() {
+        let config = ImagePipeline.Configuration.withDataCache(
+            name: "com.echoim.MessageImages",
+            sizeLimit: 1024 * 1024 * 1024
+        )
+        ImagePipeline.shared = ImagePipeline(configuration: config)
     }
 
     // MARK: - Stateless repositories（不绑定 session）
