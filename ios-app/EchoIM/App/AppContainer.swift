@@ -125,7 +125,8 @@ final class AppContainer {
     func tearDownSession() async {
         let userId = session?.userId
 
-        ImagePipeline.shared.cache.removeAll()
+        // 仅清内存缓存，磁盘缓存保留，以便再次登录或服务端不可用时仍能离线展示历史图片。
+        ImagePipeline.shared.cache.removeAll(caches: .memory)
 
         session?.disconnectWebSocket(reason: .userInitiated)
         session = nil
