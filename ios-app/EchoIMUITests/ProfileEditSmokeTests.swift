@@ -19,6 +19,12 @@ final class ProfileEditSmokeTests: XCTestCase {
         XCTAssertTrue(entry.waitForExistence(timeout: 5), "Me 页应显示编辑资料入口")
         entry.tap()
 
+        // 二级编辑页应隐藏底部 Tab，返回“我”页时系统会自动恢复。
+        XCTAssertTrue(
+            app.tabBars.firstMatch.waitForNonExistence(timeout: 3),
+            "ProfileEditView 二级页面不应显示底部 Tab"
+        )
+
         // displayName 输入框 + 保存按钮 + 头像 PhotosPicker 触发器都应该可见
         let displayNameField = app.descendants(matching: .any)["profileEditDisplayName"]
         XCTAssertTrue(displayNameField.waitForExistence(timeout: 5))
@@ -28,6 +34,13 @@ final class ProfileEditSmokeTests: XCTestCase {
 
         let pickAvatar = app.descendants(matching: .any)["profileEditPickAvatar"]
         XCTAssertTrue(pickAvatar.waitForExistence(timeout: 5))
+
+        app.navigationBars.buttons.firstMatch.tap()
+
+        XCTAssertTrue(
+            app.tabBars.firstMatch.waitForExistence(timeout: 3),
+            "返回「我」页后底部 Tab Bar 应恢复可见"
+        )
     }
 
     // MARK: - Helpers

@@ -34,6 +34,12 @@ final class ChatSmokeTests: XCTestCase {
         XCTAssertTrue(firstRow.waitForExistence(timeout: 5))
         firstRow.tap()
 
+        // 二级聊天页应让底部 Tab 消失，给消息列表和输入框留完整空间。
+        XCTAssertTrue(
+            app.tabBars.firstMatch.waitForNonExistence(timeout: 3),
+            "ChatView 二级页面不应显示底部 Tab"
+        )
+
         let input = app.descendants(matching: .any)["chatInput"]
         XCTAssertTrue(input.waitForExistence(timeout: 5))
         input.tap()
@@ -43,6 +49,11 @@ final class ChatSmokeTests: XCTestCase {
         app.buttons["chatSend"].tap()
 
         app.navigationBars.buttons.firstMatch.tap()
+
+        XCTAssertTrue(
+            app.tabBars.firstMatch.waitForExistence(timeout: 3),
+            "返回会话列表后底部 Tab Bar 应恢复可见"
+        )
 
         let predicate = NSPredicate(format: "label CONTAINS[c] %@", message)
         let previewCell = conversationsList.staticTexts.containing(predicate).firstMatch

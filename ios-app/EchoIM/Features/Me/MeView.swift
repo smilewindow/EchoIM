@@ -8,7 +8,7 @@ struct MeView: View {
     @State private var isClearing = false
 
     var body: some View {
-        NavigationStack {
+        Group {
             if let user = container.currentUser {
                 Form {
                     Section {
@@ -76,7 +76,6 @@ struct MeView: View {
                         .accessibilityIdentifier("homeLogout")
                     }
                 }
-                .navigationTitle("我")
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)

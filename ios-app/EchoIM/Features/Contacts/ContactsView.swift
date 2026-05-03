@@ -3,37 +3,23 @@ import SwiftUI
 struct ContactsView: View {
     @State private var vm: ContactsViewModel
     private let userRepo: UserRepository
-    private let messageRepo: MessageRepository
-    private let conversationRepo: ConversationRepository
-    private let messageStore: MessageStore?
-    private let metaStore: ConversationMetaStore?
-    private let wsClient: WebSocketClient?
-    private let uploadRepo: UploadRepository
-    private let currentUserId: Int
     private let tokenProvider: () -> String?
+    private let onPendingIncomingCountChange: (Int) -> Void
 
-    // P6：presence / typing 透传到 FriendsListView 和 ChatView
+    // ChatView 由 MainTabView 统一组装；联系人页只需要在线状态渲染好友列表。
     private let presenceStore: PresenceStore?
-    private let typingStore: TypingStore?
-    private let typingSender: @MainActor (Int, Bool) -> Void
 
-    @State private var showRequests = false
-    @State private var showSearch = false
+    @Binding private var showRequests: Bool
+    @Binding private var showSearch: Bool
 
     init(
         friendRepo: FriendRepository,
         requestRepo: FriendRequestRepository,
         userRepo: UserRepository,
-        messageRepo: MessageRepository,
-        conversationRepo: ConversationRepository,
-        messageStore: MessageStore?,
-        metaStore: ConversationMetaStore?,
-        wsClient: WebSocketClient?,
-        uploadRepo: UploadRepository,
-        currentUserId: Int,
+        showRequests: Binding<Bool>,
+        showSearch: Binding<Bool>,
+        onPendingIncomingCountChange: @escaping (Int) -> Void = { _ in },
         presenceStore: PresenceStore? = nil,
-        typingStore: TypingStore? = nil,
-        typingSender: @escaping @MainActor (Int, Bool) -> Void = { _, _ in },
         tokenProvider: @escaping () -> String?
     ) {
         _vm = State(
@@ -44,101 +30,50 @@ struct ContactsView: View {
             )
         )
         self.userRepo = userRepo
-        self.messageRepo = messageRepo
-        self.conversationRepo = conversationRepo
-        self.messageStore = messageStore
-        self.metaStore = metaStore
-        self.wsClient = wsClient
-        self.uploadRepo = uploadRepo
-        self.currentUserId = currentUserId
         self.presenceStore = presenceStore
-        self.typingStore = typingStore
-        self.typingSender = typingSender
         self.tokenProvider = tokenProvider
+        self.onPendingIncomingCountChange = onPendingIncomingCountChange
+        self._showRequests = showRequests
+        self._showSearch = showSearch
     }
 
     var body: some View {
-        NavigationStack {
-            FriendsListView(friends: vm.friends, presenceStore: presenceStore)
-                .navigationTitle("联系人")
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button {
-                            showRequests = true
-                        } label: {
-                            ZStack(alignment: .topTrailing) {
-                                Image(systemName: "envelope")
-
-                                if vm.pendingIncomingCount > 0 {
-                                    Text("\(vm.pendingIncomingCount)")
-                                        .font(.caption2.weight(.bold))
-                                        .foregroundStyle(.white)
-                                        .padding(.horizontal, 4)
-                                        .padding(.vertical, 1)
-                                        .background(Color.red, in: Capsule())
-                                        .offset(x: 10, y: -6)
-                                }
-                            }
-                        }
-                        .accessibilityIdentifier("openFriendRequests")
-                    }
-
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            showSearch = true
-                        } label: {
-                            Image(systemName: "plus")
-                        }
-                        .accessibilityIdentifier("openUserSearch")
-                    }
+        FriendsListView(friends: vm.friends, presenceStore: presenceStore)
+            .task {
+                await vm.refresh()
+                reportPendingIncomingCount()
+            }
+            .refreshable {
+                await vm.refresh()
+                reportPendingIncomingCount()
+            }
+            .onChange(of: vm.pendingIncomingCount) { _, newValue in
+                onPendingIncomingCountChange(newValue)
+            }
+            .sheet(isPresented: $showRequests, onDismiss: refreshAfterSheet) {
+                FriendRequestsSheetView(vm: vm) {
+                    showRequests = false
                 }
-                .task {
-                    await vm.refresh()
+            }
+            .sheet(isPresented: $showSearch, onDismiss: refreshAfterSheet) {
+                UserSearchSheetView(
+                    vm: vm,
+                    userRepo: userRepo,
+                    tokenProvider: tokenProvider
+                ) {
+                    showSearch = false
                 }
-                .refreshable {
-                    await vm.refresh()
-                }
-                .navigationDestination(for: ChatRoute.self) { route in
-                    ChatView(
-                        route: route,
-                        currentUserId: currentUserId,
-                        messageRepo: messageRepo,
-                        messageStore: messageStore,
-                        metaStore: metaStore,
-                        wsClient: wsClient,
-                        conversationRepository: conversationRepo,
-                        uploadRepo: uploadRepo,
-                        presenceStore: presenceStore,
-                        typingStore: typingStore,
-                        typingSender: typingSender,
-                        tokenProvider: {
-                            tokenProvider()
-                        }
-                    )
-                }
-                .navigationDestination(for: UserProfile.self) { profile in
-                    UserDetailView(profile: profile, presenceStore: presenceStore)
-                }
-                .sheet(isPresented: $showRequests, onDismiss: refreshAfterSheet) {
-                    FriendRequestsSheetView(vm: vm) {
-                        showRequests = false
-                    }
-                }
-                .sheet(isPresented: $showSearch, onDismiss: refreshAfterSheet) {
-                    UserSearchSheetView(
-                        vm: vm,
-                        userRepo: userRepo,
-                        tokenProvider: tokenProvider
-                    ) {
-                        showSearch = false
-                    }
-                }
-        }
+            }
     }
 
     private func refreshAfterSheet() {
         Task {
             await vm.refresh()
+            reportPendingIncomingCount()
         }
+    }
+
+    private func reportPendingIncomingCount() {
+        onPendingIncomingCountChange(vm.pendingIncomingCount)
     }
 }

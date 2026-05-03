@@ -2,32 +2,17 @@ import SwiftUI
 
 struct ConversationsListView: View {
     @State private var vm: ConversationsListViewModel
-    private let conversationRepo: ConversationRepository
-    private let messageRepo: MessageRepository
-    private let metaStore: ConversationMetaStore?
-    private let messageStore: MessageStore?
-    private let wsClient: WebSocketClient?
-    private let uploadRepo: UploadRepository
-    private let currentUserId: Int
-    private let tokenProvider: @MainActor () -> String?
 
-    // P6：presence / typing 透传到 ConversationRow 和 ChatView
+    // ChatView 由 MainTabView 统一组装；列表页只需要在线状态渲染行头像。
     private let presenceStore: PresenceStore?
-    private let typingStore: TypingStore?
-    private let typingSender: @MainActor (Int, Bool) -> Void
 
     /// VM 由列表页自己持有，避免 MainTabView 因容器状态变化重算时重复创建。
     init(
         repository: ConversationRepository,
-        messageRepo: MessageRepository,
         metaStore: ConversationMetaStore?,
-        messageStore: MessageStore?,
         wsClient: WebSocketClient?,
-        uploadRepo: UploadRepository,
         currentUserId: Int,
         presenceStore: PresenceStore? = nil,
-        typingStore: TypingStore? = nil,
-        typingSender: @escaping @MainActor (Int, Bool) -> Void = { _, _ in },
         tokenProvider: @escaping @MainActor () -> String?
     ) {
         _vm = State(
@@ -39,40 +24,21 @@ struct ConversationsListView: View {
                 wsClient: wsClient
             )
         )
-        self.conversationRepo = repository
-        self.messageRepo = messageRepo
-        self.metaStore = metaStore
-        self.messageStore = messageStore
-        self.wsClient = wsClient
-        self.uploadRepo = uploadRepo
-        self.currentUserId = currentUserId
         self.presenceStore = presenceStore
-        self.typingStore = typingStore
-        self.typingSender = typingSender
-        self.tokenProvider = tokenProvider
     }
 
     var body: some View {
-        NavigationStack {
-            content
-                .navigationTitle("聊天")
-                .refreshable {
-                    await vm.refresh()
-                }
-                .task {
-                    vm.attachWSSubscription()
-                    await vm.load()
-                }
-                .onDisappear {
-                    vm.detachWSSubscription()
-                }
-                .navigationDestination(for: ChatRoute.self) { route in
-                    destination(for: route)
-                }
-                .navigationDestination(for: UserProfile.self) { profile in
-                    UserDetailView(profile: profile, presenceStore: presenceStore)
-                }
-        }
+        content
+            .refreshable {
+                await vm.refresh()
+            }
+            .task {
+                vm.attachWSSubscription()
+                await vm.load()
+            }
+            .onDisappear {
+                vm.detachWSSubscription()
+            }
     }
 
     @ViewBuilder
@@ -135,25 +101,6 @@ struct ConversationsListView: View {
                 await vm.load()
             }
         }
-    }
-
-    private func destination(for route: ChatRoute) -> some View {
-        ChatView(
-            route: route,
-            currentUserId: currentUserId,
-            messageRepo: messageRepo,
-            messageStore: messageStore,
-            metaStore: metaStore,
-            wsClient: wsClient,
-            conversationRepository: conversationRepo,
-            uploadRepo: uploadRepo,
-            presenceStore: presenceStore,
-            typingStore: typingStore,
-            typingSender: typingSender,
-            tokenProvider: {
-                tokenProvider()
-            }
-        )
     }
 }
 
