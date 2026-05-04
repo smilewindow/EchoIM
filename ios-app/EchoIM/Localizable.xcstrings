@@ -1,6 +1,9 @@
 {
   "sourceLanguage" : "zh-Hans",
   "strings" : {
+    "" : {
+
+    },
     "[图片]" : {
       "localizations" : {
         "en" : {
@@ -31,6 +34,9 @@
         }
       }
     },
+    "EchoIM" : {
+
+    },
     "JPEG / PNG / HEIC，自动压缩为 400×400" : {
       "localizations" : {
         "en" : {
@@ -41,7 +47,11 @@
         }
       }
     },
+    "Real-time messaging" : {
+
+    },
     "you@example.com" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -71,7 +81,11 @@
         }
       }
     },
+    "从「联系人」里选一个好友\n开始聊天" : {
+
+    },
     "从「联系人」里选一个好友开始聊天" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -121,6 +135,12 @@
         }
       }
     },
+    "其他" : {
+
+    },
+    "创建账号" : {
+
+    },
     "加载失败" : {
       "localizations" : {
         "en" : {
@@ -150,6 +170,9 @@
           }
         }
       }
+    },
+    "发消息" : {
+
     },
     "发送" : {
       "localizations" : {
@@ -233,6 +256,9 @@
           }
         }
       }
+    },
+    "在线 (%lld)" : {
+
     },
     "头像" : {
       "localizations" : {
@@ -454,6 +480,9 @@
         }
       }
     },
+    "欢迎回来" : {
+
+    },
     "正在输入..." : {
       "localizations" : {
         "en" : {
@@ -475,6 +504,7 @@
       }
     },
     "没有账号？去注册" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -483,6 +513,9 @@
           }
         }
       }
+    },
+    "没有账号？立即注册" : {
+
     },
     "注册" : {
       "localizations" : {
@@ -565,6 +598,7 @@
       }
     },
     "清除聊天缓存" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -574,7 +608,11 @@
         }
       }
     },
+    "点击右上角 + 搜索并添加好友" : {
+
+    },
     "点右上角 + 搜索用户添加好友" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -635,6 +673,7 @@
       }
     },
     "登出" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -755,6 +794,7 @@
       }
     },
     "至少 8 位" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
