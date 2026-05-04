@@ -21,6 +21,14 @@ prd.md                  完整产品需求文档
 tasks.md                12 阶段任务分解与依赖关系图
 ```
 
+## iOS 模拟器
+
+本机没有 iPhone 16 模拟器。所有 `xcodebuild` 命令统一使用：
+
+```
+-destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5'
+```
+
 ## 命令
 
 ```bash

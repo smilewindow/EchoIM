@@ -25,6 +25,8 @@ No automated test runner is configured yet. Until one is added, every PR should 
 
 For `xcodebuild`, prefer the default `DerivedData`. Only set `-derivedDataPath` when parallel runs or isolated artifacts are necessary, and reuse one stable path instead of creating per-task paths.
 
+**iOS simulator**: The local machine does not have an iPhone 16 simulator. Use `platform=iOS Simulator,name=iPhone 15,OS=17.5` for all `xcodebuild` `-destination` arguments.
+
 ## Commit & Pull Request Guidelines
 Recent commits use short, prefixed subjects such as `docs: add Claude Code repository guide`. Follow that pattern with focused, imperative messages like `feat:`, `fix:`, `docs:`, or `refactor:`. PRs should include a short summary, note which areas changed (`client`, `server`, or infra), call out env or schema updates, and attach screenshots for UI work or example requests/responses for API changes.
 
