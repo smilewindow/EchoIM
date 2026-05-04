@@ -47,6 +47,8 @@ struct ProfileEditView: View {
         }
         .navigationTitle("编辑资料")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.automatic, for: .navigationBar)
+        .toolbarColorScheme(nil, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button(action: handleSaveTapped) {

@@ -10,71 +10,16 @@ struct MeView: View {
     var body: some View {
         Group {
             if let user = container.currentUser {
-                Form {
-                    Section {
-                        HStack(spacing: 16) {
-                            AvatarView(user: user, size: 72)
-
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(user.displayTitle)
-                                    .font(.title3.weight(.semibold))
-                                    .accessibilityIdentifier("homeUsername")
-
-                                if let usernameSubtitle = user.usernameSubtitle {
-                                    Text(usernameSubtitle)
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                }
-
-                                if !user.email.isEmpty {
-                                    Text(user.email)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-
-                            Spacer()
-                        }
-                        .padding(.vertical, 4)
+                ScrollView {
+                    VStack(spacing: 16) {
+                        userInfoCard(user: user)
+                        editProfileCard(user: user)
+                        cacheCard
+                        logoutCard
                     }
-
-                    // P7：编辑资料入口
-                    Section {
-                        NavigationLink {
-                            ProfileEditView(
-                                username: user.username,
-                                viewModel: makeProfileEditViewModel()
-                            )
-                        } label: {
-                            Label("编辑资料", systemImage: "person.crop.circle")
-                        }
-                        .accessibilityIdentifier("meEditProfile")
-                    }
-
-                    Section {
-                        Button(role: .destructive) {
-                            showClearCacheConfirm = true
-                        } label: {
-                            HStack {
-                                Image(systemName: "trash")
-                                Text("清除聊天缓存")
-                            }
-                        }
-                        .accessibilityIdentifier("meClearCache")
-                    }
-
-                    Section {
-                        Button(role: .destructive) {
-                            Task { await onLogout() }
-                        } label: {
-                            HStack {
-                                Spacer()
-                                Text("登出")
-                                Spacer()
-                            }
-                        }
-                        .accessibilityIdentifier("homeLogout")
-                    }
+                    .padding(.horizontal, 12)
+                    .padding(.top, 16)
+                    .padding(.bottom, 32)
                 }
             } else {
                 ProgressView()
@@ -104,10 +49,108 @@ struct MeView: View {
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
             }
         }
+        .toolbarBackground(Color.echoInteractive, for: .navigationBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
     }
 
-    /// VM 的依赖全部从 container 取；currentUser setter 直接写 container.currentUser，
-    /// 让 SwiftUI 沿 @Observable 链路重渲染（不变式 5）。
+    // MARK: - 用户信息卡片
+    private func userInfoCard(user: AuthenticatedUser) -> some View {
+        VStack(spacing: 12) {
+            AvatarView(user: user, size: 56)
+                .overlay(Circle().strokeBorder(Color.white, lineWidth: 2.5))
+
+            VStack(spacing: 4) {
+                Text(user.displayTitle)
+                    .font(.title3.bold())
+                    .foregroundStyle(.white)
+                    .accessibilityIdentifier("homeUsername")
+
+                if let sub = user.usernameSubtitle {
+                    Text(sub)
+                        .font(.subheadline)
+                        .foregroundStyle(Color.white.opacity(0.65))
+                }
+
+                if !user.email.isEmpty {
+                    Text(user.email)
+                        .font(.caption)
+                        .foregroundStyle(Color.white.opacity(0.5))
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.echoMainGradient)
+        )
+    }
+
+    // MARK: - 编辑资料卡片
+    private func editProfileCard(user: AuthenticatedUser) -> some View {
+        VStack(spacing: 0) {
+            NavigationLink {
+                ProfileEditView(
+                    username: user.username,
+                    viewModel: makeProfileEditViewModel()
+                )
+            } label: {
+                MeRow(
+                    iconName: "person.crop.circle",
+                    iconColor: Color.echoBlue,
+                    title: "编辑资料"
+                ) {}
+                    .allowsHitTesting(false)
+            }
+            .accessibilityIdentifier("meEditProfile")
+            .padding(.horizontal, 16)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color(uiColor: .systemBackground))
+        )
+    }
+
+    // MARK: - 缓存卡片
+    private var cacheCard: some View {
+        VStack(spacing: 0) {
+            MeRow(
+                iconName: "trash",
+                iconColor: Color.echoDanger,
+                title: "清除聊天缓存",
+                isDestructive: true
+            ) {
+                showClearCacheConfirm = true
+            }
+            .padding(.horizontal, 16)
+            .accessibilityIdentifier("meClearCache")
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color(uiColor: .systemBackground))
+        )
+    }
+
+    // MARK: - 登出卡片
+    private var logoutCard: some View {
+        VStack(spacing: 0) {
+            MeRow(
+                iconName: "arrow.right.square",
+                iconColor: Color.echoDanger,
+                title: "登出",
+                isDestructive: true
+            ) {
+                Task { await onLogout() }
+            }
+            .padding(.horizontal, 16)
+            .accessibilityIdentifier("homeLogout")
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color(uiColor: .systemBackground))
+        )
+    }
+
     @MainActor
     private func makeProfileEditViewModel() -> ProfileEditViewModel {
         ProfileEditViewModel(
