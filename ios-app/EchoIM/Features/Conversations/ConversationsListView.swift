@@ -43,33 +43,25 @@ struct ConversationsListView: View {
 
     @ViewBuilder
     private var content: some View {
-        switch vm.phase {
-        case .idle, .loading:
-            if vm.conversations.isEmpty {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                list
-            }
-
-        case .loaded:
-            if vm.conversations.isEmpty {
-                emptyState
-            } else {
-                list
-            }
-
-        case .error(let message):
-            if vm.conversations.isEmpty {
-                errorState(message)
-            } else {
-                list
-            }
-
-        case .unauthenticated:
+        if case .unauthenticated = vm.phase {
             Text("登录已过期，请重新登录")
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if vm.conversations.isEmpty {
+            switch vm.phase {
+            case .idle, .loading:
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            case .loaded:
+                emptyState
+            case .error(let message):
+                errorState(message)
+            case .unauthenticated:
+                EmptyView()
+            }
+        } else {
+            // list 始终在此分支，保持结构性身份，避免 phase 切换时重建列表触发 Nuke 重复请求。
+            list
         }
     }
 
