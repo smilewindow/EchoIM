@@ -33,7 +33,7 @@ struct MainTabView: View {
             }
             .accessibilityIdentifier("mainTabView")
             .navigationTitle(navigationTitle)
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if selection == .contacts, path.isEmpty {
                     contactsToolbar
