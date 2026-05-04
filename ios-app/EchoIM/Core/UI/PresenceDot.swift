@@ -1,22 +1,36 @@
 import SwiftUI
 
-/// 好友 / 会话 / 聊天页头部用的"在线"圆点。
-/// 颜色固定为绿色（系统语义 .green），边框白色保证在头像和深色背景上都可见。
-/// 调用方负责决定显示与否（基于 PresenceStore），并放在合适的相对位置（一般是头像右下角 overlay）。
 struct PresenceDot: View {
     var size: CGFloat = 10
     var borderWidth: CGFloat = 1.5
 
+    @State private var isAnimating = false
+    @Environment(\.accessibilityReduceMotion) private var reducedMotion
+
     var body: some View {
-        Circle()
-            .fill(Color.green)
-            .frame(width: size, height: size)
-            .overlay(
+        ZStack {
+            if size >= 9 {
                 Circle()
-                    .stroke(Color(uiColor: .systemBackground), lineWidth: borderWidth)
-            )
-            .accessibilityLabel(Text("在线"))
-            .accessibilityHidden(false)
+                    .fill(Color.echoOnline.opacity(isAnimating ? 0 : 0.4))
+                    .frame(width: size * 2, height: size * 2)
+                    .scaleEffect(isAnimating ? 1.8 : 1.0)
+            }
+            Circle()
+                .fill(Color.echoOnline)
+                .frame(width: size, height: size)
+                .overlay(
+                    Circle()
+                        .stroke(Color(uiColor: .systemBackground), lineWidth: borderWidth)
+                )
+        }
+        .onAppear {
+            guard size >= 9, !reducedMotion else { return }
+            withAnimation(.easeInOut(duration: 1).repeatForever(autoreverses: true)) {
+                isAnimating = true
+            }
+        }
+        .accessibilityLabel(Text("在线"))
+        .accessibilityHidden(false)
     }
 }
 
@@ -29,6 +43,10 @@ struct PresenceDot: View {
         ZStack(alignment: .bottomTrailing) {
             Circle().fill(.blue).frame(width: 56, height: 56)
             PresenceDot(size: 14).offset(x: 2, y: 2)
+        }
+        ZStack(alignment: .bottomTrailing) {
+            Circle().fill(.purple).frame(width: 32, height: 32)
+            PresenceDot(size: 8).offset(x: 2, y: 2)  // 聊天导航栏尺寸：无波纹
         }
     }
     .padding()
