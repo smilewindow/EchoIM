@@ -6,45 +6,28 @@ struct LoginView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("邮箱") {
-                    TextField("you@example.com", text: $vm.email)
-                        .textContentType(.emailAddress)
-                        .keyboardType(.emailAddress)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .accessibilityIdentifier("loginEmail")
+            ZStack(alignment: .bottom) {
+                LinearGradient(
+                    colors: [
+                        Color.echoBlue,
+                        Color(red: 22/255, green: 78/255, blue: 99/255),
+                        Color(red: 14/255, green: 58/255, blue: 74/255),
+                    ],
+                    startPoint: UnitPoint(x: 0.67, y: 0.0),
+                    endPoint: UnitPoint(x: 0.33, y: 1.0)
+                )
+                .ignoresSafeArea()
+
+                VStack {
+                    Spacer()
+                    heroSection
+                    Spacer()
+                    Color.clear.frame(height: 420)
                 }
 
-                Section("密码") {
-                    SecureField("至少 8 位", text: $vm.password)
-                        .textContentType(.password)
-                        .accessibilityIdentifier("loginPassword")
-                }
-
-                Section {
-                    Button {
-                        Task { await vm.submit() }
-                    } label: {
-                        if case .submitting = vm.state {
-                            ProgressView()
-                        } else {
-                            Text("登录")
-                                .frame(maxWidth: .infinity)
-                        }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(vm.state == .submitting)
-                    .accessibilityIdentifier("loginSubmit")
-                }
-
-                Section {
-                    Button("没有账号？去注册", action: onNavigateToRegister)
-                        .accessibilityIdentifier("loginGoRegister")
-                }
+                formCard
             }
-            .navigationTitle("登录")
-            // 登录错误统一走弹窗提示，不做页内红字。
+            .navigationBarHidden(true)
             .alert(
                 "登录失败",
                 isPresented: Binding(
@@ -53,13 +36,97 @@ struct LoginView: View {
                 ),
                 presenting: vm.toast
             ) { _ in
-                Button("好", role: .cancel) {
-                    vm.toast = nil
-                }
-                .accessibilityIdentifier("loginToastOK")
-            } message: { message in
-                Text(message)
+                Button("好", role: .cancel) { vm.toast = nil }
+                    .accessibilityIdentifier("loginToastOK")
+            } message: { msg in
+                Text(msg)
             }
         }
+    }
+
+    private var heroSection: some View {
+        VStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.white.opacity(0.2))
+                    .frame(width: 56, height: 56)
+                Image(systemName: "bubble.left.and.bubble.right.fill")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+            Text("EchoIM")
+                .font(.largeTitle.bold())
+                .foregroundStyle(.white)
+            Text("Real-time messaging")
+                .font(.subheadline)
+                .foregroundStyle(Color.white.opacity(0.55))
+        }
+    }
+
+    private var formCard: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("欢迎回来")
+                .font(.title3.bold())
+                .foregroundStyle(Color.echoTextDeep)
+
+            FloatingLabelTextField(
+                label: "邮箱",
+                text: $vm.email,
+                keyboardType: .emailAddress,
+                textContentType: .emailAddress,
+                autocapitalization: .never,
+                accessibilityId: "loginEmail"
+            )
+
+            FloatingLabelTextField(
+                label: "密码",
+                text: $vm.password,
+                isSecure: true,
+                textContentType: .password,
+                accessibilityId: "loginPassword"
+            )
+
+            Button {
+                Task { await vm.submit() }
+            } label: {
+                Group {
+                    if case .submitting = vm.state {
+                        ProgressView().tint(.white)
+                    } else {
+                        Text("登录")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.white)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 50)
+            }
+            .background(Color.echoInteractive, in: RoundedRectangle(cornerRadius: 12))
+            .disabled(vm.state == .submitting)
+            .accessibilityIdentifier("loginSubmit")
+
+            HStack {
+                Spacer()
+                Button("没有账号？立即注册", action: onNavigateToRegister)
+                    .font(.subheadline)
+                    .foregroundStyle(Color.echoBlue)
+                    .accessibilityIdentifier("loginGoRegister")
+                Spacer()
+            }
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 28)
+        .padding(.bottom, max(24, 0))
+        .frame(maxWidth: .infinity)
+        .background(
+            Color(uiColor: .systemBackground)
+                .clipShape(UnevenRoundedRectangle(
+                    topLeadingRadius: 24,
+                    bottomLeadingRadius: 0,
+                    bottomTrailingRadius: 0,
+                    topTrailingRadius: 24
+                ))
+        )
+        .ignoresSafeArea(.container, edges: .bottom)
     }
 }
