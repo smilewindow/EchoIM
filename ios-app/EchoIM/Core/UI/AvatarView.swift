@@ -53,11 +53,10 @@ struct AvatarView: View {
 
     private var initialsPlaceholder: some View {
         ZStack {
-            Color(uiColor: .secondarySystemBackground)
-
+            Color.avatarGradient(for: username)
             Text(initials)
                 .font(.system(size: size * 0.4, weight: .semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white)
         }
     }
 }
