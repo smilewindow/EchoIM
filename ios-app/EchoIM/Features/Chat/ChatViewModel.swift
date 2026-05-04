@@ -501,6 +501,21 @@ final class ChatViewModel {
         typingSender(conversationId, false)
     }
 
+    // MARK: - Render helpers
+
+    func isConsecutive(_ msg: LocalMessage, previous: LocalMessage?) -> Bool {
+        guard let prev = previous,
+              prev.message.senderId == msg.message.senderId else { return false }
+        return msg.message.createdAt.timeIntervalSince(prev.message.createdAt) < 60
+    }
+
+    func shouldShowTimestamp(at index: Int) -> Bool {
+        guard index > 0 else { return true }
+        let gap = messages[index].message.createdAt
+            .timeIntervalSince(messages[index - 1].message.createdAt)
+        return gap > 300
+    }
+
     // MARK: - WS
 
     func attachWSSubscription() {
