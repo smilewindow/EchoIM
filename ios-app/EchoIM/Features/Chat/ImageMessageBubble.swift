@@ -150,15 +150,16 @@ struct ImageMessageBubble: View {
                 .foregroundStyle(.secondary)
         case .failed:
             HStack(spacing: 6) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.red)
+                Image(systemName: "circle.fill")
+                    .font(.caption2)
+                    .foregroundStyle(Color.echoBlue)
                 Text("发送失败")
                     .font(.caption2)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Color.echoBlue)
                 Button("重试", action: onRetry)
                     .font(.caption2)
-                    .buttonStyle(.bordered)
-                    .controlSize(.mini)
+                    .foregroundStyle(Color.echoBlue)
+                    .buttonStyle(.plain)
             }
         }
     }
