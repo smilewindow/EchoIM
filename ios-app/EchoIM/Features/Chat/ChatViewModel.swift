@@ -363,7 +363,7 @@ final class ChatViewModel {
                 token: token
             )
             mergeServerResult(result, tempId: tempId)
-            haptics.lightImpact()
+            // 不在 REST 响应时触发 haptic，等 WS echo 确认
         } catch {
             markFailed(tempId: tempId, error: error)
         }
@@ -403,18 +403,21 @@ final class ChatViewModel {
             )
             mergeServerResult(result, tempId: tempId)
             imageSendStages.removeValue(forKey: tempId)
-            haptics.lightImpact()
+            // 不在 REST 响应时触发 haptic，等 WS echo
         } catch {
             markFailed(tempId: tempId, error: error)
         }
     }
 
     /// REST 201 与后续 WS echo 都按 clientTempId 走同一条合并路径。
-    fileprivate func mergeServerResult(_ message: Message, tempId: String) {
+    /// 返回 true 表示真正完成了 pending → confirmed 合并（区别于重放、已存在等情况）。
+    @discardableResult
+    fileprivate func mergeServerResult(_ message: Message, tempId: String) -> Bool {
         if conversationId == nil {
             conversationId = message.conversationId
         }
 
+        var didConfirm = false
         let pendingIndex = messages.firstIndex(where: { $0.localId == tempId })
         if let confirmedIndex = messages.firstIndex(where: { $0.message.id == message.id }) {
             // 首屏 load 已经把这条 confirmed 混进来时，只需要删掉对应 pending，
@@ -429,6 +432,7 @@ final class ChatViewModel {
                 sendState: .confirmed,
                 localImageData: messages[pendingIndex].localImageData
             )
+            didConfirm = true
         } else if !messages.contains(where: { $0.message.id == message.id }) {
             messages.append(LocalMessage.confirmed(message))
         }
@@ -436,11 +440,13 @@ final class ChatViewModel {
         Task { [weak self] in
             await self?.writeThroughAndMeta([message])
         }
+        return didConfirm
     }
 
     private func markFailed(tempId: String, error: Error) {
         guard let index = messages.firstIndex(where: { $0.localId == tempId }) else { return }
         messages[index].sendState = .failed(String(describing: error))
+        haptics.warning()
     }
 
     // MARK: - Mark read
@@ -560,6 +566,7 @@ final class ChatViewModel {
 
         if let tempId = incoming.clientTempId, incoming.senderId == currentUserId {
             mergeServerResult(incoming, tempId: tempId)
+            haptics.success()   // WS echo 是 delivery 确认，无论 REST 是否先到
             return
         }
 

@@ -139,7 +139,7 @@ struct HapticFeedbackInjectionTests {
     }
 
     @Test
-    func sendTextSuccessTriggersLightImpact() async {
+    func sendTextSuccessRestDoesNotTriggerHaptic() async {
         let repo = MessageRepo()
         repo.textResult = .success(
             makeMessage(id: 100, body: "hi", messageType: "text", mediaUrl: nil, tempId: "pending")
@@ -156,18 +156,46 @@ struct HapticFeedbackInjectionTests {
 
         await vm.sendText("hi")
 
-        #expect(haptics.lightCount == 1)
+        // REST 201 不再触发任何 haptic，WS echo 才触发
+        #expect(haptics.lightCount == 0)
         #expect(haptics.successCount == 0)
         #expect(haptics.warningCount == 0)
     }
 
     @Test
-    func sendTextFailureDoesNotTriggerHaptic() async {
+    func wsEchoOfOwnMessageTriggersSuccess() async {
+        let repo = MessageRepo()
+        let message = makeMessage(id: 100, body: "hi", messageType: "text", mediaUrl: nil, tempId: "temp-1")
+        repo.textResult = .success(message)
         let haptics = RecordingHaptics()
         let vm = ChatViewModel(
             route: .peer(makePeer()),
             currentUserId: 0,
-            messageRepo: MessageRepo(),
+            messageRepo: repo,
+            wsClient: nil,
+            tokenProvider: { "tok" },
+            haptics: haptics
+        )
+
+        let echoMsg = Message(
+            id: 100, conversationId: 1, senderId: 0, body: "hi",
+            messageType: "text", mediaUrl: nil, createdAt: Date(), clientTempId: "temp-1"
+        )
+
+        await vm.sendText("hi")          // REST 路径，不触发
+        vm.handleWSEvent(.messageNew(echoMsg))  // WS echo 路径，触发 success()
+
+        #expect(haptics.successCount == 1)
+        #expect(haptics.lightCount == 0)
+    }
+
+    @Test
+    func sendTextFailureTriggersWarning() async {
+        let haptics = RecordingHaptics()
+        let vm = ChatViewModel(
+            route: .peer(makePeer()),
+            currentUserId: 0,
+            messageRepo: MessageRepo(),  // textResult defaults to .failure
             wsClient: nil,
             tokenProvider: { "tok" },
             haptics: haptics
@@ -175,13 +203,13 @@ struct HapticFeedbackInjectionTests {
 
         await vm.sendText("hi")
 
-        #expect(haptics.lightCount == 0)
+        #expect(haptics.warningCount == 1)
         #expect(haptics.successCount == 0)
-        #expect(haptics.warningCount == 0)
+        #expect(haptics.lightCount == 0)
     }
 
     @Test
-    func sendImageSuccessTriggersLightImpact() async {
+    func sendImageSuccessRestDoesNotTriggerHaptic() async {
         let repo = MessageRepo()
         repo.imageResult = .success(
             makeMessage(
@@ -205,9 +233,37 @@ struct HapticFeedbackInjectionTests {
 
         await vm.sendCompressedImage(data: Data([0xFF, 0xD8, 0xFF]), width: 100, height: 100)
 
-        #expect(haptics.lightCount == 1)
+        #expect(haptics.lightCount == 0)
         #expect(haptics.successCount == 0)
         #expect(haptics.warningCount == 0)
+    }
+
+    @Test
+    func wsEchoOfOwnImageMessageTriggersSuccess() async {
+        let repo = MessageRepo()
+        let echoMsg = Message(
+            id: 200, conversationId: 1, senderId: 0,
+            body: nil, messageType: "image",
+            mediaUrl: "/uploads/messages/test.jpg",
+            createdAt: Date(), clientTempId: "img-temp-1"
+        )
+        repo.imageResult = .success(echoMsg)
+        let haptics = RecordingHaptics()
+        let vm = ChatViewModel(
+            route: .peer(makePeer()),
+            currentUserId: 0,
+            messageRepo: repo,
+            wsClient: nil,
+            uploadRepo: UploadRepo(),
+            tokenProvider: { "tok" },
+            haptics: haptics
+        )
+
+        await vm.sendCompressedImage(data: Data([0xFF, 0xD8, 0xFF]), width: 100, height: 100)
+        vm.handleWSEvent(.messageNew(echoMsg))  // WS echo 路径，触发 success()
+
+        #expect(haptics.successCount == 1)
+        #expect(haptics.lightCount == 0)
     }
 
     @Test
