@@ -42,18 +42,21 @@ struct ConversationsListView: View {
             Text("登录已过期，请重新登录")
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else if vm.phase == .loading && vm.conversations.isEmpty {
-            ScrollView {
-                ConversationsListSkeleton()
-            }
         } else if vm.conversations.isEmpty {
             switch vm.phase {
+            case .idle, .loading:
+                // TabView 首帧不能给空内容；否则 SwiftUI 会把对应 tabItem 一起丢掉。
+                ScrollView {
+                    ConversationsListSkeleton()
+                }
             case .loaded:
                 emptyState
             case .error(let message):
                 errorState(message)
-            default:
-                EmptyView()
+            case .unauthenticated:
+                Text("登录已过期，请重新登录")
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         } else {
             list
