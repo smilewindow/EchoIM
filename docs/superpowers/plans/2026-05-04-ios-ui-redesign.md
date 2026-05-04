@@ -40,7 +40,7 @@
 **Files:**
 - Create: `ios-app/EchoIM/Core/Extensions/Color+Echo.swift`
 
-- [ ] **Step 1: 新建文件并写入所有 token**
+- [x] **Step 1: 新建文件并写入所有 token**
 
 ```swift
 // ios-app/EchoIM/Core/Extensions/Color+Echo.swift
@@ -131,7 +131,7 @@ extension Color {
 }
 ```
 
-- [ ] **Step 2: 编译验证**
+- [x] **Step 2: 编译验证**
 
 ```bash
 cd /Users/xuyuqin/Documents/EchoIM/ios-app && xcodebuild -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' build 2>&1 | tail -20
@@ -139,7 +139,7 @@ cd /Users/xuyuqin/Documents/EchoIM/ios-app && xcodebuild -scheme EchoIM -destina
 
 预期：`** BUILD SUCCEEDED **`
 
-- [ ] **Step 3: commit**
+- [x] **Step 3: commit**
 
 ```bash
 git add ios-app/EchoIM/Core/Extensions/Color+Echo.swift
@@ -153,7 +153,7 @@ git commit -m "feat(ios): add Color+Echo design token extension"
 **Files:**
 - Modify: `ios-app/EchoIM/Core/UI/AvatarView.swift`
 
-- [ ] **Step 1: 替换 initialsPlaceholder**
+- [x] **Step 1: 替换 initialsPlaceholder**
 
 将 `initialsPlaceholder` computed property 改为哈希渐变背景（依赖 Task 1 的 `Color.avatarGradient(for:)`）：
 
@@ -220,7 +220,7 @@ struct AvatarView: View {
 }
 ```
 
-- [ ] **Step 2: 编译验证**
+- [x] **Step 2: 编译验证**
 
 ```bash
 xcodebuild -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' build 2>&1 | tail -10
@@ -228,7 +228,7 @@ xcodebuild -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS
 
 预期：`** BUILD SUCCEEDED **`
 
-- [ ] **Step 3: commit**
+- [x] **Step 3: commit**
 
 ```bash
 git add ios-app/EchoIM/Core/UI/AvatarView.swift
@@ -242,7 +242,7 @@ git commit -m "feat(ios): use hash-gradient for avatar initials placeholder"
 **Files:**
 - Modify: `ios-app/EchoIM/Core/UI/PresenceDot.swift`
 
-- [ ] **Step 1: 重写 PresenceDot，加入脉冲波纹**
+- [x] **Step 1: 重写 PresenceDot，加入脉冲波纹**
 
 规则：`size >= 9` 时显示波纹；聊天导航栏（`size=8`）不显示；遵守 `reducedMotion`。
 
@@ -303,7 +303,7 @@ struct PresenceDot: View {
 }
 ```
 
-- [ ] **Step 2: 编译验证**
+- [x] **Step 2: 编译验证**
 
 ```bash
 xcodebuild -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' build 2>&1 | tail -10
@@ -311,7 +311,7 @@ xcodebuild -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS
 
 预期：`** BUILD SUCCEEDED **`
 
-- [ ] **Step 3: commit**
+- [x] **Step 3: commit**
 
 ```bash
 git add ios-app/EchoIM/Core/UI/PresenceDot.swift
@@ -325,7 +325,7 @@ git commit -m "feat(ios): add pulse animation to PresenceDot"
 **Files:**
 - Create: `ios-app/EchoIM/Core/UI/SkeletonView.swift`
 
-- [ ] **Step 1: 新建文件，写 ShimmerModifier、ConversationRowSkeleton、ChatSkeletonView**
+- [x] **Step 1: 新建文件，写 ShimmerModifier、ConversationRowSkeleton、ChatSkeletonView**
 
 ```swift
 // ios-app/EchoIM/Core/UI/SkeletonView.swift
@@ -456,7 +456,7 @@ struct ChatSkeletonView: View {
 }
 ```
 
-- [ ] **Step 2: 编译验证**
+- [x] **Step 2: 编译验证**
 
 ```bash
 xcodebuild -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' build 2>&1 | tail -10
@@ -464,7 +464,7 @@ xcodebuild -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS
 
 预期：`** BUILD SUCCEEDED **`
 
-- [ ] **Step 3: commit**
+- [x] **Step 3: commit**
 
 ```bash
 git add ios-app/EchoIM/Core/UI/SkeletonView.swift
@@ -478,7 +478,7 @@ git commit -m "feat(ios): add shimmer + ConversationRowSkeleton + ChatSkeletonVi
 **Files:**
 - Create: `ios-app/EchoIM/Core/UI/FloatingLabelTextField.swift`
 
-- [ ] **Step 1: 新建 FloatingLabelTextField**
+- [x] **Step 1: 新建 FloatingLabelTextField**
 
 ```swift
 // ios-app/EchoIM/Core/UI/FloatingLabelTextField.swift
@@ -581,7 +581,7 @@ struct FloatingLabelTextField: View {
 }
 ```
 
-- [ ] **Step 2: 编译验证**
+- [x] **Step 2: 编译验证**
 
 ```bash
 xcodebuild -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' build 2>&1 | tail -10
@@ -589,7 +589,7 @@ xcodebuild -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS
 
 预期：`** BUILD SUCCEEDED **`
 
-- [ ] **Step 3: accessibility smoke 验证（确认 .opacity(0) 时 accessibilityIdentifier 仍可索引）**
+- [x] **Step 3: accessibility smoke 验证（确认 .opacity(0) 时 accessibilityIdentifier 仍可索引）**
 
 在 `ios-app/EchoIMTests/FloatingLabelTextFieldTests.swift` 新增：
 
@@ -628,7 +628,7 @@ xcodebuild test -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 
 
 预期：`Test Suite 'FloatingLabelTextFieldTests' passed`
 
-- [ ] **Step 4: commit**
+- [x] **Step 4: commit**
 
 ```bash
 git add ios-app/EchoIM/Core/UI/FloatingLabelTextField.swift \
@@ -643,7 +643,7 @@ git commit -m "feat(ios): add FloatingLabelTextField with animated floating labe
 **Files:**
 - Create: `ios-app/EchoIM/Core/UI/MeRow.swift`
 
-- [ ] **Step 1: 新建 MeRow**
+- [x] **Step 1: 新建 MeRow**
 
 ```swift
 // ios-app/EchoIM/Core/UI/MeRow.swift
@@ -702,7 +702,7 @@ struct MeRow: View {
 }
 ```
 
-- [ ] **Step 2: 编译验证**
+- [x] **Step 2: 编译验证**
 
 ```bash
 xcodebuild -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' build 2>&1 | tail -10
@@ -710,7 +710,7 @@ xcodebuild -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS
 
 预期：`** BUILD SUCCEEDED **`
 
-- [ ] **Step 3: commit**
+- [x] **Step 3: commit**
 
 ```bash
 git add ios-app/EchoIM/Core/UI/MeRow.swift
@@ -725,7 +725,7 @@ git commit -m "feat(ios): add MeRow component for Me tab function rows"
 - Create: `ios-app/EchoIMTests/ChatViewModelTimestampTests.swift`
 - Modify: `ios-app/EchoIM/Features/Chat/ChatViewModel.swift`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```swift
 // ios-app/EchoIMTests/ChatViewModelTimestampTests.swift
@@ -886,7 +886,7 @@ struct ChatViewModelTimestampTests {
 }
 ```
 
-- [ ] **Step 2: 运行，确认失败**
+- [x] **Step 2: 运行，确认失败**
 
 ```bash
 cd /Users/xuyuqin/Documents/EchoIM/ios-app && xcodebuild test -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' -only-testing:EchoIMTests/ChatViewModelTimestampTests 2>&1 | grep -E "FAIL|error:|Build"
@@ -894,7 +894,7 @@ cd /Users/xuyuqin/Documents/EchoIM/ios-app && xcodebuild test -scheme EchoIM -de
 
 预期：编译失败（`isConsecutive`/`shouldShowTimestamp` 尚未定义）。
 
-- [ ] **Step 3: 在 ChatViewModel 实现两个方法**
+- [x] **Step 3: 在 ChatViewModel 实现两个方法**
 
 在 `ChatViewModel.swift` 的 `// MARK: - WS` 注解之前，添加：
 
@@ -915,7 +915,7 @@ func shouldShowTimestamp(at index: Int) -> Bool {
 }
 ```
 
-- [ ] **Step 4: 运行测试，确认通过**
+- [x] **Step 4: 运行测试，确认通过**
 
 ```bash
 xcodebuild test -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' -only-testing:EchoIMTests/ChatViewModelTimestampTests 2>&1 | grep -E "passed|failed|PASS|FAIL"
@@ -923,13 +923,15 @@ xcodebuild test -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 
 
 预期：`Test Suite 'ChatViewModelTimestampTests' passed`
 
-- [ ] **Step 5: commit**
+- [x] **Step 5: commit**
 
 ```bash
 git add ios-app/EchoIM/Features/Chat/ChatViewModel.swift \
         ios-app/EchoIMTests/ChatViewModelTimestampTests.swift
 git commit -m "feat(ios): add isConsecutive + shouldShowTimestamp to ChatViewModel"
 ```
+
+> **实现偏差**：测试数组需按服务端格式（最新在前）提供，否则 `rows.reversed()` 后顺序反转导致 gap 计算为负数。
 
 ---
 
@@ -947,7 +949,7 @@ git commit -m "feat(ios): add isConsecutive + shouldShowTimestamp to ChatViewMod
 | 消息发送失败 | 无 | `warning()` |
 | 好友申请 accept/decline | 已有 `success()`/`warning()` | 不变 |
 
-- [ ] **Step 1: 更新 HapticFeedbackInjectionTests，使其对新行为失败**
+- [x] **Step 1: 更新 HapticFeedbackInjectionTests，使其对新行为失败**
 
 找到 `sendTextSuccessTriggersLightImpact` 测试，改为验证 REST 201 不触发任何 haptic，并新增 WS echo → `success()` 和 failure → `warning()` 测试：
 
@@ -1080,7 +1082,7 @@ func wsEchoOfOwnImageMessageTriggersSuccess() async {
 }
 ```
 
-- [ ] **Step 2: 运行，确认当前测试失败**
+- [x] **Step 2: 运行，确认当前测试失败**
 
 ```bash
 xcodebuild test -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' -only-testing:EchoIMTests/HapticFeedbackInjectionTests 2>&1 | grep -E "FAIL|error:|passed|failed"
@@ -1088,7 +1090,7 @@ xcodebuild test -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 
 
 预期：逻辑失败（haptic 计数不符合新期望）。
 
-- [ ] **Step 3: 修改 ChatViewModel 实现新 haptic 行为**
+- [x] **Step 3: 修改 ChatViewModel 实现新 haptic 行为**
 
 **3a.** 修改 `performSend`，移除 `haptics.lightImpact()`：
 
@@ -1165,7 +1167,7 @@ if let tempId = incoming.clientTempId, incoming.senderId == currentUserId {
 }
 ```
 
-- [ ] **Step 4: 运行所有 haptic 测试，确认通过**
+- [x] **Step 4: 运行所有 haptic 测试，确认通过**
 
 ```bash
 xcodebuild test -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' -only-testing:EchoIMTests/HapticFeedbackInjectionTests 2>&1 | grep -E "passed|failed|PASS|FAIL"
@@ -1173,7 +1175,7 @@ xcodebuild test -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 
 
 预期：`Test Suite 'HapticFeedbackInjectionTests' passed`
 
-- [ ] **Step 5: 运行全部测试，确认无回归**
+- [x] **Step 5: 运行全部测试，确认无回归**
 
 ```bash
 xcodebuild test -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' 2>&1 | grep -E "Suite.*passed|Suite.*failed"
@@ -1181,7 +1183,9 @@ xcodebuild test -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 
 
 预期：所有 Suite passed。
 
-- [ ] **Step 6: commit**
+> **实现偏差**：`didConfirm` 守卫在测试场景中无效（REST 先于 WS echo 确认），改为 WS echo 自发方消息时直接调用 `haptics.success()`。
+
+- [x] **Step 6: commit**
 
 ```bash
 git add ios-app/EchoIM/Features/Chat/ChatViewModel.swift \
@@ -1198,7 +1202,7 @@ git commit -m "feat(ios): change haptic — success() on WS echo, warning() on f
 
 LoginViewModel 和 RootView 不变，只改 View 层。保留所有 `accessibilityIdentifier`。
 
-- [ ] **Step 1: 重写 LoginView.swift**
+- [x] **Step 1: 重写 LoginView.swift**
 
 ```swift
 // ios-app/EchoIM/Features/Auth/LoginView.swift
@@ -1340,7 +1344,7 @@ struct LoginView: View {
 }
 ```
 
-- [ ] **Step 2: 编译验证**
+- [x] **Step 2: 编译验证**
 
 ```bash
 xcodebuild -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' build 2>&1 | tail -10
@@ -1348,7 +1352,7 @@ xcodebuild -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS
 
 预期：`** BUILD SUCCEEDED **`
 
-- [ ] **Step 3: commit**
+- [x] **Step 3: commit**
 
 ```bash
 git add ios-app/EchoIM/Features/Auth/LoginView.swift
@@ -1364,7 +1368,7 @@ git commit -m "feat(ios): rewrite LoginView with gradient background and floatin
 
 保留所有 `accessibilityIdentifier`（regInvite/regUsername/regEmail/regPassword/regSubmit/regGoLogin/regToastOK）和字段级错误提示。
 
-- [ ] **Step 1: 重写 RegisterView.swift**
+- [x] **Step 1: 重写 RegisterView.swift**
 
 ```swift
 // ios-app/EchoIM/Features/Auth/RegisterView.swift
@@ -1519,7 +1523,7 @@ struct RegisterView: View {
 }
 ```
 
-- [ ] **Step 2: 编译验证**
+- [x] **Step 2: 编译验证**
 
 ```bash
 xcodebuild -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' build 2>&1 | tail -10
@@ -1527,7 +1531,7 @@ xcodebuild -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS
 
 预期：`** BUILD SUCCEEDED **`
 
-- [ ] **Step 3: commit**
+- [x] **Step 3: commit**
 
 ```bash
 git add ios-app/EchoIM/Features/Auth/RegisterView.swift
@@ -1541,7 +1545,7 @@ git commit -m "feat(ios): rewrite RegisterView with gradient background and floa
 **Files:**
 - Modify: `ios-app/EchoIM/Features/Chat/MessageBubble.swift`
 
-- [ ] **Step 1: 重写 MessageBubble（新增 isConsecutive 参数）**
+- [x] **Step 1: 重写 MessageBubble（新增 isConsecutive 参数）**
 
 ```swift
 // ios-app/EchoIM/Features/Chat/MessageBubble.swift
@@ -1662,7 +1666,7 @@ struct MessageBubble: View {
 }
 ```
 
-- [ ] **Step 2: 同步修改 ImageMessageBubble.swift 的 failed footer，与规格保持一致**
+- [x] **Step 2: 同步修改 ImageMessageBubble.swift 的 failed footer，与规格保持一致**
 
 找到 `ImageMessageBubble.swift` 中的 `footer` computed property，将 `.failed` 分支替换为：
 
@@ -1682,7 +1686,7 @@ case .failed:
     }
 ```
 
-- [ ] **Step 3: 编译验证**
+- [x] **Step 3: 编译验证**
 
 ```bash
 xcodebuild -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' build 2>&1 | tail -10
@@ -1690,7 +1694,7 @@ xcodebuild -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS
 
 预期：`** BUILD SUCCEEDED **`（MessageBubble 调用方 ChatView 已有默认值 `isConsecutive: false`，不破坏编译）
 
-- [ ] **Step 4: commit**
+- [x] **Step 4: commit**
 
 ```bash
 git add ios-app/EchoIM/Features/Chat/MessageBubble.swift \
@@ -1705,7 +1709,7 @@ git commit -m "feat(ios): update MessageBubble — corner radius + echoInteracti
 **Files:**
 - Modify: `ios-app/EchoIM/Features/Chat/ChatView.swift`
 
-- [ ] **Step 1: 添加 TimestampPill 私有组件（文件顶部或底部）**
+- [x] **Step 1: 添加 TimestampPill 私有组件（文件顶部或底部）**
 
 在 `ChatView.swift` 末尾（`ChatDefaultScrollAnchor` 之后）添加：
 
@@ -1736,7 +1740,7 @@ private struct TimestampPill: View {
 }
 ```
 
-- [ ] **Step 2: 修改 messagesList — 替换 ProgressView + 加时间戳 + 传 isConsecutive**
+- [x] **Step 2: 修改 messagesList — 替换 ProgressView + 加时间戳 + 传 isConsecutive**
 
 找到 `private var messagesList: some View` 中的 `ForEach` 和 `overlay { if vm.phase == .loading ... }` 部分，完整替换：
 
@@ -1810,7 +1814,7 @@ private var messagesList: some View {
 }
 ```
 
-- [ ] **Step 3: 修改 inputBar — `.ultraThinMaterial` 背景 + 圆形按钮**
+- [x] **Step 3: 修改 inputBar — `.ultraThinMaterial` 背景 + 圆形按钮**
 
 找到 `private var inputBar: some View`，完整替换：
 
@@ -1890,7 +1894,7 @@ private var inputBar: some View {
 }
 ```
 
-- [ ] **Step 4: 添加 toolbarBackground 到 ChatView.body**
+- [x] **Step 4: 添加 toolbarBackground 到 ChatView.body**
 
 在 `ChatView.body` 的 modifier 链中（`.onDisappear` 之后）添加：
 
@@ -1909,7 +1913,7 @@ private var inputBar: some View {
 .foregroundStyle(Color.white.opacity(0.7))
 ```
 
-- [ ] **Step 5: 编译验证**
+- [x] **Step 5: 编译验证**
 
 ```bash
 xcodebuild -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' build 2>&1 | tail -10
@@ -1917,7 +1921,7 @@ xcodebuild -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS
 
 预期：`** BUILD SUCCEEDED **`
 
-- [ ] **Step 6: commit**
+- [x] **Step 6: commit**
 
 ```bash
 git add ios-app/EchoIM/Features/Chat/ChatView.swift
@@ -1931,7 +1935,7 @@ git commit -m "feat(ios): ChatView — skeleton, timestamp groups, styled input 
 **Files:**
 - Modify: `ios-app/EchoIM/Features/Conversations/ConversationsListView.swift`
 
-- [ ] **Step 1: 改造 ConversationRow + 自定义分隔线 + 添加 Skeleton + 更新空状态 + toolbarBackground**
+- [x] **Step 1: 改造 ConversationRow + 自定义分隔线 + 添加 Skeleton + 更新空状态 + toolbarBackground**
 
 完整替换 `ConversationsListView.swift`：
 
@@ -2108,7 +2112,7 @@ private struct ConversationRow: View {
 }
 ```
 
-- [ ] **Step 2: 编译验证**
+- [x] **Step 2: 编译验证**
 
 ```bash
 xcodebuild -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' build 2>&1 | tail -10
@@ -2116,7 +2120,7 @@ xcodebuild -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS
 
 预期：`** BUILD SUCCEEDED **`
 
-- [ ] **Step 3: commit**
+- [x] **Step 3: commit**
 
 ```bash
 git add ios-app/EchoIM/Features/Conversations/ConversationsListView.swift
@@ -2132,7 +2136,7 @@ git commit -m "feat(ios): restyle ConversationsListView — skeleton, hash avata
 - Modify: `ios-app/EchoIM/Features/Contacts/ContactsView.swift`
 - Modify: `ios-app/EchoIM/Features/Main/MainTabView.swift`（仅改 toolbar icon 和 toolbar background）
 
-- [ ] **Step 1: 重写 FriendsListView（在线/离线分组 + FriendRow 改造 + 空状态）**
+- [x] **Step 1: 重写 FriendsListView（在线/离线分组 + FriendRow 改造 + 空状态）**
 
 ```swift
 // ios-app/EchoIM/Features/Contacts/FriendsListView.swift
@@ -2249,7 +2253,7 @@ private struct FriendRow: View {
 }
 ```
 
-- [ ] **Step 2: 给 ContactsView 添加 toolbarBackground**
+- [x] **Step 2: 给 ContactsView 添加 toolbarBackground**
 
 在 `ContactsView.body` 的 modifier 链末尾（`.sheet` 之后）添加：
 
@@ -2258,7 +2262,7 @@ private struct FriendRow: View {
 .toolbarColorScheme(.dark, for: .navigationBar)
 ```
 
-- [ ] **Step 3: 在 MainTabView 中修改 toolbar icon 并统一 title display mode**
+- [x] **Step 3: 在 MainTabView 中修改 toolbar icon 并统一 title display mode**
 
 在 `MainTabView.swift` 中：
 
@@ -2280,7 +2284,7 @@ Image(systemName: "person.2")
 .navigationBarTitleDisplayMode(.large)
 ```
 
-- [ ] **Step 4: 编译验证**
+- [x] **Step 4: 编译验证**
 
 ```bash
 xcodebuild -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' build 2>&1 | tail -10
@@ -2288,7 +2292,7 @@ xcodebuild -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS
 
 预期：`** BUILD SUCCEEDED **`
 
-- [ ] **Step 5: commit**
+- [x] **Step 5: commit**
 
 ```bash
 git add ios-app/EchoIM/Features/Contacts/FriendsListView.swift \
@@ -2306,7 +2310,7 @@ git commit -m "feat(ios): FriendsListView online/offline sections, FriendRow, na
 
 保留：`accessibilityIdentifier("homeUsername")`、`accessibilityIdentifier("meEditProfile")`、`accessibilityIdentifier("meClearCache")`、`accessibilityIdentifier("homeLogout")`、`confirmationDialog` 完整内容。
 
-- [ ] **Step 1: 重写 MeView.swift**
+- [x] **Step 1: 重写 MeView.swift**
 
 ```swift
 // ios-app/EchoIM/Features/Me/MeView.swift
@@ -2485,7 +2489,7 @@ struct MeView: View {
 }
 ```
 
-- [ ] **Step 2: 编译验证**
+- [x] **Step 2: 编译验证**
 
 ```bash
 xcodebuild -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' build 2>&1 | tail -10
@@ -2493,7 +2497,7 @@ xcodebuild -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS
 
 预期：`** BUILD SUCCEEDED **`
 
-- [ ] **Step 3: 修改 ProfileEditView，重置导航栏为系统默认（避免从 MeView push 时继承蓝色导航栏）**
+- [x] **Step 3: 修改 ProfileEditView，重置导航栏为系统默认（避免从 MeView push 时继承蓝色导航栏）**
 
 在 `ios-app/EchoIM/Features/Me/ProfileEditView.swift` 的 `body` 顶层 View（`Form {…}`）上追加：
 
@@ -2506,7 +2510,7 @@ Form {
 .toolbarColorScheme(.unspecified, for: .navigationBar)
 ```
 
-- [ ] **Step 4: 编译验证**
+- [x] **Step 4: 编译验证**
 
 ```bash
 xcodebuild -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' build 2>&1 | tail -10
@@ -2514,7 +2518,7 @@ xcodebuild -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS
 
 预期：`** BUILD SUCCEEDED **`
 
-- [ ] **Step 5: commit**
+- [x] **Step 5: commit**
 
 ```bash
 git add ios-app/EchoIM/Features/Me/MeView.swift \
@@ -2522,11 +2526,13 @@ git add ios-app/EchoIM/Features/Me/MeView.swift \
 git commit -m "feat(ios): rewrite MeView — gradient card, MeRow function rows, echoInteractive nav"
 ```
 
+
+> **实现偏差**：计划中 `.toolbarColorScheme(.unspecified, for: .navigationBar)` 无效（`ColorScheme` 无 `.unspecified` 成员），改为 `.toolbarColorScheme(nil, for: .navigationBar)` 以重置继承。
 ---
 
 ## Task 16: 全量编译 + 全量测试
 
-- [ ] **Step 1: 全量编译**
+- [x] **Step 1: 全量编译**
 
 ```bash
 xcodebuild -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' build 2>&1 | grep -E "BUILD|error:"
@@ -2534,7 +2540,7 @@ xcodebuild -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS
 
 预期：`** BUILD SUCCEEDED **`，无 `error:` 行。
 
-- [ ] **Step 2: 全量单元测试**
+- [x] **Step 2: 全量单元测试**
 
 ```bash
 xcodebuild test -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' 2>&1 | grep -E "Suite.*passed|Suite.*failed|tests passed|tests failed"
@@ -2542,18 +2548,18 @@ xcodebuild test -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 
 
 预期：所有 Suite passed。
 
-- [ ] **Step 3: 确认保留行为清单**
+- [x] **Step 3: 确认保留行为清单**
 
 在模拟器中手工验证（或通过已有 Accessibility Identifier 确认编译后可索引）：
-- [ ] `loginEmail`、`loginPassword`、`loginSubmit`、`loginGoRegister`、`loginToastOK` 均存在于 LoginView
-- [ ] `regInvite`、`regUsername`、`regEmail`、`regPassword`、`regSubmit`、`regGoLogin` 均存在于 RegisterView
-- [ ] 注册页四字段级错误（inviteCodeError/usernameError/emailError/passwordError）由 FloatingLabelTextField `error` 参数承接
-- [ ] `chatInput`、`chatSend`、`chatImagePicker` 均存在于 ChatView
-- [ ] `conversationsList` 存在于 ConversationsListView
-- [ ] `meClearCache` → `confirmationDialog` 弹出（不可静默删除）
-- [ ] `homeLogout` 存在于 MeView
+- [x] `loginEmail`、`loginPassword`、`loginSubmit`、`loginGoRegister`、`loginToastOK` 均存在于 LoginView
+- [x] `regInvite`、`regUsername`、`regEmail`、`regPassword`、`regSubmit`、`regGoLogin` 均存在于 RegisterView
+- [x] 注册页四字段级错误（inviteCodeError/usernameError/emailError/passwordError）由 FloatingLabelTextField `error` 参数承接
+- [x] `chatInput`、`chatSend`、`chatImagePicker` 均存在于 ChatView
+- [x] `conversationsList` 存在于 ConversationsListView
+- [x] `meClearCache` → `confirmationDialog` 弹出（不可静默删除）
+- [x] `homeLogout` 存在于 MeView
 
-- [ ] **Step 4: 确认无未提交改动**
+- [x] **Step 4: 确认无未提交改动**
 
 ```bash
 git status
