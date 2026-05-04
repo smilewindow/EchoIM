@@ -12,25 +12,33 @@
 
 | Token | 值 | 用途 |
 |---|---|---|
-| `echoBlue` | `#0891B2` | 主色：发送气泡、按钮、导航栏、渐变起点 |
-| `echoCyan` | `#22D3EE` | 辅助：渐变终点、高亮 |
+| `echoBlue` | `#0891B2` | 渐变起点、气泡背景（无白字直接叠加） |
+| `echoInteractive` | `#0E7490` | 按钮、导航栏背景（白字对比度 5.2:1，达 WCAG AA） |
+| `echoCyan` | `#22D3EE` | 渐变终点、高亮 |
 | `echoSurface` | `#ECFEFF` | 页面背景、输入框底色 |
 | `echoTextDeep` | `#164E63` | 标题、主文字 |
-| `echoMuted` | `#64B5C4` | 副文字、时间戳 |
+| `echoMuted` | `#337C8A` | 副文字、时间戳（在 echoSurface 上对比度 4.6:1，达 WCAG AA） |
 | `echoOnline` | `#34C759` | 在线状态点（= iOS 系统绿） |
 | `echoDanger` | `#FF3B30` | 未读角标、发送失败（= iOS 系统红） |
 
-**主渐变：** `LinearGradient(colors: [.echoBlue, .echoCyan], startPoint: .topLeading, endPoint: .bottomTrailing)`
+> **对比度说明：**  
+> - 白字 on `echoInteractive #0E7490`：5.2:1 ✅ WCAG AA  
+> - `echoMuted #337C8A` on `echoSurface #ECFEFF`：4.6:1 ✅ WCAG AA  
+> - `echoTextDeep #164E63` on `echoSurface #ECFEFF`：9.8:1 ✅ WCAG AAA  
+
+**主渐变：** `LinearGradient(colors: [.echoBlue, .echoCyan], startPoint: .topLeading, endPoint: .bottomTrailing)`  
+**按钮/导航栏渐变：** `LinearGradient(colors: [.echoInteractive, .echoBlue], startPoint: .topLeading, endPoint: .bottomTrailing)`
 
 **深色模式：** 自定义颜色通过 `Color(light:dark:)` 扩展提供深色变体；系统色（`.systemBackground`、`.secondarySystemBackground` 等）自动适配，无需额外处理。
 
 | Token | 亮色 | 暗色 |
 |---|---|---|
-| `echoBlue` | `#0891B2` | `#0891B2`（保持不变） |
-| `echoCyan` | `#22D3EE` | `#22D3EE`（保持不变） |
+| `echoBlue` | `#0891B2` | `#0891B2` |
+| `echoInteractive` | `#0E7490` | `#0E7490` |
+| `echoCyan` | `#22D3EE` | `#22D3EE` |
 | `echoSurface` | `#ECFEFF` | `#0C1A1F`（深青黑） |
 | `echoTextDeep` | `#164E63` | `#A5F3FC` |
-| `echoMuted` | `#64B5C4` | `#4B9CAD` |
+| `echoMuted` | `#337C8A` | `#5BA3B0` |
 
 ### 1.2 头像渐变色（哈希着色）
 
@@ -105,13 +113,43 @@ NavigationStack（无可见导航栏）
 自定义组件，替换当前的 `TextField` + `Section` 方案：
 
 - 背景：`echoSurface`，边框 `echoBlue 20% 透明度`，`cornerRadius 12`
-- 聚焦时边框变为 `echoBlue 100%`，动画 150ms
-- Label 在未输入时居中显示（占位符行为），有内容后缩小到字段顶部（9pt，echoBlue 颜色）
+- 聚焦时边框变为 `echoInteractive 100%`，动画 150ms
+- Label 在未输入时居中显示（占位符行为），有内容后缩小到字段顶部（9pt，echoInteractive 颜色）
 - 高度：56pt（满足 44pt 触控要求并留有视觉呼吸空间）
+- **必须透传：** `textContentType`、`keyboardType`、`textInputAutocapitalization`、`autocorrectionDisabled`、`.accessibilityIdentifier`
+- **字段级错误：** 若传入非 nil 的 `error: String?`，在字段下方以 `.footnote` 红色显示，与现有 RegisterView 行为一致
+
+```swift
+struct FloatingLabelTextField: View {
+    let label: LocalizedStringKey
+    @Binding var text: String
+    var error: String? = nil
+    var isSecure: Bool = false
+    var keyboardType: UIKeyboardType = .default
+    var textContentType: UITextContentType? = nil
+    var autocapitalization: TextInputAutocapitalization = .sentences
+    var accessibilityId: String? = nil
+    // ...
+}
+```
+
+### 注册页字段清单
+
+注册页有 **4 个字段**（LoginView 有 2 个），重写时必须全部保留：
+
+| 字段 | accessibilityIdentifier | textContentType | 备注 |
+|---|---|---|---|
+| 邀请码 | `regInvite` | — | autocap .never |
+| 用户名 | `regUsername` | — | autocap .never |
+| 邮箱 | `regEmail` | `.emailAddress` | keyboard .emailAddress |
+| 密码 | `regPassword` | `.newPassword` | SecureField |
+
+登录页 accessibilityIdentifiers：`loginEmail`、`loginPassword`、`loginSubmit`、`loginGoRegister`、`loginToastOK`。
 
 ### 错误处理
 
-保留现有 `.alert` 弹窗逻辑，样式不变。
+- 字段级错误（RegisterView 现有）：保留，由 FloatingLabelTextField 的 `error` 参数承接
+- 全局错误 `.alert` 弹窗：保留，样式不变
 
 ---
 
@@ -131,7 +169,14 @@ NavigationStack（无可见导航栏）
 ### 加载态
 
 - 初次加载（`vm.phase == .loading && vm.conversations.isEmpty`）：显示 5 行 `ConversationRowSkeleton`
-- `ConversationRowSkeleton`：圆形头像骨架（46pt）+ 两行文字骨架（宽度随机 60-80pt / 100-140pt），shimmer 动画
+- `ConversationRowSkeleton`：圆形头像骨架（46pt）+ 两行文字骨架，宽度使用**固定 preset**（不随机，避免 SwiftUI body 重算时抖动）：
+
+```swift
+// 5 行固定 preset（名字宽 / 预览宽）
+private let skeletonPresets: [(CGFloat, CGFloat)] = [
+    (88, 160), (72, 140), (96, 120), (80, 150), (68, 135)
+]
+```
 
 ### 空状态
 
@@ -143,7 +188,26 @@ NavigationStack（无可见导航栏）
 ### 导航栏
 
 - `.navigationBarTitleDisplayMode(.large)`（当前 `.inline`）
-- 颜色：通过 `UINavigationBarAppearance` 设置背景为 `echoBlue`，前景白色
+- 颜色：**per-view** 方式，不使用全局 `UINavigationBarAppearance`（会污染 sheet 和详情页）：
+
+```swift
+// 在各 tab 根视图 + ChatView 加：
+.toolbarBackground(Color.echoInteractive, for: .navigationBar)
+.toolbarColorScheme(.dark, for: .navigationBar)
+```
+
+各页面导航栏颜色规格：
+
+| 页面 | 导航栏背景 | title mode |
+|---|---|---|
+| 会话列表 | `echoInteractive` 蓝 | `.large` |
+| 联系人 | `echoInteractive` 蓝 | `.large` |
+| 「我」 | `echoInteractive` 蓝 | `.large` |
+| 聊天页 | `echoInteractive` 蓝 | `.inline` |
+| ProfileEditView | 系统默认 | `.inline` |
+| UserDetailView | 系统默认 | `.inline` |
+| FriendRequestsSheetView | 系统默认（sheet 自带） | `.inline` |
+| UserSearchSheetView | 系统默认（sheet 自带） | `.inline` |
 
 ---
 
@@ -220,8 +284,17 @@ func shouldShowTimestamp(at index: Int) -> Bool {
 
 进入会话时（`vm.phase == .loading && vm.messages.isEmpty`）显示 `ChatSkeletonView`：
 
-- 6 个骨架气泡，左右随机分布，宽度 40-70%，高度 34pt
-- shimmer 动画，数据到达后 `.opacity` 淡出，消息列表淡入
+- 6 个骨架气泡，使用**固定 preset**（位置和宽度写死，避免 body 重算抖动）：
+
+```swift
+// 左=接收方，右=发送方；宽度为屏幕宽比例
+private let chatSkeletonPresets: [(isRight: Bool, widthRatio: CGFloat)] = [
+    (false, 0.55), (true, 0.45), (false, 0.62),
+    (true, 0.38), (false, 0.50), (true, 0.42)
+]
+```
+
+- 高度 34pt，shimmer 动画，数据到达后 `.opacity` 淡出，消息列表淡入
 
 ### 4.5 输入栏
 
@@ -252,7 +325,7 @@ Section "其他"
 ### FriendRow
 
 - 头像：42pt，哈希渐变
-- 在线状态文字：在线显示 `"在线"（.caption，echoOnline）`；离线显示 `"X 小时前在线"（.caption，.secondary）`
+- 在线状态文字：在线显示 `"在线"（.caption，echoOnline）`；离线显示 `"离线"（.caption，.secondary）`（UserProfile 无 lastSeenAt，不展示具体时间）
 - 右侧：`"发消息"` 文字按钮（`.caption，echoBlue，font-weight .semibold`）→ push 到对应会话
 
 ### 好友申请角标
@@ -330,12 +403,14 @@ ZStack {
 
 ## 8. 触觉反馈（HapticFeedback.swift 沿用）
 
-| 事件 | 反馈 |
-|---|---|
-| 消息发送成功（WS confirmed） | `.soft` |
-| 消息发送失败 | `.error` |
-| 好友申请接受/拒绝 | `.medium` |
-| 发送按钮按下（已有） | 保持不变 |
+现有协议方法：`lightImpact()`、`success()`、`warning()`（见 `HapticFeedback.swift`）。
+
+| 事件 | 调用方法 | 触发时机 |
+|---|---|---|
+| 消息发送成功 | `success()` | `sendState` 变为 `.confirmed`（WS echo），**不在 REST 响应时触发**，避免双触发 |
+| 消息发送失败 | `warning()` | `sendState` 变为 `.failed` |
+| 好友申请接受/拒绝 | `lightImpact()` | 操作完成回调 |
+| 发送按钮按下（已有） | 保持不变 | 保持不变 |
 
 ---
 
@@ -349,7 +424,7 @@ ZStack {
 | `Core/UI/SkeletonView.swift` | 新建：ConversationRowSkeleton、ChatSkeletonView |
 | `Core/UI/FloatingLabelTextField.swift` | 新建 |
 | `Core/UI/MeRow.swift` | 新建 |
-| `Core/Extensions/Color+Echo.swift` | 新建：定义所有 Token + 深色变体 |
+| `Core/Extensions/Color+Echo.swift` | 新建：定义所有 Token（含 echoInteractive）+ 深色变体 |
 | `Features/Auth/LoginView.swift` | 完全重写（移除 Form，换自定义布局） |
 | `Features/Auth/RegisterView.swift` | 完全重写（与 LoginView 共用品牌顶部） |
 | `Features/Conversations/ConversationsListView.swift` | ConversationRow 头像/间距改造 + Skeleton |
@@ -362,7 +437,23 @@ ZStack {
 
 ---
 
-## 10. 不在本次范围内
+## 10. 必须保留的现有行为
+
+视觉重构不得破坏以下行为，实现时需逐一验证：
+
+| 行为 | 所在文件 |
+|---|---|
+| 所有 `accessibilityIdentifier`（loginEmail/loginPassword/loginSubmit/loginGoRegister/loginToastOK/regInvite/regUsername/regEmail/regPassword/regSubmit/regGoLogin/chatInput/chatSend/chatImagePicker/conversationsList 等） | Auth/Chat/Conversations views |
+| 注册页四字段级错误提示（inviteCodeError/usernameError/emailError/passwordError） | RegisterView + RegisterViewModel |
+| 清缓存 confirmationDialog（不可静默删除） | MeView |
+| 图片消息两步发送 + 发送失败重试 | ChatViewModel + ImageMessageBubble |
+| 聊天页初始滚动到底部（含 catchUp scroll trigger） | ChatView |
+| 分页加载更早消息（"加载更早消息"按钮） | ChatView + ChatViewModel |
+| typing start/stop 不变式（onDisappear 时强制 stop） | ChatView |
+| WS 订阅的 attach/detach 生命周期 | ConversationsListView / ChatView |
+| 乐观消息 `client_temp_id` 合并逻辑 | ChatViewModel |
+
+## 11. 不在本次范围内
 
 - 群聊功能
 - 深色模式独立颜色微调（系统色自动适配已覆盖大部分场景）
