@@ -64,6 +64,8 @@ struct ContactsView: View {
                     showSearch = false
                 }
             }
+            .toolbarBackground(Color.echoInteractive, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
     }
 
     private func refreshAfterSheet() {

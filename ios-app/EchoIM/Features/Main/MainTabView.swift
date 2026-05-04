@@ -33,7 +33,7 @@ struct MainTabView: View {
             }
             .accessibilityIdentifier("mainTabView")
             .navigationTitle(navigationTitle)
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 if selection == .contacts, path.isEmpty {
                     contactsToolbar
@@ -134,7 +134,7 @@ struct MainTabView: View {
                 showContactRequests = true
             } label: {
                 ZStack(alignment: .topTrailing) {
-                    Image(systemName: "envelope")
+                    Image(systemName: "person.2")
 
                     if pendingIncomingCount > 0 {
                         Text("\(pendingIncomingCount)")
