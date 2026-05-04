@@ -24,7 +24,7 @@
 > **对比度说明：**  
 > - 白字 on `echoInteractive #0E7490`：5.2:1 ✅ WCAG AA  
 > - `echoMuted #337C8A` on `echoSurface #ECFEFF`：4.6:1 ✅ WCAG AA  
-> - `echoTextDeep #164E63` on `echoSurface #ECFEFF`：9.8:1 ✅ WCAG AAA  
+> - `echoTextDeep #164E63` on `echoSurface #ECFEFF`：8.76:1 ✅ WCAG AAA  
 
 **主渐变：** `LinearGradient(colors: [.echoBlue, .echoCyan], startPoint: .topLeading, endPoint: .bottomTrailing)`  
 **按钮/导航栏渐变：** `LinearGradient(colors: [.echoInteractive, .echoBlue], startPoint: .topLeading, endPoint: .bottomTrailing)`
@@ -104,7 +104,7 @@ NavigationStack（无可见导航栏）
     └── 表单卡片（白色，cornerRadius 24 24 0 0，从底部弹出）
         ├── 标题（"欢迎回来" / "创建账号"，.title3.bold）
         ├── 字段组（FloatingLabelTextField × 2/3）
-        ├── 主按钮（"登录" / "注册"，echoBlue 背景，cornerRadius 12，高度 50pt）
+        ├── 主按钮（"登录" / "注册"，echoInteractive 背景，cornerRadius 12，高度 50pt）
         └── 跳转链接（"没有账号？立即注册"）
 ```
 
@@ -243,7 +243,7 @@ func isConsecutive(_ msg: LocalMessage, previous: LocalMessage?) -> Bool {
 - 增加 `shadow(color: .echoBlue.opacity(0.1), radius: 3, x: 0, y: 1)`
 
 **发送方气泡：**
-- 背景：`echoBlue`
+- 背景：`echoInteractive`（白字对比度 5.2:1，echoBlue 3.68:1 不达标）
 - 无阴影
 
 **Pending 状态：** 保持 `opacity(0.65)` + "发送中…" caption，不变。
@@ -302,7 +302,7 @@ private let chatSkeletonPresets: [(isRight: Bool, widthRatio: CGFloat)] = [
 HStack
 ├── 图片选择按钮（34pt 圆形，echoSurface + echoBlue 图标，tapTarget 包裹至 44pt）
 ├── TextField（圆角 18，echoSurface 背景，echoBlue 20% 边框）
-└── 发送按钮（34pt 圆形，echoBlue，tapTarget 44pt）
+└── 发送按钮（34pt 圆形，echoInteractive，tapTarget 44pt）
 ```
 
 背景：`.ultraThinMaterial`，顶部边框 `echoBlue 12% 透明度`。
@@ -409,7 +409,8 @@ ZStack {
 |---|---|---|
 | 消息发送成功 | `success()` | `sendState` 变为 `.confirmed`（WS echo），**不在 REST 响应时触发**，避免双触发 |
 | 消息发送失败 | `warning()` | `sendState` 变为 `.failed` |
-| 好友申请接受/拒绝 | `lightImpact()` | 操作完成回调 |
+| 好友申请接受 | `success()` | 操作完成回调（与现有测试 `successCount == 1` 一致） |
+| 好友申请拒绝 | `warning()` | 操作完成回调（与现有测试 `warningCount == 1` 一致） |
 | 发送按钮按下（已有） | 保持不变 | 保持不变 |
 
 ---
