@@ -28,6 +28,17 @@ struct AppContainerTests {
     }
 
     @Test
+    func bootstrapMarksRestoredUserAsRestoringPlaceholder() throws {
+        let (container, store) = makeContainer()
+        try store.save(token: "t", userId: 42)
+
+        container.bootstrap()
+
+        #expect(container.isRestoringCurrentUser)
+        try store.clear()
+    }
+
+    @Test
     func bootstrapLeavesCurrentUserNilWhenNoToken() {
         let (container, _) = makeContainer()
         container.bootstrap()
@@ -44,6 +55,7 @@ struct AppContainerTests {
         await container.logout()
 
         #expect(container.currentUser == nil)
+        #expect(!container.isRestoringCurrentUser)
         #expect(try store.load() == nil)
     }
 
@@ -56,6 +68,7 @@ struct AppContainerTests {
         await container.handleUnauthorized()
 
         #expect(container.currentUser == nil)
+        #expect(!container.isRestoringCurrentUser)
         #expect(try store.load() == nil)
         #expect(container.sessionExpiredNoticeID != nil)
     }
@@ -92,6 +105,7 @@ struct AppContainerTests {
 
         #expect(container.session == nil)
         #expect(container.currentUser == nil)
+        #expect(!container.isRestoringCurrentUser)
         #expect(!FileManager.default.fileExists(atPath: userDir.path))
         #expect(try store.load() != nil)
         try store.clear()
@@ -105,6 +119,7 @@ struct AppContainerTests {
         container.bootstrap()
 
         #expect(container.currentUser == nil)
+        #expect(!container.isRestoringCurrentUser)
         #expect(try store.load() == nil)
     }
 }

@@ -12,8 +12,12 @@ struct MeView: View {
             if let user = container.currentUser {
                 ScrollView {
                     VStack(spacing: 16) {
-                        userInfoCard(user: user)
-                        editProfileCard(user: user)
+                        if container.isRestoringCurrentUser {
+                            restoringUserInfoCard
+                        } else {
+                            userInfoCard(user: user)
+                            editProfileCard(user: user)
+                        }
                         cacheCard
                         logoutCard
                     }
@@ -25,6 +29,9 @@ struct MeView: View {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+        }
+        .task {
+            await container.refreshCurrentUserIfRestoring()
         }
         .confirmationDialog(
             "清除本地聊天缓存？",
@@ -53,9 +60,36 @@ struct MeView: View {
         .toolbarColorScheme(.dark, for: .navigationBar)
     }
 
+    // MARK: - 资料恢复中卡片
+    private var restoringUserInfoCard: some View {
+        userHeaderCard {
+            ZStack {
+                Circle()
+                    .fill(Color.white.opacity(0.18))
+
+                Image(systemName: "person.crop.circle")
+                    .font(.system(size: 32, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+            .frame(width: 56, height: 56)
+            .overlay(Circle().strokeBorder(Color.white, lineWidth: 2.5))
+
+            VStack(spacing: 4) {
+                Text("资料暂不可用")
+                    .font(.title3.bold())
+                    .foregroundStyle(.white)
+                    .accessibilityIdentifier("homeUsername")
+
+                Text("服务恢复后会自动同步")
+                    .font(.subheadline)
+                    .foregroundStyle(Color.white.opacity(0.65))
+            }
+        }
+    }
+
     // MARK: - 用户信息卡片
     private func userInfoCard(user: AuthenticatedUser) -> some View {
-        VStack(spacing: 12) {
+        userHeaderCard {
             AvatarView(user: user, size: 56)
                 .overlay(Circle().strokeBorder(Color.white, lineWidth: 2.5))
 
@@ -77,6 +111,15 @@ struct MeView: View {
                         .foregroundStyle(Color.white.opacity(0.5))
                 }
             }
+        }
+    }
+
+    // MARK: - 资料卡片外壳
+    private func userHeaderCard<Content: View>(
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(spacing: 12) {
+            content()
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 24)

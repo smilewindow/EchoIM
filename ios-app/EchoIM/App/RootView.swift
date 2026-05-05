@@ -23,7 +23,6 @@ struct RootView: View {
                 }
                 .task {
                     container.connectWebSocketIfNeeded()
-                    await container.refreshCurrentUser()
                 }
             } else if showRegister {
                 RegisterView(vm: makeRegisterViewModel()) {

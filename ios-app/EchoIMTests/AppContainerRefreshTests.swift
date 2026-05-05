@@ -41,6 +41,43 @@ struct AppContainerRefreshTests {
 
         #expect(container.currentUser?.username == "alice")
         #expect(container.currentUser?.email == "a@x.com")
+        #expect(!container.isRestoringCurrentUser)
+        try store.clear()
+    }
+
+    @Test
+    func refreshIfRestoringSkipsAlreadyLoadedUser() async throws {
+        var requestCount = 0
+        let (container, store) = makeSetup { request in
+            requestCount += 1
+            return (
+                HTTPURLResponse(
+                    url: request.url!,
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: nil
+                )!,
+                Data()
+            )
+        }
+        try store.save(token: "good", userId: 9)
+        container.handleLoginSuccess(
+            AuthResponse(
+                token: "good",
+                user: AuthenticatedUser(
+                    id: 9,
+                    username: "alice",
+                    email: "a@x.com",
+                    displayName: nil,
+                    avatarUrl: nil
+                )
+            )
+        )
+
+        await container.refreshCurrentUserIfRestoring()
+
+        #expect(requestCount == 0)
+        #expect(container.currentUser?.username == "alice")
         try store.clear()
     }
 
@@ -87,6 +124,7 @@ struct AppContainerRefreshTests {
         await container.refreshCurrentUser()
 
         #expect(container.currentUser?.username == "(restoring)")
+        #expect(container.isRestoringCurrentUser)
         #expect(try store.load() != nil)
         try store.clear()
     }

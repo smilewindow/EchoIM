@@ -10,6 +10,7 @@ final class AppContainer {
     let tokenStore: KeychainTokenStore
     let apiClient: APIClient
     var currentUser: AuthenticatedUser?
+    var isRestoringCurrentUser = false
     var sessionExpiredNoticeID: UUID?
 
     /// 当前登录用户的会话。未登录时 nil。P4 起 wsClient / 会话相关 repo 都从这里取。
@@ -64,6 +65,7 @@ final class AppContainer {
         if resetKeychainOnLaunch {
             try? tokenStore.clear()
             currentUser = nil
+            isRestoringCurrentUser = false
             sessionExpiredNoticeID = nil
             session = nil
             return
@@ -71,6 +73,7 @@ final class AppContainer {
 
         guard let stored = try? tokenStore.load() else {
             currentUser = nil
+            isRestoringCurrentUser = false
             sessionExpiredNoticeID = nil
             session = nil
             return
@@ -83,11 +86,13 @@ final class AppContainer {
             displayName: nil,
             avatarUrl: nil
         )
+        isRestoringCurrentUser = true
         try? bootstrapSession(userId: stored.userId)
     }
 
     func handleLoginSuccess(_ response: AuthResponse) {
         currentUser = response.user
+        isRestoringCurrentUser = false
         sessionExpiredNoticeID = nil
         try? bootstrapSession(userId: response.user.id)
         session?.connectWebSocketIfNeeded()
@@ -102,11 +107,17 @@ final class AppContainer {
         do {
             let user = try await makeUserRepository().fetchMe(token: stored.token)
             currentUser = user
+            isRestoringCurrentUser = false
         } catch APIError.unauthorized {
             await handleUnauthorized()
         } catch {
             // 保留占位态
         }
+    }
+
+    func refreshCurrentUserIfRestoring() async {
+        guard isRestoringCurrentUser else { return }
+        await refreshCurrentUser()
     }
 
     func logout() async {
@@ -136,6 +147,7 @@ final class AppContainer {
         session?.disconnectWebSocket(reason: .userInitiated)
         session = nil
         currentUser = nil
+        isRestoringCurrentUser = false
         await Task.yield()
 
         if let userId {
