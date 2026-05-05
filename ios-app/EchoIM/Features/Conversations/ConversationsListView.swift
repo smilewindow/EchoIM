@@ -39,9 +39,7 @@ struct ConversationsListView: View {
     @ViewBuilder
     private var content: some View {
         if case .unauthenticated = vm.phase {
-            Text("登录已过期，请重新登录")
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            unauthenticatedState
         } else if vm.conversations.isEmpty {
             switch vm.phase {
             case .idle, .loading:
@@ -54,13 +52,17 @@ struct ConversationsListView: View {
             case .error(let message):
                 errorState(message)
             case .unauthenticated:
-                Text("登录已过期，请重新登录")
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                unauthenticatedState
             }
         } else {
             list
         }
+    }
+
+    private var unauthenticatedState: some View {
+        Text("登录状态已失效，请重新登录")
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var list: some View {

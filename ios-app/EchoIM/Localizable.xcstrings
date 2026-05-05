@@ -713,12 +713,12 @@
         }
       }
     },
-    "登录已过期，请重新登录" : {
+    "登录状态已失效，请重新登录" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Your session expired. Please sign in again."
+            "value" : "Your sign-in session is no longer valid. Please sign in again."
           }
         }
       }

@@ -65,6 +65,7 @@ struct AppContainerRefreshTests {
 
         #expect(container.currentUser == nil)
         #expect(try store.load() == nil)
+        #expect(container.sessionExpiredNoticeID != nil)
     }
 
     @Test

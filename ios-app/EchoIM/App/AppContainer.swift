@@ -10,6 +10,7 @@ final class AppContainer {
     let tokenStore: KeychainTokenStore
     let apiClient: APIClient
     var currentUser: AuthenticatedUser?
+    var sessionExpiredNoticeID: UUID?
 
     /// 当前登录用户的会话。未登录时 nil。P4 起 wsClient / 会话相关 repo 都从这里取。
     private(set) var session: UserSession?
@@ -63,12 +64,14 @@ final class AppContainer {
         if resetKeychainOnLaunch {
             try? tokenStore.clear()
             currentUser = nil
+            sessionExpiredNoticeID = nil
             session = nil
             return
         }
 
         guard let stored = try? tokenStore.load() else {
             currentUser = nil
+            sessionExpiredNoticeID = nil
             session = nil
             return
         }
@@ -85,6 +88,7 @@ final class AppContainer {
 
     func handleLoginSuccess(_ response: AuthResponse) {
         currentUser = response.user
+        sessionExpiredNoticeID = nil
         try? bootstrapSession(userId: response.user.id)
         session?.connectWebSocketIfNeeded()
     }
@@ -99,23 +103,24 @@ final class AppContainer {
             let user = try await makeUserRepository().fetchMe(token: stored.token)
             currentUser = user
         } catch APIError.unauthorized {
-            try? tokenStore.clear()
-            await tearDownSession()
+            await handleUnauthorized()
         } catch {
             // 保留占位态
         }
     }
 
     func logout() async {
+        sessionExpiredNoticeID = nil
         await makeAuthRepository().logout()
         await tearDownSession()
     }
 
-    /// WS 收到 upgrade 401 时回调。与 logout 行为几乎等价：清 token + 释放资源 + 回登录页。
+    /// 已保存登录态被服务端拒绝时的统一入口：清 token + 释放资源 + 回登录页。
     /// 不同点是不调 `/api/auth/logout`（token 已失效，再打也没有价值）。
     func handleUnauthorized() async {
         try? tokenStore.clear()
         await tearDownSession()
+        sessionExpiredNoticeID = UUID()
     }
 
     /// 设计 §5.5 的三阶段清理。必须按顺序：

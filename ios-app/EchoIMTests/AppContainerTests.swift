@@ -48,6 +48,19 @@ struct AppContainerTests {
     }
 
     @Test
+    func handleUnauthorizedPublishesSessionExpiredNotice() async throws {
+        let (container, store) = makeContainer()
+        try store.save(token: "t", userId: 42)
+        container.bootstrap()
+
+        await container.handleUnauthorized()
+
+        #expect(container.currentUser == nil)
+        #expect(try store.load() == nil)
+        #expect(container.sessionExpiredNoticeID != nil)
+    }
+
+    @Test
     func tearDownSessionClearsAllUserStateAndFiles() async throws {
         let (container, store) = makeContainer()
         // 不依赖真实服务端用户；这里只验证 AppContainer 对当前 session 的本地资源清理。
