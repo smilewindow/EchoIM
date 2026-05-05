@@ -42,4 +42,32 @@ final class LoginSmokeTests: XCTestCase {
         let username = app.staticTexts["homeUsername"]
         XCTAssertTrue(username.waitForExistence(timeout: 10))
     }
+
+    @MainActor
+    func testLoginDismissesKeyboardOnBackgroundTapAndAfterSuccess() throws {
+        let app = XCUIApplication()
+        app.launchArguments += ["-uitest-reset-keychain"]
+        app.launch()
+
+        let email = app.textFields["loginEmail"]
+        XCTAssertTrue(email.waitForExistence(timeout: 5))
+        email.tap()
+        email.typeText("smoke@test.local")
+
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 3))
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.18)).tap()
+        XCTAssertFalse(app.keyboards.firstMatch.waitForExistence(timeout: 1))
+
+        let password = app.secureTextFields["loginPassword"]
+        XCTAssertTrue(password.waitForExistence(timeout: 5))
+        password.tap()
+        password.typeText("password123")
+
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 3))
+        app.buttons["loginSubmit"].tap()
+
+        let tabView = app.otherElements["mainTabView"]
+        XCTAssertTrue(tabView.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.keyboards.firstMatch.waitForExistence(timeout: 1))
+    }
 }

@@ -27,6 +27,10 @@ struct LoginView: View {
 
                 formCard
             }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                dismissKeyboard()
+            }
             .navigationBarHidden(true)
             .alert(
                 "登录失败",
@@ -87,6 +91,7 @@ struct LoginView: View {
             )
 
             Button {
+                dismissKeyboard()
                 Task { await vm.submit() }
             } label: {
                 Group {
@@ -128,5 +133,15 @@ struct LoginView: View {
                 ))
         )
         .ignoresSafeArea(.container, edges: .bottom)
+    }
+
+    private func dismissKeyboard() {
+        // FloatingLabelTextField 自己持有焦点；这里直接让当前输入控件放弃 first responder。
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder),
+            to: nil,
+            from: nil,
+            for: nil
+        )
     }
 }
