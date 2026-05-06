@@ -24,7 +24,7 @@
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>EchoIMBaseURL</key>
-	<string>http://192.168.124.2:3000</string>
+	<string>http://xuyuqindeMacBook-Pro.local:3000</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSAppTransportSecurity</key>
