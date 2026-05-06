@@ -12,7 +12,7 @@ struct MeView: View {
             if let user = container.currentUser {
                 ScrollView {
                     VStack(spacing: 16) {
-                        if container.isRestoringCurrentUser {
+                        if container.isRestoringCurrentUser && isRestoringPlaceholder(user) {
                             restoringUserInfoCard
                         } else {
                             userInfoCard(user: user)
@@ -198,7 +198,7 @@ struct MeView: View {
     private func makeProfileEditViewModel() -> ProfileEditViewModel {
         ProfileEditViewModel(
             currentUser: { container.currentUser },
-            currentUserSetter: { container.currentUser = $0 },
+            currentUserSetter: { container.updateCurrentUser($0) },
             tokenProvider: { [tokenStore = container.tokenStore] in
                 (try? tokenStore.load())?.token
             },
@@ -212,5 +212,9 @@ struct MeView: View {
                 await container?.handleUnauthorized()
             }
         )
+    }
+
+    private func isRestoringPlaceholder(_ user: AuthenticatedUser) -> Bool {
+        user.username == "(restoring)" && user.email.isEmpty
     }
 }

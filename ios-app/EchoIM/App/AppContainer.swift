@@ -9,6 +9,7 @@ import Observation
 final class AppContainer {
     let tokenStore: KeychainTokenStore
     let apiClient: APIClient
+    private let currentUserCache: CurrentUserCacheStore
     var currentUser: AuthenticatedUser?
     var isRestoringCurrentUser = false
     var sessionExpiredNoticeID: UUID?
@@ -22,10 +23,12 @@ final class AppContainer {
     init(
         tokenStore: KeychainTokenStore? = nil,
         apiClient: APIClient? = nil,
+        currentUserCache: CurrentUserCacheStore? = nil,
         resetKeychainOnLaunch: Bool = false
     ) {
         self.tokenStore = tokenStore ?? KeychainTokenStore()
         self.apiClient = apiClient ?? APIClient()
+        self.currentUserCache = currentUserCache ?? CurrentUserCacheStore()
         self.resetKeychainOnLaunch = resetKeychainOnLaunch
 
         configureImagePipelineCache()
@@ -79,19 +82,20 @@ final class AppContainer {
             return
         }
 
-        currentUser = AuthenticatedUser(
-            id: stored.userId,
-            username: "(restoring)",
-            email: "",
-            displayName: nil,
-            avatarUrl: nil
-        )
+        currentUser = currentUserCache.load(userId: stored.userId)
+            ?? AuthenticatedUser(
+                id: stored.userId,
+                username: "(restoring)",
+                email: "",
+                displayName: nil,
+                avatarUrl: nil
+            )
         isRestoringCurrentUser = true
         try? bootstrapSession(userId: stored.userId)
     }
 
     func handleLoginSuccess(_ response: AuthResponse) {
-        currentUser = response.user
+        updateCurrentUser(response.user)
         isRestoringCurrentUser = false
         sessionExpiredNoticeID = nil
         try? bootstrapSession(userId: response.user.id)
@@ -106,7 +110,7 @@ final class AppContainer {
         guard let stored = try? tokenStore.load() else { return }
         do {
             let user = try await makeUserRepository().fetchMe(token: stored.token)
-            currentUser = user
+            updateCurrentUser(user)
             isRestoringCurrentUser = false
         } catch APIError.unauthorized {
             await handleUnauthorized()
@@ -129,6 +133,10 @@ final class AppContainer {
     /// 已保存登录态被服务端拒绝时的统一入口：清 token + 释放资源 + 回登录页。
     /// 不同点是不调 `/api/auth/logout`（token 已失效，再打也没有价值）。
     func handleUnauthorized() async {
+        let userId = session?.userId ?? currentUser?.id ?? (try? tokenStore.load())?.userId
+        if let userId {
+            currentUserCache.delete(userId: userId)
+        }
         try? tokenStore.clear()
         await tearDownSession()
         sessionExpiredNoticeID = UUID()
@@ -163,6 +171,11 @@ final class AppContainer {
         guard let session else { return }
         try? await session.messageStore().deleteAll()
         try? await session.conversationMetaStore().deleteAll()
+    }
+
+    func updateCurrentUser(_ user: AuthenticatedUser) {
+        currentUser = user
+        currentUserCache.save(user)
     }
 
     // MARK: - Internal

@@ -5,49 +5,110 @@ import Testing
 @MainActor
 @Suite("AppContainer", .serialized)
 struct AppContainerTests {
-    private func makeContainer(resetArg: Bool = false) -> (AppContainer, KeychainTokenStore) {
+    private struct Setup {
+        let container: AppContainer
+        let store: KeychainTokenStore
+        let currentUserCache: CurrentUserCacheStore
+        let cacheBaseDirectory: URL
+
+        func cleanup() {
+            try? store.clear()
+            try? FileManager.default.removeItem(at: cacheBaseDirectory)
+        }
+    }
+
+    private func makeSetup(resetArg: Bool = false) -> Setup {
         let store = KeychainTokenStore(service: "com.echoim.test.\(UUID().uuidString)")
+        let cacheBaseDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("EchoIMTests/\(UUID().uuidString)")
+        let currentUserCache = CurrentUserCacheStore(baseDirectory: cacheBaseDirectory)
         try? store.clear()
         let container = AppContainer(
             tokenStore: store,
             apiClient: APIClient(),
+            currentUserCache: currentUserCache,
             resetKeychainOnLaunch: resetArg
         )
-        return (container, store)
+        return Setup(
+            container: container,
+            store: store,
+            currentUserCache: currentUserCache,
+            cacheBaseDirectory: cacheBaseDirectory
+        )
     }
 
     @Test
     func bootstrapRestoresCurrentUserFromKeychain() throws {
-        let (container, store) = makeContainer()
+        let setup = makeSetup()
+        defer { setup.cleanup() }
+        let container = setup.container
+        let store = setup.store
         try store.save(token: "t", userId: 42)
 
         container.bootstrap()
 
         #expect(container.currentUser?.id == 42)
-        try store.clear()
     }
 
     @Test
     func bootstrapMarksRestoredUserAsRestoringPlaceholder() throws {
-        let (container, store) = makeContainer()
+        let setup = makeSetup()
+        defer { setup.cleanup() }
+        let container = setup.container
+        let store = setup.store
         try store.save(token: "t", userId: 42)
 
         container.bootstrap()
 
         #expect(container.isRestoringCurrentUser)
-        try store.clear()
+    }
+
+    @Test
+    func bootstrapUsesCachedCurrentUserBeforeRefresh() async throws {
+        let setup = makeSetup()
+        defer { setup.cleanup() }
+        let firstContainer = setup.container
+        let store = setup.store
+        let userId = Int.random(in: 800_000_000...899_999_999)
+        let cachedUser = AuthenticatedUser(
+            id: userId,
+            username: "alice",
+            email: "alice@example.com",
+            displayName: "Alice",
+            avatarUrl: "/uploads/avatars/alice.jpg"
+        )
+        firstContainer.handleLoginSuccess(AuthResponse(token: "t", user: cachedUser))
+        try store.save(token: "t", userId: userId)
+
+        let secondContainer = AppContainer(
+            tokenStore: store,
+            apiClient: APIClient(),
+            currentUserCache: setup.currentUserCache
+        )
+        secondContainer.bootstrap()
+
+        #expect(secondContainer.currentUser == cachedUser)
+        #expect(secondContainer.isRestoringCurrentUser)
+
+        await firstContainer.tearDownSession()
+        await secondContainer.tearDownSession()
     }
 
     @Test
     func bootstrapLeavesCurrentUserNilWhenNoToken() {
-        let (container, _) = makeContainer()
+        let setup = makeSetup()
+        defer { setup.cleanup() }
+        let container = setup.container
         container.bootstrap()
         #expect(container.currentUser == nil)
     }
 
     @Test
     func logoutClearsKeychainAndCurrentUser() async throws {
-        let (container, store) = makeContainer()
+        let setup = makeSetup()
+        defer { setup.cleanup() }
+        let container = setup.container
+        let store = setup.store
         try store.save(token: "t", userId: 42)
         container.bootstrap()
         #expect(container.currentUser?.id == 42)
@@ -61,7 +122,10 @@ struct AppContainerTests {
 
     @Test
     func handleUnauthorizedPublishesSessionExpiredNotice() async throws {
-        let (container, store) = makeContainer()
+        let setup = makeSetup()
+        defer { setup.cleanup() }
+        let container = setup.container
+        let store = setup.store
         try store.save(token: "t", userId: 42)
         container.bootstrap()
 
@@ -75,7 +139,10 @@ struct AppContainerTests {
 
     @Test
     func tearDownSessionClearsAllUserStateAndFiles() async throws {
-        let (container, store) = makeContainer()
+        let setup = makeSetup()
+        defer { setup.cleanup() }
+        let container = setup.container
+        let store = setup.store
         // 不依赖真实服务端用户；这里只验证 AppContainer 对当前 session 的本地资源清理。
         let userId = Int.random(in: 900_000_000...999_999_999)
 
@@ -108,12 +175,14 @@ struct AppContainerTests {
         #expect(!container.isRestoringCurrentUser)
         #expect(!FileManager.default.fileExists(atPath: userDir.path))
         #expect(try store.load() != nil)
-        try store.clear()
     }
 
     @Test
     func resetKeychainFlagWipesOnBootstrap() throws {
-        let (container, store) = makeContainer(resetArg: true)
+        let setup = makeSetup(resetArg: true)
+        defer { setup.cleanup() }
+        let container = setup.container
+        let store = setup.store
         try store.save(token: "t", userId: 42)
 
         container.bootstrap()
