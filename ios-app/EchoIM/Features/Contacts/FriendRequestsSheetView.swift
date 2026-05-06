@@ -48,7 +48,10 @@ struct FriendRequestsSheetView: View {
                 }
             }
             .refreshable {
-                await vm.refresh()
+                await vm.loadRequestDetails()
+            }
+            .task {
+                await vm.loadRequestDetails()
             }
         }
     }

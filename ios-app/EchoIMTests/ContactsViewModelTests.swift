@@ -64,7 +64,7 @@ struct ContactsViewModelTests {
     }
 
     @Test
-    func refreshAggregatesAllFourResultsOnSuccess() async throws {
+    func refreshLoadsFriendsAndIncomingOnly() async throws {
         let friendRepo = FakeFriendRepo()
         friendRepo.result = .success([makeFriend(id: 1, username: "alice")])
 
@@ -93,16 +93,19 @@ struct ContactsViewModelTests {
         #expect(vm.errorMessage == nil)
         #expect(friendRepo.callCount == 1)
         #expect(requestRepo.listCallCounts.incoming == 1)
-        #expect(requestRepo.listCallCounts.sent == 1)
-        #expect(requestRepo.listCallCounts.history == 1)
+        #expect(requestRepo.listCallCounts.sent == 0)
+        #expect(requestRepo.listCallCounts.history == 0)
     }
 
     @Test
-    func refreshPartialFailureLeavesStateUntouched() async {
+    func refreshKeepsFriendsIndependentFromRequestDetailFailure() async {
         let friendRepo = FakeFriendRepo()
-        friendRepo.result = .success([makeFriend(id: 1, username: "alice")])
-
         let requestRepo = FakeRequestRepo()
+        friendRepo.result = .success([
+            makeFriend(id: 1, username: "alice"),
+            makeFriend(id: 2, username: "bob"),
+        ])
+        requestRepo.historyResult = .failure(APIError.invalidResponse)
         let vm = ContactsViewModel(
             friendRepo: friendRepo,
             requestRepo: requestRepo,
@@ -110,18 +113,57 @@ struct ContactsViewModelTests {
         )
 
         await vm.refresh()
-        #expect(vm.friends.count == 1)
 
-        friendRepo.result = .success([
-            makeFriend(id: 1, username: "alice"),
-            makeFriend(id: 2, username: "bob"),
+        #expect(vm.friends.map(\.username) == ["alice", "bob"])
+        #expect(vm.errorMessage == nil)
+        #expect(requestRepo.listCallCounts.history == 0)
+    }
+
+    @Test
+    func loadRequestDetailsFetchesIncomingSentAndHistory() async throws {
+        let requestRepo = FakeRequestRepo()
+        requestRepo.incomingResult = .success([
+            try decodeFriendRequest(
+                """
+                { "id": 10, "sender_id": 2, "recipient_id": 9, "status": "pending",
+                  "created_at": "2026-04-19T08:30:12.345Z", "updated_at": "2026-04-19T08:30:12.345Z",
+                  "username": "bob", "display_name": null, "avatar_url": null }
+                """
+            ),
         ])
-        requestRepo.historyResult = .failure(APIError.invalidResponse)
+        requestRepo.sentResult = .success([
+            try decodeFriendRequest(
+                """
+                { "id": 11, "sender_id": 9, "recipient_id": 3, "status": "pending",
+                  "created_at": "2026-04-19T08:31:12.345Z", "updated_at": "2026-04-19T08:31:12.345Z",
+                  "username": "carol", "display_name": null, "avatar_url": null }
+                """
+            ),
+        ])
+        requestRepo.historyResult = .success([
+            try decodeFriendRequest(
+                """
+                { "id": 12, "sender_id": 4, "recipient_id": 9, "status": "accepted",
+                  "created_at": "2026-04-19T08:32:12.345Z", "updated_at": "2026-04-19T08:33:12.345Z",
+                  "direction": "received", "username": "dave", "display_name": null, "avatar_url": null }
+                """
+            ),
+        ])
 
-        await vm.refresh()
+        let vm = ContactsViewModel(
+            friendRepo: FakeFriendRepo(),
+            requestRepo: requestRepo,
+            tokenProvider: { "jwt" }
+        )
 
-        #expect(vm.friends.count == 1)
-        #expect(vm.errorMessage != nil)
+        await vm.loadRequestDetails()
+
+        #expect(vm.incoming.count == 1)
+        #expect(vm.sent.count == 1)
+        #expect(vm.history.count == 1)
+        #expect(requestRepo.listCallCounts.incoming == 1)
+        #expect(requestRepo.listCallCounts.sent == 1)
+        #expect(requestRepo.listCallCounts.history == 1)
     }
 
     @Test

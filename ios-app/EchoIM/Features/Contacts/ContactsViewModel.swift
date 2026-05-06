@@ -42,27 +42,33 @@ final class ContactsViewModel {
             isLoading = false
         }
 
-        async let friendsTask = friendRepo.list(token: token)
-        async let incomingTask = requestRepo.listIncoming(token: token)
-        async let sentTask = requestRepo.listSent(token: token)
-        async let historyTask = requestRepo.listHistory(token: token)
+        async let friendsRefresh: Void = refreshFriends(token: token)
+        async let incomingRefresh: Void = refreshIncoming(token: token)
+        _ = await (friendsRefresh, incomingRefresh)
+    }
+
+    func loadRequestDetails() async {
+        guard let token = tokenProvider() else {
+            return
+        }
+
+        isLoading = true
+        defer {
+            isLoading = false
+        }
+
+        await loadRequestDetails(token: token)
+    }
+
+    func loadSentRequests() async {
+        guard let token = tokenProvider() else {
+            return
+        }
 
         do {
-            // 只有四份数据都成功时才整体提交，避免页面出现部分新、部分旧的混合态。
-            let (friends, incoming, sent, history) = try await (
-                friendsTask,
-                incomingTask,
-                sentTask,
-                historyTask
-            )
-            self.friends = friends
-            self.incoming = incoming
-            self.sent = sent
-            self.history = history
-            errorMessage = nil
+            sent = try await requestRepo.listSent(token: token)
         } catch {
             errorMessage = String(describing: error)
-            _ = try? await (friendsTask, incomingTask, sentTask, historyTask)
         }
     }
 
@@ -78,7 +84,9 @@ final class ContactsViewModel {
             } else {
                 haptics.warning()
             }
-            await refresh()
+            async let friendsRefresh: Void = refreshFriends(token: token)
+            async let requestRefresh: Void = loadRequestDetails(token: token)
+            _ = await (friendsRefresh, requestRefresh)
         } catch {
             errorMessage = String(describing: error)
         }
@@ -91,10 +99,46 @@ final class ContactsViewModel {
 
         do {
             _ = try await requestRepo.send(recipientId: recipientId, token: token)
-            await refresh()
+            await loadSentRequests()
             return .success(())
         } catch {
             return .failure(error)
+        }
+    }
+
+    private func refreshFriends(token: String) async {
+        do {
+            friends = try await friendRepo.list(token: token)
+            errorMessage = nil
+        } catch {
+            errorMessage = String(describing: error)
+        }
+    }
+
+    private func refreshIncoming(token: String) async {
+        do {
+            incoming = try await requestRepo.listIncoming(token: token)
+            errorMessage = nil
+        } catch {
+            errorMessage = String(describing: error)
+        }
+    }
+
+    private func loadRequestDetails(token: String) async {
+        async let incomingTask = requestRepo.listIncoming(token: token)
+        async let sentTask = requestRepo.listSent(token: token)
+        async let historyTask = requestRepo.listHistory(token: token)
+
+        do {
+            // 好友申请页保持三块申请数据同批更新，避免 sheet 内出现新旧混合态。
+            let (incoming, sent, history) = try await (incomingTask, sentTask, historyTask)
+            self.incoming = incoming
+            self.sent = sent
+            self.history = history
+            errorMessage = nil
+        } catch {
+            errorMessage = String(describing: error)
+            _ = try? await (incomingTask, sentTask, historyTask)
         }
     }
 }
