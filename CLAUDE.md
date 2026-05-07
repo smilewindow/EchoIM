@@ -127,6 +127,10 @@ npm run preview --prefix client   # 访问 http://localhost:4173
 
 **日常功能开发不要关 StrictMode**——它是帮你发现 effect 清理 bug 的开发辅助，只是**验证时**切到 prod build 跑一遍。
 
+### iOS 测试执行约束
+
+- 默认只跑与改动直接相关的最小测试；不要跑全量测试。
+
 `xcodebuild` 默认不要为每次任务乱换 `-derivedDataPath`；串行构建优先复用默认 DerivedData，只有并行跑多个 `xcodebuild` 或需要隔离排查产物时才指定固定路径，避免打碎缓存和额外占磁盘。
 
 ## 关键决策
