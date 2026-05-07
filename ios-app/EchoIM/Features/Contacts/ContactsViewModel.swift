@@ -9,7 +9,6 @@ final class ContactsViewModel {
     private(set) var sent: [FriendRequest] = []
     private(set) var history: [FriendRequest] = []
     private(set) var isLoading = false
-    private(set) var errorMessage: String?
 
     private let friendRepo: FriendRepository
     private let requestRepo: FriendRequestRepository
@@ -68,7 +67,7 @@ final class ContactsViewModel {
         do {
             sent = try await requestRepo.listSent(token: token)
         } catch {
-            errorMessage = String(describing: error)
+            // silently ignored
         }
     }
 
@@ -88,7 +87,7 @@ final class ContactsViewModel {
             async let requestRefresh: Void = loadRequestDetails(token: token)
             _ = await (friendsRefresh, requestRefresh)
         } catch {
-            errorMessage = String(describing: error)
+            // silently ignored
         }
     }
 
@@ -109,18 +108,16 @@ final class ContactsViewModel {
     private func refreshFriends(token: String) async {
         do {
             friends = try await friendRepo.list(token: token)
-            errorMessage = nil
         } catch {
-            errorMessage = String(describing: error)
+            // silently ignored
         }
     }
 
     private func refreshIncoming(token: String) async {
         do {
             incoming = try await requestRepo.listIncoming(token: token)
-            errorMessage = nil
         } catch {
-            errorMessage = String(describing: error)
+            // silently ignored
         }
     }
 
@@ -135,10 +132,8 @@ final class ContactsViewModel {
             self.incoming = incoming
             self.sent = sent
             self.history = history
-            errorMessage = nil
         } catch {
-            errorMessage = String(describing: error)
-            _ = try? await (incomingTask, sentTask, historyTask)
+            // silently ignored
         }
     }
 }

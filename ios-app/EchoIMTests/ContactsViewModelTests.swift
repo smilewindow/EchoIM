@@ -90,7 +90,6 @@ struct ContactsViewModelTests {
         #expect(vm.friends.count == 1)
         #expect(vm.incoming.count == 1)
         #expect(vm.pendingIncomingCount == 1)
-        #expect(vm.errorMessage == nil)
         #expect(friendRepo.callCount == 1)
         #expect(requestRepo.listCallCounts.incoming == 1)
         #expect(requestRepo.listCallCounts.sent == 0)
@@ -115,7 +114,6 @@ struct ContactsViewModelTests {
         await vm.refresh()
 
         #expect(vm.friends.map(\.username) == ["alice", "bob"])
-        #expect(vm.errorMessage == nil)
         #expect(requestRepo.listCallCounts.history == 0)
     }
 
