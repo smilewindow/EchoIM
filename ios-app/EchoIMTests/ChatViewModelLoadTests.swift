@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import SwiftData
 @testable import EchoIM
 
 @MainActor
@@ -67,6 +68,12 @@ struct ChatViewModelLoadTests {
             createdAt: Date(timeIntervalSince1970: 1_700_000_000 + Double(id)),
             clientTempId: nil
         )
+    }
+
+    private func makeCacheContainer() throws -> ModelContainer {
+        let schema = Schema([CachedMessage.self, ConversationMeta.self])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        return try ModelContainer(for: schema, configurations: [config])
     }
 
     @Test
@@ -193,12 +200,33 @@ struct ChatViewModelLoadTests {
     }
 
     @Test
-    func draftRouteLoadsExistingConversationForPeer() async {
-        let repo = FakeMessageRepo()
-        repo.listResult = .success([
-            makeMessage(id: 2, body: "b", conversationId: 42),
-            makeMessage(id: 1, body: "a", conversationId: 42),
+    func draftRouteLoadsCachedConversationForPeerWithoutConversationListRequest() async throws {
+        let container = try makeCacheContainer()
+        let messageStore = MessageStore(modelContainer: container)
+        let metaStore = ConversationMetaStore(modelContainer: container)
+        try await messageStore.append([
+            makeMessage(id: 1, body: "cached-a", conversationId: 42),
+            makeMessage(id: 2, body: "cached-b", conversationId: 42),
         ])
+        try await metaStore.upsert(
+            ConversationMetaSnapshot(
+                conversationId: 42,
+                peerUserId: 9,
+                peerUsername: "alice",
+                peerDisplayName: nil,
+                peerAvatarUrl: nil,
+                oldestCachedMessageId: 1,
+                newestCachedMessageId: 2,
+                lastReadMessageId: 1,
+                unreadCount: 1,
+                lastMessageBody: "cached-b",
+                lastMessageType: "text",
+                lastMessageAt: Date(timeIntervalSince1970: 1_700_000_002)
+            )
+        )
+
+        let repo = FakeMessageRepo()
+        repo.listResult = .success([])
         let conversationRepo = FakeConversationRepo(
             .success([makeConversation(id: 42, peerId: 9)])
         )
@@ -208,23 +236,22 @@ struct ChatViewModelLoadTests {
             messageRepo: repo,
             wsClient: nil,
             conversationRepository: conversationRepo,
-            messageStore: nil,
-            metaStore: nil,
+            messageStore: messageStore,
+            metaStore: metaStore,
             tokenProvider: { "jwt" }
         )
 
         await vm.load()
 
-        #expect(conversationRepo.calls == 1)
+        #expect(conversationRepo.calls == 0)
         #expect(vm.conversationId == 42)
-        #expect(repo.calls.count == 1)
-        #expect(repo.calls[0].0 == 42)
-        #expect(vm.messages.map(\.message.id) == [1, 2])
+        #expect(vm.lastReadMessageId == 2)
+        #expect(vm.messages.map(\.message.body) == ["cached-a", "cached-b"])
         #expect(vm.phase == .loaded)
     }
 
     @Test
-    func draftRouteWithoutExistingConversationStaysDraft() async {
+    func draftRouteWithoutCachedConversationStaysDraftWithoutConversationListRequest() async {
         let repo = FakeMessageRepo()
         let conversationRepo = FakeConversationRepo(.success([]))
         let vm = ChatViewModel(
@@ -240,7 +267,7 @@ struct ChatViewModelLoadTests {
 
         await vm.load()
 
-        #expect(conversationRepo.calls == 1)
+        #expect(conversationRepo.calls == 0)
         #expect(repo.calls.isEmpty)
         #expect(vm.conversationId == nil)
         #expect(vm.messages.isEmpty)
@@ -248,7 +275,7 @@ struct ChatViewModelLoadTests {
     }
 
     @Test
-    func draftRouteDiscoveryFailureFallsBackToDraft() async {
+    func draftRouteDoesNotNeedConversationRepositoryToStayDraft() async {
         let repo = FakeMessageRepo()
         let conversationRepo = FakeConversationRepo(.failure(APIError.invalidResponse))
         let vm = ChatViewModel(
@@ -264,10 +291,59 @@ struct ChatViewModelLoadTests {
 
         await vm.load()
 
-        #expect(conversationRepo.calls == 1)
+        #expect(conversationRepo.calls == 0)
         #expect(repo.calls.isEmpty)
         #expect(vm.conversationId == nil)
         #expect(vm.messages.isEmpty)
+        #expect(vm.phase == .loaded)
+    }
+
+    @Test
+    func draftRouteLoadsCachedConversationForPeerWhenConversationRepositoryFails() async throws {
+        let container = try makeCacheContainer()
+        let messageStore = MessageStore(modelContainer: container)
+        let metaStore = ConversationMetaStore(modelContainer: container)
+        try await messageStore.append([
+            makeMessage(id: 1, body: "cached-a", conversationId: 42),
+            makeMessage(id: 2, body: "cached-b", conversationId: 42),
+        ])
+        try await metaStore.upsert(
+            ConversationMetaSnapshot(
+                conversationId: 42,
+                peerUserId: 9,
+                peerUsername: "alice",
+                peerDisplayName: nil,
+                peerAvatarUrl: nil,
+                oldestCachedMessageId: 1,
+                newestCachedMessageId: 2,
+                lastReadMessageId: 1,
+                unreadCount: 1,
+                lastMessageBody: "cached-b",
+                lastMessageType: "text",
+                lastMessageAt: Date(timeIntervalSince1970: 1_700_000_002)
+            )
+        )
+
+        let repo = FakeMessageRepo()
+        repo.listResult = .success([])
+        let conversationRepo = FakeConversationRepo(.failure(APIError.network(URLError(.notConnectedToInternet))))
+        let vm = ChatViewModel(
+            route: .peer(UserProfile(id: 9, username: "alice", displayName: nil, avatarUrl: nil)),
+            currentUserId: 3,
+            messageRepo: repo,
+            wsClient: nil,
+            conversationRepository: conversationRepo,
+            messageStore: messageStore,
+            metaStore: metaStore,
+            tokenProvider: { "jwt" }
+        )
+
+        await vm.load()
+
+        #expect(conversationRepo.calls == 0)
+        #expect(vm.conversationId == 42)
+        #expect(vm.lastReadMessageId == 2)
+        #expect(vm.messages.map(\.message.body) == ["cached-a", "cached-b"])
         #expect(vm.phase == .loaded)
     }
 

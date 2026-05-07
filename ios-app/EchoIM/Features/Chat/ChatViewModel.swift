@@ -176,29 +176,17 @@ final class ChatViewModel {
 
     private func resolveDraftConversationIfNeeded() async {
         guard conversationId == nil else { return }
-        guard let conversationRepository else {
-            phase = .loaded
-            hasMoreOlder = false
+
+        if let metaStore,
+           let snap = try? await metaStore.loadByPeerUserId(peer.id) {
+            conversationId = snap.conversationId
+            lastReadMessageId = snap.lastReadMessageId
             return
         }
 
-        guard let token = tokenProvider() else {
-            phase = .error("unauthenticated")
-            return
-        }
-
-        do {
-            let conversations = try await conversationRepository.list(token: token)
-            if let match = conversations.first(where: { $0.peer.id == peer.id }) {
-                adoptConversation(match)
-            } else {
-                phase = .loaded
-                hasMoreOlder = false
-            }
-        } catch {
-            // 会话发现失败不阻塞草稿输入；发送成功后仍会从 REST 响应回填 conversationId。
+        hasMoreOlder = false
+        if phase == .idle {
             phase = .loaded
-            hasMoreOlder = false
         }
     }
 
