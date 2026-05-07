@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import Testing
 @testable import EchoIM
 
@@ -61,6 +62,58 @@ struct ContactsViewModelTests {
 
     private func makeFriend(id: Int, username: String) -> Friend {
         UserProfile(id: id, username: username, displayName: nil, avatarUrl: nil)
+    }
+
+    private func makeFriendCacheContainer() throws -> ModelContainer {
+        let schema = Schema([CachedFriend.self])
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        return try ModelContainer(for: schema, configurations: [config])
+    }
+
+    @Test
+    func friendCacheStoreReplacesCachedFriends() async throws {
+        let store = FriendCacheStore(modelContainer: try makeFriendCacheContainer())
+
+        try await store.saveAll([
+            makeFriend(id: 1, username: "alice"),
+            makeFriend(id: 2, username: "bob"),
+        ])
+        try await store.saveAll([
+            UserProfile(id: 1, username: "alice", displayName: "Alice A.", avatarUrl: "a.png"),
+            makeFriend(id: 3, username: "carol"),
+        ])
+
+        let cached = try await store.loadAll()
+
+        #expect(cached.map(\.id) == [1, 3])
+        #expect(cached[0].displayName == "Alice A.")
+        #expect(cached[0].avatarUrl == "a.png")
+    }
+
+    @Test
+    func refreshShowsCachedFriendsWhenNetworkRefreshFails() async throws {
+        let store = FriendCacheStore(modelContainer: try makeFriendCacheContainer())
+        try await store.saveAll([
+            makeFriend(id: 1, username: "alice"),
+            makeFriend(id: 2, username: "bob"),
+        ])
+
+        let friendRepo = FakeFriendRepo()
+        friendRepo.result = .failure(APIError.network(URLError(.notConnectedToInternet)))
+        let requestRepo = FakeRequestRepo()
+        requestRepo.incomingResult = .success([])
+        let vm = ContactsViewModel(
+            friendRepo: friendRepo,
+            requestRepo: requestRepo,
+            tokenProvider: { "jwt" },
+            friendCacheStore: store
+        )
+
+        await vm.refresh()
+
+        #expect(vm.friends.map(\.username) == ["alice", "bob"])
+        #expect(friendRepo.callCount == 1)
+        #expect(requestRepo.listCallCounts.incoming == 1)
     }
 
     @Test

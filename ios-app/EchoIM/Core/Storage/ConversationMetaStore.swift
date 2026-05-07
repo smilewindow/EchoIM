@@ -45,6 +45,14 @@ actor ConversationMetaStore {
         try modelContext.save()
     }
 
+    func loadByPeerUserId(_ peerUserId: Int) async throws -> ConversationMetaSnapshot? {
+        var descriptor = FetchDescriptor<ConversationMeta>(
+            predicate: #Predicate<ConversationMeta> { $0.peerUserId == peerUserId }
+        )
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first?.snapshot()
+    }
+
     func load(conversationId: Int) async throws -> ConversationMetaSnapshot? {
         var descriptor = FetchDescriptor<ConversationMeta>(
             predicate: #Predicate<ConversationMeta> { $0.conversationId == conversationId }

@@ -14,16 +14,19 @@ final class ContactsViewModel {
     private let requestRepo: FriendRequestRepository
     private let tokenProvider: () -> String?
     private let haptics: HapticFeedbackProvider
+    private let friendCacheStore: FriendCacheStore?
 
     init(
         friendRepo: FriendRepository,
         requestRepo: FriendRequestRepository,
         tokenProvider: @escaping () -> String?,
+        friendCacheStore: FriendCacheStore? = nil,
         haptics: HapticFeedbackProvider? = nil
     ) {
         self.friendRepo = friendRepo
         self.requestRepo = requestRepo
         self.tokenProvider = tokenProvider
+        self.friendCacheStore = friendCacheStore
         self.haptics = haptics ?? UIKitHapticFeedback()
     }
 
@@ -34,6 +37,13 @@ final class ContactsViewModel {
     func refresh() async {
         guard let token = tokenProvider() else {
             return
+        }
+
+        if friends.isEmpty,
+           let cache = friendCacheStore,
+           let cached = try? await cache.loadAll(),
+           !cached.isEmpty {
+            friends = cached
         }
 
         isLoading = true
@@ -107,9 +117,11 @@ final class ContactsViewModel {
 
     private func refreshFriends(token: String) async {
         do {
-            friends = try await friendRepo.list(token: token)
+            let fresh = try await friendRepo.list(token: token)
+            friends = fresh
+            try? await friendCacheStore?.saveAll(fresh)
         } catch {
-            // silently ignored
+            // silently ignored; stale cache remains visible
         }
     }
 

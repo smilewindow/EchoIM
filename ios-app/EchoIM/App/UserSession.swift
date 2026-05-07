@@ -35,7 +35,7 @@ final class UserSession {
         try FileManager.default.createDirectory(at: storeDir, withIntermediateDirectories: true)
         try Self.excludeFromBackup(storeDir)
 
-        let schema = Schema([CachedMessage.self, ConversationMeta.self])
+        let schema = Schema([CachedMessage.self, ConversationMeta.self, CachedFriend.self])
         let config = ModelConfiguration(url: storeURL)
         do {
             modelContainer = try ModelContainer(for: schema, configurations: config)
@@ -103,6 +103,10 @@ final class UserSession {
 
     func conversationMetaStore() -> ConversationMetaStore {
         ConversationMetaStore(modelContainer: modelContainer)
+    }
+
+    func friendCacheStore() -> FriendCacheStore {
+        FriendCacheStore(modelContainer: modelContainer)
     }
 
     func connectWebSocketIfNeeded() {

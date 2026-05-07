@@ -13,6 +13,7 @@ struct ChatView: View {
     @State private var initialCatchUpScrollTrigger = 0
     @FocusState private var isInputFocused: Bool
     private let presenceStore: PresenceStore?
+    private let onNavigateToPeer: ((UserProfile) -> Void)?
 
     init(
         route: ChatRoute,
@@ -26,7 +27,8 @@ struct ChatView: View {
         presenceStore: PresenceStore? = nil,
         typingStore: TypingStore? = nil,
         typingSender: @escaping @MainActor (Int, Bool) -> Void = { _, _ in },
-        tokenProvider: @escaping @MainActor () -> String?
+        tokenProvider: @escaping @MainActor () -> String?,
+        onNavigateToPeer: ((UserProfile) -> Void)? = nil
     ) {
         _vm = State(
             wrappedValue: ChatViewModel(
@@ -44,6 +46,7 @@ struct ChatView: View {
             )
         )
         self.presenceStore = presenceStore
+        self.onNavigateToPeer = onNavigateToPeer
     }
 
     var body: some View {
@@ -94,7 +97,9 @@ struct ChatView: View {
     }
 
     private var principalTitle: some View {
-        NavigationLink(value: vm.peer) {
+        Button {
+            onNavigateToPeer?(vm.peer)
+        } label: {
             HStack(spacing: 8) {
                 AvatarView(profile: vm.peer, size: 28)
                     .accessibilityIdentifier("chatPeerAvatar")

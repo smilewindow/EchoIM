@@ -20,13 +20,15 @@ struct ContactsView: View {
         showSearch: Binding<Bool>,
         onPendingIncomingCountChange: @escaping (Int) -> Void = { _ in },
         presenceStore: PresenceStore? = nil,
+        friendCacheStore: FriendCacheStore? = nil,
         tokenProvider: @escaping () -> String?
     ) {
         _vm = State(
             wrappedValue: ContactsViewModel(
                 friendRepo: friendRepo,
                 requestRepo: requestRepo,
-                tokenProvider: tokenProvider
+                tokenProvider: tokenProvider,
+                friendCacheStore: friendCacheStore
             )
         )
         self.userRepo = userRepo

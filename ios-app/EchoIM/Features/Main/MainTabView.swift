@@ -77,6 +77,7 @@ struct MainTabView: View {
                 showSearch: $showContactSearch,
                 onPendingIncomingCountChange: { pendingIncomingCount = $0 },
                 presenceStore: session.presenceStore,
+                friendCacheStore: session.friendCacheStore(),
                 tokenProvider: { [tokenStore = container.tokenStore] in
                     (try? tokenStore.load())?.token
                 }
@@ -93,6 +94,7 @@ struct MainTabView: View {
     @ViewBuilder
     private func chatDestination(for route: ChatRoute) -> some View {
         if let session = container.session {
+            let pathBinding = $path
             ChatView(
                 route: route,
                 currentUserId: container.currentUser?.id ?? 0,
@@ -109,6 +111,9 @@ struct MainTabView: View {
                 },
                 tokenProvider: { [tokenStore = container.tokenStore] in
                     (try? tokenStore.load())?.token
+                },
+                onNavigateToPeer: { profile in
+                    pathBinding.wrappedValue.append(profile)
                 }
             )
         } else {
