@@ -93,9 +93,9 @@ final class APIClient {
         }
         #endif
 
+        let start = Date()
         let data: Data
         let response: URLResponse
-        let start = Date()
 
         do {
             (data, response) = try await session.data(for: request)
