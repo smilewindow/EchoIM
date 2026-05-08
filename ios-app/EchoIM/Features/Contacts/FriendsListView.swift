@@ -97,6 +97,7 @@ private struct FriendRow: View {
                         .font(.caption)
                         .foregroundStyle(isOnline ? Color.echoOnline : Color.secondary)
                 }
+                .alignmentGuide(.listRowSeparatorLeading) { d in d[.leading] }
 
                 Spacer()
 
@@ -105,7 +106,6 @@ private struct FriendRow: View {
                     .foregroundStyle(Color.echoBlue)
             }
         }
-        .listRowSeparator(.hidden)
         .accessibilityIdentifier("friendRow_\(friend.username)")
     }
 }

@@ -69,14 +69,7 @@ struct ConversationsListView: View {
             NavigationLink(value: ChatRoute.conversation(conversation)) {
                 ConversationRow(conversation: conversation, presenceStore: presenceStore)
             }
-            .listRowSeparator(.hidden)
-            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(Color.echoBlue.opacity(0.06))
-                    .frame(height: 0.5)
-                    .padding(.leading, 70)
-            }
+            .accessibilityIdentifier("conversationRow_\(conversation.peer.username)")
         }
         .listStyle(.plain)
         .accessibilityIdentifier("conversationsList")
@@ -135,6 +128,7 @@ private struct ConversationRow: View {
                     .foregroundStyle(Color.echoMuted)
                     .lineLimit(1)
             }
+            .alignmentGuide(.listRowSeparatorLeading) { d in d[.leading] }
 
             Spacer(minLength: 8)
 
@@ -152,8 +146,6 @@ private struct ConversationRow: View {
                 }
             }
         }
-        .padding(.vertical, 6)
-        .padding(.horizontal, 12)
         .contentShape(Rectangle())
     }
 
@@ -165,6 +157,7 @@ private struct ConversationRow: View {
 
     private var timeString: String {
         guard let ts = conversation.lastMessageAt else { return "" }
+        if abs(ts.timeIntervalSinceNow) < 60 { return String(localized: "刚刚") }
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .short
         return formatter.localizedString(for: ts, relativeTo: Date())
