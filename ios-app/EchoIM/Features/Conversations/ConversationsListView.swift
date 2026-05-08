@@ -32,8 +32,7 @@ struct ConversationsListView: View {
                 await vm.load()
             }
             .onDisappear { vm.detachWSSubscription() }
-            .toolbarBackground(Color.echoInteractive, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
+            .echoNavigationBarStyle()
     }
 
     @ViewBuilder

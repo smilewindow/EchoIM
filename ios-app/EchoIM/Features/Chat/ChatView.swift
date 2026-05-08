@@ -67,8 +67,7 @@ struct ChatView: View {
                 .accessibilityIdentifier("chatKeyboardDone")
             }
         }
-        .toolbarBackground(Color.echoInteractive, for: .navigationBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
+        .echoNavigationBarStyle()
         .task {
             vm.attachWSSubscription()
             await vm.load()

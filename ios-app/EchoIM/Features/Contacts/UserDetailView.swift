@@ -49,6 +49,7 @@ struct UserDetailView: View {
         }
         .navigationTitle("资料")
         .navigationBarTitleDisplayMode(.inline)
+        .echoNavigationBarStyle()
         .accessibilityIdentifier("userDetailRoot")
     }
 

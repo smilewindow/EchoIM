@@ -34,6 +34,7 @@ struct MainTabView: View {
             .accessibilityIdentifier("mainTabView")
             .navigationTitle(navigationTitle)
             .navigationBarTitleDisplayMode(.inline)
+            .echoNavigationBarStyle()
             .toolbar {
                 if selection == .contacts, path.isEmpty {
                     contactsToolbar
