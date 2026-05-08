@@ -51,10 +51,11 @@ enum Log {
 
     // Used by APIClient: body logging (DEBUG only, redacted)
     static func redactBody(_ body: String) -> String {
-        var result = body
-        if let range = result.range(of: #""password"\s*:\s*"[^"]*""#, options: .regularExpression) {
-            result.replaceSubrange(range, with: #""password":"***""#)
-        }
+        var result = body.replacingOccurrences(
+            of: #""password"\s*:\s*"[^"]*""#,
+            with: #""password":"***""#,
+            options: .regularExpression
+        )
         let limit = 1000
         if result.count > limit {
             result = String(result.prefix(limit)) + "…"
