@@ -58,6 +58,7 @@ final class UserSession {
         // 把 wsClient 上的事件路由到对应 store（不变式 1）。
         routingSubscriptions.append(
             wsClient.subscribe { [presenceStore, typingStore] event in
+                Log.debug(.app, "routing \(event)")
                 switch event {
                 case .presenceOnline(let payload):
                     presenceStore.setOnline(payload.userId)

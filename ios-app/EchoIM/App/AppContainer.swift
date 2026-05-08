@@ -79,6 +79,7 @@ final class AppContainer {
             isRestoringCurrentUser = false
             sessionExpiredNoticeID = nil
             session = nil
+            Log.info(.app, "bootstrap no stored token")
             return
         }
 
@@ -92,6 +93,7 @@ final class AppContainer {
             )
         isRestoringCurrentUser = true
         try? bootstrapSession(userId: stored.userId)
+        Log.info(.app, "bootstrap restored userId=\(stored.userId)")
     }
 
     func handleLoginSuccess(_ response: AuthResponse) {
@@ -100,6 +102,7 @@ final class AppContainer {
         sessionExpiredNoticeID = nil
         try? bootstrapSession(userId: response.user.id)
         session?.connectWebSocketIfNeeded()
+        Log.info(.auth, "login success userId=\(response.user.id)")
     }
 
     func connectWebSocketIfNeeded() {
@@ -125,6 +128,7 @@ final class AppContainer {
     }
 
     func logout() async {
+        Log.info(.auth, "logout, tearing down session")
         sessionExpiredNoticeID = nil
         await makeAuthRepository().logout()
         await tearDownSession()
@@ -133,6 +137,7 @@ final class AppContainer {
     /// 已保存登录态被服务端拒绝时的统一入口：清 token + 释放资源 + 回登录页。
     /// 不同点是不调 `/api/auth/logout`（token 已失效，再打也没有价值）。
     func handleUnauthorized() async {
+        Log.warning(.auth, "unauthorized, tearing down session")
         let userId = session?.userId ?? currentUser?.id ?? (try? tokenStore.load())?.userId
         if let userId {
             currentUserCache.delete(userId: userId)
@@ -171,6 +176,7 @@ final class AppContainer {
         guard let session else { return }
         try? await session.messageStore().deleteAll()
         try? await session.conversationMetaStore().deleteAll()
+        Log.info(.app, "cleared chat cache")
     }
 
     func updateCurrentUser(_ user: AuthenticatedUser) {
