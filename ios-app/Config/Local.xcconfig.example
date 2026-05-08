@@ -1,0 +1,5 @@
+// 复制为 Local.xcconfig 后按本机环境修改；Local.xcconfig 已被 .gitignore 忽略。
+// 注意：.xcconfig 里 URL 的 http:// 要写成 http:/$()/。
+
+// 真机局域网调试示例：
+// ECHOIM_BASE_URL = http:/$()/192.168.124.3:3000

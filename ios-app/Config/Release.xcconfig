@@ -1,0 +1,6 @@
+// EchoIM iOS Release build settings.
+// 当前仍保留本地默认值，后续上测试/正式环境时只需要替换这里。
+ECHOIM_BASE_URL = http:/$()/xuyuqindeMacBook-Pro.local:3000
+
+// 本机覆盖项不提交；例如真机调试可在 Local.xcconfig 里写局域网 IP。
+#include? "Local.xcconfig"
