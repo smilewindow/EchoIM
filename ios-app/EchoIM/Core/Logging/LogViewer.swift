@@ -96,7 +96,7 @@ struct LogViewer: View {
                     }
             }
             .listStyle(.plain)
-            .onChange(of: store.entries.count) { _, _ in
+            .onChange(of: store.entries.last?.id) { _, _ in
                 if let last = filtered.last {
                     withAnimation(.easeOut(duration: 0.2)) {
                         proxy.scrollTo(last.id, anchor: .bottom)
@@ -164,16 +164,24 @@ struct LogViewer: View {
         }
     }
 
+    private static let timeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm:ss"
+        return f
+    }()
+
+    private static let clipboardFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm:ss.SSS"
+        return f
+    }()
+
     private func timeString(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm:ss"
-        return formatter.string(from: date)
+        Self.timeFormatter.string(from: date)
     }
 
     private func clipboardText(for entry: LogEntry) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm:ss.SSS"
-        let time = formatter.string(from: entry.timestamp)
+        let time = Self.clipboardFormatter.string(from: entry.timestamp)
         return "\(entry.file):\(entry.line)  \(time)  [\(entry.category.rawValue)]  → \(entry.message)"
     }
 }
