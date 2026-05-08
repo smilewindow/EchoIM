@@ -14,8 +14,9 @@
 | 日志后端 | `os.Logger` + 内存环形缓冲 | 零依赖、性能好、Console.app 集成 |
 | 持久化 | 不落文件，仅内存 500 条 | 作品集项目够用，后续可扩展 |
 | Release 可用性 | 隐蔽入口（MeView 长按版本号） | 真机不连 Xcode 也能排查 |
-| 请求/响应 body | 当前记录（截断 1000 字符） | 用户明确要求，以后需要保密再关 |
+| 请求/响应 body | Release 不记录；DEBUG 记录（redact + 截断 1000） | Release 隐蔽入口可看日志但不暴露敏感内容 |
 | 格式 | `文件名:行号  时间  [分类]  消息` | 用户要求文件名+行号在最前面 |
+| os.Logger 隐私插值 | 不使用 per-field privacy，统一 `privacy: .public` | 敏感数据已在上层 redact/不记录；正确使用需 Swift Macro 或放弃统一 API，对作品集项目过度复杂 |
 
 ## 文件结构
 
@@ -80,7 +81,11 @@ Log.error(.ws, "pong timeout, scheduling reconnect")
 1. 写 `os.Logger`（按 category 分实例，subsystem = bundleIdentifier）
 2. 追加 `LogStore.shared`（供 in-app 查看器）
 
-非主线程调用时通过 `DispatchQueue.main.async` 安全地写入 LogStore。
+### 线程模型
+
+`Log` 的所有方法标 `@MainActor`，与四个接入点（APIClient / WebSocketClient / AppContainer / UserSession）的 actor 上下文一致。`LogStore.append()` 同步执行，**日志顺序 = 调用顺序 = 真实发生顺序**，无漂移。
+
+不提供 `DispatchQueue.main.async` 后备路径——如果将来需要从非 MainActor 上下文记日志，届时再加 `nonisolated` 便利入口。
 
 ### LogStore
 
@@ -90,35 +95,70 @@ Log.error(.ws, "pong timeout, scheduling reconnect")
 
 ## 日志格式
 
+Release 示例（无 body）：
+```
+APIClient:92   12:34:56.789  [network]   → POST /api/messages
+APIClient:108  12:34:57.012  [network]   ← 201 POST /api/messages (222ms)
+WebSocketClient:324  12:34:57.015  [ws]  event message.new
+```
+
+DEBUG 示例（含 redacted body）：
 ```
 APIClient:92   12:34:56.789  [network]   → POST /api/messages
 APIClient:95   12:34:56.790  [network]     body: {"body":"hello","conversationId":3}
 APIClient:108  12:34:57.012  [network]   ← 201 POST /api/messages (222ms)
 APIClient:110  12:34:57.013  [network]     response: {"id":301,"body":"hello",...}
-WebSocketClient:324  12:34:57.015  [ws]  event message.new
+APIClient:92   12:35:01.000  [network]   → POST /api/auth/login
+APIClient:95   12:35:01.001  [network]     body: {"email":"a@b.com","password":"***"}
 ```
 
 ## 隐私策略
 
+按构建配置分级。核心原则：Release 包可通过隐蔽入口看日志，但绝不暴露敏感内容；Debug 记 body 辅助开发，但也做 redaction。
+
+### Release（含隐蔽入口查看器）
+
 | 数据 | 策略 |
 |------|------|
-| JWT token | 只打 `Bearer ***` |
 | URL path | 完整记录 |
 | HTTP 状态码/耗时 | 完整记录 |
-| 请求 body | 完整记录，截断 1000 字符 |
-| 响应 body | 完整记录，截断 1000 字符 |
-| 消息内容 | 跟随 body 记录（当前不脱敏） |
-| 用户密码 | 跟随 body 记录（当前不脱敏，后续可加黑名单字段） |
+| JWT token / Authorization 头 | **永远脱敏** → `Bearer ***` |
+| 用户密码 | **永远脱敏** → `"password":"***"` |
+| WebSocket URL | **不记录 query**（含 token）→ 只打 `ws://host/ws` |
+| 请求/响应 body | **不记录** |
+| 消息正文 | **不记录**（跟随 body 策略） |
+
+### DEBUG
+
+| 数据 | 策略 |
+|------|------|
+| 请求/响应 body | 记录，截断 1000 字符 |
+| JWT token / Authorization 头 | **永远脱敏** → `Bearer ***` |
+| 用户密码 | **body 内 redact** → `"password":"***"` |
+| WebSocket URL | 完整记录（含 token query，仅本机开发） |
+| 消息正文 | 跟随 body 记录 |
+
+### 实现方式
+
+`Log` 提供一个条件方法，接入点调用时无需自己判断 `#if DEBUG`：
+
+```swift
+Log.debug(.network, "body: \(redacted)")   // DEBUG 才写入 LogStore + os.Logger
+```
+
+Body redaction 由 `Log` 内部的 `redactBody(_:)` 统一处理：
+- 正则匹配 `"password"\s*:\s*"[^"]*"` → 替换为 `"password":"***"`
+- 截断 1000 字符
 
 ## 接入点（4 处集中埋点）
 
 ### 1. APIClient.request() — 一处覆盖所有 JSON 请求
 
 ```
-→ POST /api/messages                              // info：请求发出
-  body: {"body":"hello","conversationId":3}        // debug：请求 body
-← 201 POST /api/messages (222ms)                  // info：成功响应
-  response: {"id":301,"body":"hello",...}           // debug：响应 body
+→ POST /api/messages                              // info：请求发出（Release + DEBUG）
+  body: {"body":"hello","conversationId":3}        // debug：请求 body（仅 DEBUG，经 redactBody）
+← 201 POST /api/messages (222ms)                  // info：成功响应（Release + DEBUG）
+  response: {"id":301,"body":"hello",...}           // debug：响应 body（仅 DEBUG，截断 1000）
 ✗ 401 GET /api/conversations (45ms)                // error：HTTP 错误
 ✗ network URLError Code=-1009                      // error：网络层错误
 ✗ decode Response<[Conversation]> ...              // error：解码错误
@@ -127,9 +167,9 @@ WebSocketClient:324  12:34:57.015  [ws]  event message.new
 ### 2. APIClient.upload() — multipart 上传
 
 ```
-→ UPLOAD POST /api/upload/message-image (524KB)    // info：上传发出（只记大小，不记 body）
+→ UPLOAD POST /api/upload/message-image (524KB)    // info：上传发出（只记大小，不记二进制 body）
 ← 200 POST /api/upload/message-image (1832ms)      // info：上传成功
-  response: {"mediaUrl":"/uploads/..."}             // debug：响应 body
+  response: {"mediaUrl":"/uploads/..."}             // debug：响应 body（仅 DEBUG）
 ```
 
 ### 3. WebSocketClient — 状态机 + 事件
@@ -138,7 +178,7 @@ WebSocketClient:324  12:34:57.015  [ws]  event message.new
 
 | 位置 | 日志 |
 |------|------|
-| `openSocket()` state=.connecting | `info: connecting to ws://...` |
+| `openSocket()` state=.connecting | `info: connecting to ws://host/ws`（Release 隐藏 query；DEBUG 完整） |
 | `didOpenWithProtocol` state=.handshaking | `info: TCP upgraded, waiting connection.ready` |
 | `handleReceivedMessage` state=.ready | `info: connection ready` |
 | `handleReceivedMessage` 解码失败 (L342) | `warning: decode error: ...` |
