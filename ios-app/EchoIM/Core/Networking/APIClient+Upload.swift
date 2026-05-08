@@ -13,49 +13,18 @@ extension APIClient {
             throw APIError.invalidResponse
         }
 
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue(
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.setValue(
             "multipart/form-data; boundary=\(boundary)",
             forHTTPHeaderField: "Content-Type"
         )
-        request.httpBody = body
+        req.httpBody = body
 
         Log.info(.network, "→ UPLOAD POST \(path) (\(body.count / 1024)KB)")
 
-        let data: Data
-        let response: URLResponse
-        let start = Date()
-        do {
-            (data, response) = try await session.data(for: request)
-        } catch let urlError as URLError {
-            Log.error(.network, "✗ network \(urlError.localizedDescription)")
-            throw APIError.network(urlError)
-        }
-
-        let elapsed = Int(Date().timeIntervalSince(start) * 1000)
-
-        guard let http = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
-
-        guard (200..<300).contains(http.statusCode) else {
-            Log.error(.network, "✗ \(http.statusCode) POST \(path) (\(elapsed)ms)")
-            throw APIError.fromStatus(http.statusCode, body: data)
-        }
-
-        Log.info(.network, "← \(http.statusCode) POST \(path) (\(elapsed)ms)")
-        #if DEBUG
-        Log.debug(.network, "  response: \(Log.redactBody(String(data: data, encoding: .utf8) ?? ""))")
-        #endif
-
-        do {
-            return try Self.jsonDecoder.decode(Response.self, from: data)
-        } catch {
-            Log.error(.network, "✗ decode \(Response.self): \(error.localizedDescription)")
-            throw APIError.decoding(String(describing: error))
-        }
+        return try await execute(req, method: "POST", path: path)
     }
 }

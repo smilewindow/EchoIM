@@ -72,33 +72,38 @@ final class APIClient {
             throw APIError.invalidResponse
         }
 
-        var request = URLRequest(url: url)
-        request.httpMethod = method
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        var req = URLRequest(url: url)
+        req.httpMethod = method
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
 
         if let token {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
         if let body {
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.httpBody = try Self.jsonEncoder.encode(AnyEncodable(body))
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try Self.jsonEncoder.encode(AnyEncodable(body))
         }
 
         Log.info(.network, "→ \(method) \(path)")
-        #if DEBUG
-        if request.httpBody != nil {
-            let bodyString = String(data: request.httpBody ?? Data(), encoding: .utf8) ?? ""
-            Log.debug(.network, "  body: \(Log.redactBody(bodyString))")
+        if let httpBody = req.httpBody {
+            Log.debug(.network, "  body: \(Log.redactBody(String(data: httpBody, encoding: .utf8) ?? ""))")
         }
-        #endif
 
+        return try await execute(req, method: method, path: path)
+    }
+
+    func execute<Response: Decodable>(
+        _ urlRequest: URLRequest,
+        method: String,
+        path: String
+    ) async throws -> Response {
         let start = Date()
         let data: Data
         let response: URLResponse
 
         do {
-            (data, response) = try await session.data(for: request)
+            (data, response) = try await session.data(for: urlRequest)
         } catch let urlError as URLError {
             Log.error(.network, "✗ network \(urlError.localizedDescription)")
             throw APIError.network(urlError)
@@ -106,24 +111,22 @@ final class APIClient {
 
         let elapsed = Int(Date().timeIntervalSince(start) * 1000)
 
-        guard let httpResponse = response as? HTTPURLResponse else {
+        guard let http = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
         }
 
-        guard (200..<300).contains(httpResponse.statusCode) else {
-            Log.error(.network, "✗ \(httpResponse.statusCode) \(method) \(path) (\(elapsed)ms)")
-            throw APIError.fromStatus(httpResponse.statusCode, body: data)
+        guard (200..<300).contains(http.statusCode) else {
+            Log.error(.network, "✗ \(http.statusCode) \(method) \(path) (\(elapsed)ms)")
+            throw APIError.fromStatus(http.statusCode, body: data)
         }
 
-        Log.info(.network, "← \(httpResponse.statusCode) \(method) \(path) (\(elapsed)ms)")
+        Log.info(.network, "← \(http.statusCode) \(method) \(path) (\(elapsed)ms)")
 
         if Response.self == EmptyResponse.self {
             return EmptyResponse() as! Response
         }
 
-        #if DEBUG
         Log.debug(.network, "  response: \(Log.redactBody(String(data: data, encoding: .utf8) ?? ""))")
-        #endif
 
         do {
             return try Self.jsonDecoder.decode(Response.self, from: data)

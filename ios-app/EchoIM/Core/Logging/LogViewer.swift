@@ -1,17 +1,15 @@
 import SwiftUI
 
-// MARK: - Level Filter
-
-enum LevelFilter: String, CaseIterable {
-    case all = "全部"
-    case warningPlus = "warning+"
-    case errorOnly = "error only"
-}
-
 // MARK: - LogViewer
 
 @MainActor
 struct LogViewer: View {
+    private enum LevelFilter: String, CaseIterable {
+        case all = "全部"
+        case warningPlus = "warning+"
+        case errorOnly = "error only"
+    }
+
     @State private var selectedCategories: Set<LogCategory> = Set(LogCategory.allCases)
     @State private var levelFilter: LevelFilter = .all
     @State private var searchText: String = ""

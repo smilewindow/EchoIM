@@ -22,12 +22,12 @@ enum Log {
 
     static func debug(
         _ category: LogCategory,
-        _ message: String,
+        _ message: @autoclosure () -> String,
         file: String = #fileID,
         line: Int = #line
     ) {
         #if DEBUG
-        write(level: .debug, category: category, message: message, file: file, line: line)
+        write(level: .debug, category: category, message: message(), file: file, line: line)
         #endif
     }
 
