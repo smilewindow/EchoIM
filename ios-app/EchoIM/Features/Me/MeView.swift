@@ -6,6 +6,7 @@ struct MeView: View {
 
     @State private var showClearCacheConfirm = false
     @State private var isClearing = false
+    @State private var showLogViewer = false
 
     var body: some View {
         Group {
@@ -20,6 +21,13 @@ struct MeView: View {
                         }
                         cacheCard
                         logoutCard
+
+                        Text("EchoIM v\(appVersion)")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .onLongPressGesture(minimumDuration: 0.5) {
+                                showLogViewer = true
+                            }
                     }
                     .padding(.horizontal, 12)
                     .padding(.top, 16)
@@ -54,6 +62,13 @@ struct MeView: View {
                 ProgressView("清除中…")
                     .padding()
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+            }
+        }
+        .sheet(isPresented: $showLogViewer) {
+            NavigationStack {
+                LogViewer()
+                    .navigationTitle("日志")
+                    .navigationBarTitleDisplayMode(.inline)
             }
         }
         .toolbarBackground(Color.echoInteractive, for: .navigationBar)
@@ -192,6 +207,10 @@ struct MeView: View {
             RoundedRectangle(cornerRadius: 14)
                 .fill(Color(uiColor: .systemBackground))
         )
+    }
+
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
     }
 
     @MainActor
