@@ -125,6 +125,7 @@ final class WebSocketClient: NSObject {
         reconnectTimer = nil
         closeTaskLocally()
         state = .disconnected
+        Log.info(.ws, "disconnected (\(reason))")
     }
 
     // MARK: - Subscription
@@ -164,6 +165,12 @@ final class WebSocketClient: NSObject {
         urlSession = session
 
         state = .connecting
+        // Release: hide query (token); DEBUG: full URL
+        #if DEBUG
+        Log.info(.ws, "connecting to \(url.absoluteString)")
+        #else
+        Log.info(.ws, "connecting to \(url.scheme ?? "ws")://\(url.host ?? "")\(url.path)")
+        #endif
 
         let newTask = session.webSocketTask(with: url)
         task = newTask
@@ -218,6 +225,7 @@ final class WebSocketClient: NSObject {
                         self.pendingPongContinuation = nil
                         self.pendingPongID = nil
                         continuation.resume(throwing: URLError(.timedOut))
+                        Log.warning(.ws, "pong timeout")
                     }
                 }
 
@@ -277,6 +285,7 @@ final class WebSocketClient: NSObject {
         closeTaskLocally()
         let delay = reconnectPolicy.nextDelay()
         state = .reconnecting(in: delay)
+        Log.warning(.ws, "reconnecting in \(Int(delay))s")
         reconnectTimer?.cancel()
         reconnectTimer = Task { [weak self] in
             try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
@@ -322,6 +331,7 @@ final class WebSocketClient: NSObject {
            frame["type"] as? String == "connection.ready" {
             if case .handshaking = state {
                 state = .ready
+                Log.info(.ws, "connection ready")
                 reconnectPolicy.reset()
                 startHeartbeat()
                 for handler in Array(readyHandlers.values) {
@@ -337,8 +347,10 @@ final class WebSocketClient: NSObject {
             for handler in handlers.values {
                 handler(event)
             }
+            Log.debug(.ws, "event \(event)")
         } catch {
-            // 单帧解码失败不拖垮整条连接；后续接日志系统时记录 warning。
+            // 单帧解码失败不拖垮整条连接。
+            Log.warning(.ws, "decode error: \(error.localizedDescription)")
         }
     }
 }
@@ -398,6 +410,7 @@ extension WebSocketClient: URLSessionWebSocketDelegate, URLSessionTaskDelegate {
         Task { @MainActor in
             if case .connecting = self.state {
                 self.state = .handshaking
+                Log.info(.ws, "TCP upgraded, waiting connection.ready")
             }
         }
     }
@@ -429,6 +442,7 @@ extension WebSocketClient: URLSessionWebSocketDelegate, URLSessionTaskDelegate {
                 self.closeTaskLocally()
                 self.state = .disconnected
                 self.onUnauthorized()
+                Log.error(.ws, "401 unauthorized, stop reconnect")
                 return
             }
 
