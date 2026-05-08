@@ -23,25 +23,38 @@ extension APIClient {
         )
         request.httpBody = body
 
+        Log.info(.network, "→ UPLOAD POST \(path) (\(body.count / 1024)KB)")
+
         let data: Data
         let response: URLResponse
+        let start = Date()
         do {
             (data, response) = try await session.data(for: request)
         } catch let urlError as URLError {
+            Log.error(.network, "✗ network \(urlError.localizedDescription)")
             throw APIError.network(urlError)
         }
+
+        let elapsed = Int(Date().timeIntervalSince(start) * 1000)
 
         guard let http = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
         }
 
         guard (200..<300).contains(http.statusCode) else {
+            Log.error(.network, "✗ \(http.statusCode) POST \(path) (\(elapsed)ms)")
             throw APIError.fromStatus(http.statusCode, body: data)
         }
+
+        Log.info(.network, "← \(http.statusCode) POST \(path) (\(elapsed)ms)")
+        #if DEBUG
+        Log.debug(.network, "  response: \(Log.redactBody(String(data: data, encoding: .utf8) ?? ""))")
+        #endif
 
         do {
             return try Self.jsonDecoder.decode(Response.self, from: data)
         } catch {
+            Log.error(.network, "✗ decode \(Response.self): \(error.localizedDescription)")
             throw APIError.decoding(String(describing: error))
         }
     }

@@ -85,30 +85,50 @@ final class APIClient {
             request.httpBody = try Self.jsonEncoder.encode(AnyEncodable(body))
         }
 
+        Log.info(.network, "→ \(method) \(path)")
+        #if DEBUG
+        if request.httpBody != nil {
+            let bodyString = String(data: request.httpBody ?? Data(), encoding: .utf8) ?? ""
+            Log.debug(.network, "  body: \(Log.redactBody(bodyString))")
+        }
+        #endif
+
         let data: Data
         let response: URLResponse
+        let start = Date()
 
         do {
             (data, response) = try await session.data(for: request)
         } catch let urlError as URLError {
+            Log.error(.network, "✗ network \(urlError.localizedDescription)")
             throw APIError.network(urlError)
         }
+
+        let elapsed = Int(Date().timeIntervalSince(start) * 1000)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
         }
 
         guard (200..<300).contains(httpResponse.statusCode) else {
+            Log.error(.network, "✗ \(httpResponse.statusCode) \(method) \(path) (\(elapsed)ms)")
             throw APIError.fromStatus(httpResponse.statusCode, body: data)
         }
+
+        Log.info(.network, "← \(httpResponse.statusCode) \(method) \(path) (\(elapsed)ms)")
 
         if Response.self == EmptyResponse.self {
             return EmptyResponse() as! Response
         }
 
+        #if DEBUG
+        Log.debug(.network, "  response: \(Log.redactBody(String(data: data, encoding: .utf8) ?? ""))")
+        #endif
+
         do {
             return try Self.jsonDecoder.decode(Response.self, from: data)
         } catch {
+            Log.error(.network, "✗ decode \(Response.self): \(error.localizedDescription)")
             throw APIError.decoding(String(describing: error))
         }
     }
