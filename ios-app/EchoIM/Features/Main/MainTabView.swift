@@ -58,6 +58,7 @@ struct MainTabView: View {
                 wsClient: session.wsClient,
                 currentUserId: container.currentUser?.id ?? 0,
                 presenceStore: session.presenceStore,
+                initialConversations: session.cachedConversationsAtLaunch,
                 tokenProvider: { [tokenStore = container.tokenStore] in
                     (try? tokenStore.load())?.token
                 }

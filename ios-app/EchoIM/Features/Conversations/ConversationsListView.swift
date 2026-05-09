@@ -10,12 +10,14 @@ struct ConversationsListView: View {
         wsClient: WebSocketClient?,
         currentUserId: Int,
         presenceStore: PresenceStore? = nil,
+        initialConversations: [Conversation] = [],
         tokenProvider: @escaping @MainActor () -> String?
     ) {
         _vm = State(
             wrappedValue: ConversationsListViewModel(
                 repository: repository,
                 metaStore: metaStore,
+                initialConversations: initialConversations,
                 tokenProvider: tokenProvider,
                 currentUserId: { currentUserId },
                 wsClient: wsClient
@@ -43,6 +45,7 @@ struct ConversationsListView: View {
             switch vm.phase {
             case .idle, .loading:
                 // TabView 首帧不能给空内容；否则 SwiftUI 会把对应 tabItem 一起丢掉。
+                // 有缓存时 conversations 已由 initialConversations 预填充，不会走到这里。
                 ScrollView {
                     ConversationsListSkeleton()
                 }

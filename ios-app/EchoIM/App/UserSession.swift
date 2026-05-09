@@ -7,6 +7,9 @@ import SwiftData
 final class UserSession {
     let userId: Int
     let modelContainer: ModelContainer
+    /// ModelContainer 建好后同步读一次会话缓存，供 ConversationsListView 首帧直接使用。
+    /// 后续网络刷新由 ViewModel 负责，此属性不再更新。
+    let cachedConversationsAtLaunch: [Conversation]
     private(set) var wsClient: WebSocketClient
 
     // P6：在线状态 / 输入指示 store（不变式 1：store 不直接订阅 WS，由此处路由）
@@ -47,6 +50,13 @@ final class UserSession {
             modelContainer = try ModelContainer(for: schema, configurations: config)
         }
 
+        let _ctx = ModelContext(modelContainer)
+        let _desc = FetchDescriptor<ConversationMeta>(
+            sortBy: [SortDescriptor(\.lastMessageAt, order: .reverse)]
+        )
+        cachedConversationsAtLaunch = (try? _ctx.fetch(_desc))?
+            .map { $0.snapshot() }
+            .map(Conversation.fromCachedMeta) ?? []
         wsClient = WebSocketClient(
             tokenProvider: tokenLoader,
             onUnauthorized: { Task { await onUnauthorized() } }

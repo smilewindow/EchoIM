@@ -1,13 +1,7 @@
 import SwiftUI
 
 struct RootView: View {
-    @State private var container: AppContainer = {
-        let shouldResetKeychain = CommandLine.arguments.contains("-uitest-reset-keychain")
-        let container = AppContainer(resetKeychainOnLaunch: shouldResetKeychain)
-        // 与 P1 保持一致：首帧同步恢复登录占位，无闪烁。
-        container.bootstrap()
-        return container
-    }()
+    let container: AppContainer
 
     @State private var showRegister = false
     @State private var sessionExpiredToastVisible = false

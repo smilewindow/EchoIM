@@ -41,6 +41,7 @@ final class ConversationsListViewModel {
     init(
         repository: ConversationRepository,
         metaStore: ConversationMetaStore? = nil,
+        initialConversations: [Conversation] = [],
         tokenProvider: @escaping @MainActor () -> String?,
         currentUserId: @escaping @MainActor () -> Int? = { nil },
         wsClient: WebSocketClient? = nil
@@ -50,6 +51,7 @@ final class ConversationsListViewModel {
         self.tokenProvider = tokenProvider
         self.currentUserId = currentUserId
         self.wsClient = wsClient
+        self.conversations = initialConversations
     }
 
     // MARK: - Load
