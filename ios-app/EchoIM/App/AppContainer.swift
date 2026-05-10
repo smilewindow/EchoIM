@@ -167,6 +167,7 @@ final class AppContainer {
             let dir = URL.applicationSupportDirectory
                 .appendingPathComponent("EchoIM/users/\(userId)")
             try? FileManager.default.removeItem(at: dir)
+            Log.info(.cache, "user dir removed u=\(userId)")
         }
     }
 

@@ -11,7 +11,9 @@ actor ConversationMetaStore {
         )
         descriptor.fetchLimit = 1
 
-        if let existing = try modelContext.fetch(descriptor).first {
+        let existing = try modelContext.fetch(descriptor).first
+        let isUpdate = existing != nil
+        if let existing {
             existing.peerUserId = snapshot.peerUserId
             existing.peerUsername = snapshot.peerUsername
             existing.peerDisplayName = snapshot.peerDisplayName
@@ -43,6 +45,9 @@ actor ConversationMetaStore {
         }
 
         try modelContext.save()
+        let unread = snapshot.unreadCount
+        let op = isUpdate ? "update" : "insert"
+        Log.debug(.cache, "meta upsert c=\(conversationId) (\(op)) unread=\(unread)")
     }
 
     func loadByPeerUserId(_ peerUserId: Int) async throws -> ConversationMetaSnapshot? {
@@ -50,7 +55,9 @@ actor ConversationMetaStore {
             predicate: #Predicate<ConversationMeta> { $0.peerUserId == peerUserId }
         )
         descriptor.fetchLimit = 1
-        return try modelContext.fetch(descriptor).first?.snapshot()
+        let result = try modelContext.fetch(descriptor).first?.snapshot()
+        Log.debug(.cache, "meta loadByPeer u=\(peerUserId) hit=\(result != nil)")
+        return result
     }
 
     func load(conversationId: Int) async throws -> ConversationMetaSnapshot? {
@@ -58,7 +65,9 @@ actor ConversationMetaStore {
             predicate: #Predicate<ConversationMeta> { $0.conversationId == conversationId }
         )
         descriptor.fetchLimit = 1
-        return try modelContext.fetch(descriptor).first?.snapshot()
+        let result = try modelContext.fetch(descriptor).first?.snapshot()
+        Log.debug(.cache, "meta load c=\(conversationId) hit=\(result != nil)")
+        return result
     }
 
     /// 会话列表冷启动用，按最后消息时间倒序；没有最后消息的会话自然排到后面。
@@ -66,14 +75,17 @@ actor ConversationMetaStore {
         let descriptor = FetchDescriptor<ConversationMeta>(
             sortBy: [SortDescriptor(\.lastMessageAt, order: .reverse)]
         )
-        return try modelContext.fetch(descriptor).map { $0.snapshot() }
+        let snapshots = try modelContext.fetch(descriptor).map { $0.snapshot() }
+        Log.debug(.cache, "meta loadAll hit=\(snapshots.count)")
+        return snapshots
     }
 
     func deleteAll() async throws {
         let descriptor = FetchDescriptor<ConversationMeta>()
-        for row in try modelContext.fetch(descriptor) {
-            modelContext.delete(row)
-        }
+        let rows = try modelContext.fetch(descriptor)
+        for row in rows { modelContext.delete(row) }
         try modelContext.save()
+        let deletedCount = rows.count
+        Log.info(.cache, "conversation meta cleared (\(deletedCount) rows)")
     }
 }

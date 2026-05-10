@@ -11,42 +11,46 @@ enum Log {
         })
     }()
 
-    static func info(
+    nonisolated static func info(
         _ category: LogCategory,
-        _ message: String,
+        _ message: @autoclosure () -> String,
         file: String = #fileID,
         line: Int = #line
     ) {
-        write(level: .info, category: category, message: message, file: file, line: line)
+        let msg = message()
+        Task { @MainActor in write(level: .info, category: category, message: msg, file: file, line: line) }
     }
 
-    static func debug(
+    nonisolated static func debug(
         _ category: LogCategory,
         _ message: @autoclosure () -> String,
         file: String = #fileID,
         line: Int = #line
     ) {
         #if DEBUG
-        write(level: .debug, category: category, message: message(), file: file, line: line)
+        let msg = message()
+        Task { @MainActor in write(level: .debug, category: category, message: msg, file: file, line: line) }
         #endif
     }
 
-    static func warning(
+    nonisolated static func warning(
         _ category: LogCategory,
-        _ message: String,
+        _ message: @autoclosure () -> String,
         file: String = #fileID,
         line: Int = #line
     ) {
-        write(level: .warning, category: category, message: message, file: file, line: line)
+        let msg = message()
+        Task { @MainActor in write(level: .warning, category: category, message: msg, file: file, line: line) }
     }
 
-    static func error(
+    nonisolated static func error(
         _ category: LogCategory,
-        _ message: String,
+        _ message: @autoclosure () -> String,
         file: String = #fileID,
         line: Int = #line
     ) {
-        write(level: .error, category: category, message: message, file: file, line: line)
+        let msg = message()
+        Task { @MainActor in write(level: .error, category: category, message: msg, file: file, line: line) }
     }
 
     // Used by APIClient: body logging (DEBUG only, redacted)

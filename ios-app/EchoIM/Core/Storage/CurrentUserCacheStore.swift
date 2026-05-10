@@ -15,8 +15,16 @@ struct CurrentUserCacheStore {
 
     func load(userId: Int) -> AuthenticatedUser? {
         let url = cacheURL(userId: userId)
-        guard let data = try? Data(contentsOf: url) else { return nil }
-        return try? APIClient.jsonDecoder.decode(AuthenticatedUser.self, from: data)
+        guard let data = try? Data(contentsOf: url) else {
+            Log.debug(.cache, "current-user load u=\(userId) hit=false")
+            return nil
+        }
+        guard let result = try? APIClient.jsonDecoder.decode(AuthenticatedUser.self, from: data) else {
+            Log.warning(.cache, "current-user decode failed u=\(userId)")
+            return nil
+        }
+        Log.debug(.cache, "current-user load u=\(userId) hit=true")
+        return result
     }
 
     func save(_ user: AuthenticatedUser) {
@@ -30,11 +38,15 @@ struct CurrentUserCacheStore {
             try data.write(to: url, options: .atomic)
         } catch {
             // 缓存失败不应影响登录态；下次联网刷新仍能恢复。
+            Log.warning(.cache, "save current-user failed: \(error)")
         }
     }
 
     func delete(userId: Int) {
-        try? fileManager.removeItem(at: cacheURL(userId: userId))
+        let removed = (try? fileManager.removeItem(at: cacheURL(userId: userId))) != nil
+        if removed {
+            Log.info(.cache, "current-user deleted u=\(userId)")
+        }
     }
 
     private func cacheURL(userId: Int) -> URL {

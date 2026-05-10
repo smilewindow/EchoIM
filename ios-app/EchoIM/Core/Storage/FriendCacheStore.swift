@@ -9,9 +9,8 @@ actor FriendCacheStore {
         let currentIds = Set(friends.map(\.id))
 
         let existing = try modelContext.fetch(FetchDescriptor<CachedFriend>())
-        for row in existing where !currentIds.contains(row.userId) {
-            modelContext.delete(row)
-        }
+        let staleRows = existing.filter { !currentIds.contains($0.userId) }
+        for row in staleRows { modelContext.delete(row) }
 
         let existingById = Dictionary(uniqueKeysWithValues: existing.map { ($0.userId, $0) })
         for friend in friends {
@@ -32,20 +31,24 @@ actor FriendCacheStore {
         }
 
         try modelContext.save()
+        let removedCount = staleRows.count
+        Log.debug(.cache, "friends synced: \(friends.count) current, \(removedCount) removed")
     }
 
     func loadAll() throws -> [UserProfile] {
         let descriptor = FetchDescriptor<CachedFriend>(
             sortBy: [SortDescriptor(\.username)]
         )
-        return try modelContext.fetch(descriptor).map { $0.toUserProfile() }
+        let friends = try modelContext.fetch(descriptor).map { $0.toUserProfile() }
+        Log.debug(.cache, "friends loadAll hit=\(friends.count)")
+        return friends
     }
 
     func deleteAll() throws {
         let all = try modelContext.fetch(FetchDescriptor<CachedFriend>())
-        for row in all {
-            modelContext.delete(row)
-        }
+        for row in all { modelContext.delete(row) }
         try modelContext.save()
+        let deletedCount = all.count
+        Log.info(.cache, "friends cleared (\(deletedCount) rows)")
     }
 }

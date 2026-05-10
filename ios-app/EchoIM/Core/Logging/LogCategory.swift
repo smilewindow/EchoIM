@@ -5,4 +5,5 @@ enum LogCategory: String, CaseIterable {
     case ws         // WebSocket lifecycle and events
     case auth       // Login/logout/token
     case app        // AppContainer session lifecycle
+    case cache      // SwiftData / file-system cache reads, writes, misses
 }

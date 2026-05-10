@@ -8,16 +8,21 @@ actor MessageStore {
     func append(_ messages: [Message]) async throws {
         guard !messages.isEmpty else { return }
 
-        for message in messages {
-            let id = message.id
-            var descriptor = FetchDescriptor<CachedMessage>(
-                predicate: #Predicate<CachedMessage> { $0.id == id }
+        let incomingIds = messages.map(\.id)
+        let existing = try modelContext.fetch(
+            FetchDescriptor<CachedMessage>(
+                predicate: #Predicate<CachedMessage> { incomingIds.contains($0.id) }
             )
-            descriptor.fetchLimit = 1
-            if try modelContext.fetch(descriptor).first != nil {
+        )
+        let existingIds = Set(existing.map(\.id))
+        var seenIds = existingIds
+
+        var insertedCount = 0
+        for message in messages where !existingIds.contains(message.id) {
+            guard seenIds.insert(message.id).inserted else {
+                Log.debug(.cache, "message duplicate in batch skipped id=\(message.id)")
                 continue
             }
-
             modelContext.insert(
                 CachedMessage(
                     id: message.id,
@@ -31,9 +36,12 @@ actor MessageStore {
                     createdAt: message.createdAt
                 )
             )
+            insertedCount += 1
         }
 
         try modelContext.save()
+        let skippedCount = messages.count - insertedCount
+        Log.debug(.cache, "messages appended: \(insertedCount) inserted, \(skippedCount) skipped")
     }
 
     /// 返回最新 `limit` 条，排序保持服务端分页契约：DESC，最新在前。
@@ -43,7 +51,9 @@ actor MessageStore {
             sortBy: [SortDescriptor(\.id, order: .reverse)]
         )
         descriptor.fetchLimit = limit
-        return try modelContext.fetch(descriptor).map { $0.asMessage() }
+        let messages = try modelContext.fetch(descriptor).map { $0.asMessage() }
+        Log.debug(.cache, "messages loadLatest c=\(conversationId) limit=\(limit) hit=\(messages.count)")
+        return messages
     }
 
     /// 返回 `id < before` 的更老消息，DESC，最多 `limit` 条。
@@ -55,15 +65,18 @@ actor MessageStore {
             sortBy: [SortDescriptor(\.id, order: .reverse)]
         )
         descriptor.fetchLimit = limit
-        return try modelContext.fetch(descriptor).map { $0.asMessage() }
+        let messages = try modelContext.fetch(descriptor).map { $0.asMessage() }
+        Log.debug(.cache, "messages loadOlder c=\(conversationId) before=\(before) hit=\(messages.count)")
+        return messages
     }
 
     /// 清空所有会话消息。用于 Me 页清缓存和登出前释放。
     func deleteAll() async throws {
         let descriptor = FetchDescriptor<CachedMessage>()
-        for row in try modelContext.fetch(descriptor) {
-            modelContext.delete(row)
-        }
+        let rows = try modelContext.fetch(descriptor)
+        for row in rows { modelContext.delete(row) }
         try modelContext.save()
+        let deletedCount = rows.count
+        Log.info(.cache, "messages cleared (\(deletedCount) rows)")
     }
 }

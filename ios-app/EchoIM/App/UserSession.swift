@@ -44,6 +44,7 @@ final class UserSession {
             modelContainer = try ModelContainer(for: schema, configurations: config)
         } catch {
             // P4 是首次建库，不做迁移；开发期 schema 不匹配时删库重建。
+            Log.warning(.cache, "schema mismatch – deleting and rebuilding cache: \(error)")
             try? FileManager.default.removeItem(at: storeDir)
             try FileManager.default.createDirectory(at: storeDir, withIntermediateDirectories: true)
             try Self.excludeFromBackup(storeDir)
@@ -57,6 +58,7 @@ final class UserSession {
         cachedConversationsAtLaunch = (try? _ctx.fetch(_desc))?
             .map { $0.snapshot() }
             .map(Conversation.fromCachedMeta) ?? []
+        Log.info(.cache, "launch hydration: \(cachedConversationsAtLaunch.count) conversations")
         wsClient = WebSocketClient(
             tokenProvider: tokenLoader,
             onUnauthorized: { Task { await onUnauthorized() } }

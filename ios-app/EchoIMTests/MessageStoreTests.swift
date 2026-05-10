@@ -45,6 +45,21 @@ struct MessageStoreTests {
     }
 
     @Test
+    func appendSkipsDuplicateIdsWithinSameBatch() async throws {
+        let container = try makeContainer()
+        let store = MessageStore(modelContainer: container)
+
+        let m1 = makeMessage(id: 10)
+        let m2 = makeMessage(id: 11)
+        // 同一批数据可能来自 REST/WS 重放合并；这里保护 SwiftData unique 约束不被重复 id 撞上。
+        try await store.append([m1, m1, m2])
+
+        let latest = try await store.loadLatest(conversationId: 1, limit: 50)
+        #expect(latest.count == 2)
+        #expect(latest.map(\.id) == [11, 10])
+    }
+
+    @Test
     func loadLatestReturnsNewestFirst() async throws {
         let container = try makeContainer()
         let store = MessageStore(modelContainer: container)
