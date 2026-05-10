@@ -10,7 +10,7 @@ struct LogViewer: View {
         case errorOnly = "error only"
     }
 
-    @State private var selectedCategories: Set<LogCategory> = Set(LogCategory.allCases)
+    @State private var selectedCategory: LogCategory? = nil
     @State private var levelFilter: LevelFilter = .all
     @State private var searchText: String = ""
 
@@ -18,7 +18,7 @@ struct LogViewer: View {
 
     private var filtered: [LogEntry] {
         store.entries.filter { entry in
-            selectedCategories.contains(entry.category)
+            (selectedCategory == nil || entry.category == selectedCategory)
                 && matchesLevel(entry)
                 && (searchText.isEmpty || entry.message.localizedCaseInsensitiveContains(searchText))
         }
@@ -56,21 +56,15 @@ struct LogViewer: View {
             // Category chips
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    // "全部" chip
-                    let allSelected = selectedCategories.count == LogCategory.allCases.count
-                    CategoryChip(
-                        label: "全部",
-                        isSelected: allSelected
-                    ) {
-                        selectedCategories = Set(LogCategory.allCases)
+                    CategoryChip(label: "全部", isSelected: selectedCategory == nil) {
+                        selectedCategory = nil
                     }
-
                     ForEach(LogCategory.allCases, id: \.self) { category in
                         CategoryChip(
                             label: category.rawValue,
-                            isSelected: selectedCategories.contains(category)
+                            isSelected: selectedCategory == category
                         ) {
-                            toggleCategory(category)
+                            selectedCategory = category
                         }
                     }
                 }
@@ -136,23 +130,6 @@ struct LogViewer: View {
         }
     }
 
-    private func toggleCategory(_ category: LogCategory) {
-        let allSelected = selectedCategories.count == LogCategory.allCases.count
-        if allSelected {
-            // All selected → select only this one
-            selectedCategories = [category]
-        } else if selectedCategories.contains(category) {
-            // Deselect, but prevent empty selection
-            let next = selectedCategories.subtracting([category])
-            if !next.isEmpty {
-                selectedCategories = next
-            }
-        } else {
-            // Add to selection
-            selectedCategories.insert(category)
-        }
-    }
-
     private func color(for level: LogLevel) -> Color {
         switch level {
         case .debug:   return .gray
@@ -194,10 +171,10 @@ private struct CategoryChip: View {
     var body: some View {
         Button(action: action) {
             Text(label)
-                .font(.caption)
+                .font(.footnote)
                 .fontWeight(.medium)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 9)
                 .background(
                     Capsule()
                         .fill(isSelected ? Color.accentColor : Color(uiColor: .systemGray5))
