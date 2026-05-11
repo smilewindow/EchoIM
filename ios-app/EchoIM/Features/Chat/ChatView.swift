@@ -59,13 +59,6 @@ struct ChatView: View {
             ToolbarItem(placement: .principal) {
                 principalTitle
             }
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("完成") {
-                    isInputFocused = false
-                }
-                .accessibilityIdentifier("chatKeyboardDone")
-            }
         }
         .echoNavigationBarStyle()
         .task {
@@ -235,9 +228,9 @@ struct ChatView: View {
                 .focused($isInputFocused)
                 .submitLabel(.send)
                 .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                .padding(.vertical, 10)
                 .background(
-                    RoundedRectangle(cornerRadius: 18)
+                    RoundedRectangle(cornerRadius: 20)
                         .fill(Color.echoSurface)
                         .overlay(
                             RoundedRectangle(cornerRadius: 18)
@@ -274,7 +267,7 @@ struct ChatView: View {
             .accessibilityIdentifier("chatSend")
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.vertical, 12)
         .background(.ultraThinMaterial)
         .overlay(alignment: .top) {
             Rectangle()
@@ -300,8 +293,8 @@ struct ChatView: View {
 private struct ChatDefaultScrollAnchor: ViewModifier {
     func body(content: Content) -> some View {
         if #available(iOS 18.0, *) {
+            // 只锚定初始偏移，避免键盘弹出导致 scroll view 尺寸变化时自动触发底部对齐重算
             content
-                .defaultScrollAnchor(.bottom)
                 .defaultScrollAnchor(.bottom, for: .initialOffset)
         } else {
             content.defaultScrollAnchor(.bottom)

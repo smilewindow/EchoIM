@@ -7,8 +7,6 @@ struct MessageBubble: View {
     var onRetry: () -> Void = {}
     var onOpenImage: () -> Void = {}
 
-    @Environment(\.accessibilityReduceMotion) private var reducedMotion
-
     var body: some View {
         if message.message.messageType == "image" {
             ImageMessageBubble(
@@ -65,25 +63,10 @@ struct MessageBubble: View {
 
                 footer
             }
-            .transition(messageTransition)
-            .animation(.easeOut(duration: 0.2), value: message.localId)
 
             if !isSelf { Spacer(minLength: 40) }
         }
         .accessibilityIdentifier("chatBubble_text_\(message.localId)")
-    }
-
-    private var messageTransition: AnyTransition {
-        if reducedMotion {
-            return .opacity
-        }
-        return .asymmetric(
-            insertion: .scale(
-                scale: 0.8,
-                anchor: isSelf ? .bottomTrailing : .bottomLeading
-            ).combined(with: .opacity),
-            removal: .opacity
-        )
     }
 
     @ViewBuilder
