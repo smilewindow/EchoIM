@@ -111,41 +111,48 @@ struct ChatView: View {
             return
         }
 
-        let screenBounds = UIScreen.main.bounds
-        // iPad 浮动键盘宽度小于屏幕宽，不占据底部；若之前有偏移则归零。
-        guard endFrame.width >= screenBounds.width else {
-            let duration = userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0.25
-            withAnimation(.easeInOut(duration: duration)) { keyboardHeight = 0 }
-            return
-        }
-
         let bottomInset = (UIApplication.shared.connectedScenes.first as? UIWindowScene)?
             .keyWindow?.safeAreaInsets.bottom ?? 0
-
+        let screenBounds = UIScreen.main.bounds
         let duration = userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0.25
         let curveRaw = userInfo[UIResponder.keyboardAnimationCurveUserInfoKey] as? Int ?? 0
-        withAnimation(keyboardAnimation(duration: duration, curveRaw: curveRaw)) {
-            keyboardHeight = ChatKeyboardAvoidance.height(
-                screenHeight: screenBounds.height - bottomInset,
-                keyboardMinY: endFrame.minY
-            )
-        }
+        let nextHeight = ChatKeyboardAvoidance.height(
+            screenSize: screenBounds.size,
+            keyboardFrame: endFrame,
+            bottomSafeAreaInset: bottomInset
+        )
+
+        applyKeyboardHeight(
+            nextHeight,
+            animation: keyboardAnimation(duration: duration, curveRaw: curveRaw)
+        )
     }
 
     private func handleKeyboardWillHide(_ notification: Notification) {
         let duration = notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0.25
-        withAnimation(.easeIn(duration: duration)) {
-            keyboardHeight = 0
+        applyKeyboardHeight(0, animation: .easeIn(duration: duration))
+    }
+
+    private func applyKeyboardHeight(_ nextHeight: CGFloat, animation: Animation) {
+        guard ChatKeyboardAvoidance.shouldUpdateHeight(from: keyboardHeight, to: nextHeight) else {
+            return
         }
+
+        withAnimation(animation) { keyboardHeight = nextHeight }
     }
 
     private func keyboardAnimation(duration: Double, curveRaw: Int) -> Animation {
-        switch curveRaw {
-        case 0: return .easeInOut(duration: duration)
-        case 1: return .easeIn(duration: duration)
-        case 2: return .easeOut(duration: duration)
-        case 3: return .linear(duration: duration)
-        default: return .easeInOut(duration: duration)  // covers keyboard-specific curve (7)
+        guard let curve = UIView.AnimationCurve(rawValue: curveRaw) else {
+            // 键盘通知可能给出 UIKit 私有曲线值；SwiftUI 无等价枚举，退回系统感接近的曲线。
+            return .easeInOut(duration: duration)
+        }
+
+        switch curve {
+        case .easeInOut: return .easeInOut(duration: duration)
+        case .easeIn: return .easeIn(duration: duration)
+        case .easeOut: return .easeOut(duration: duration)
+        case .linear: return .linear(duration: duration)
+        @unknown default: return .easeInOut(duration: duration)
         }
     }
 
@@ -185,6 +192,7 @@ struct ChatView: View {
     private var messagesList: some View {
         ScrollViewReader { proxy in
             ScrollView {
+                // 刻意不用 LazyVStack：动态高度气泡配合 scrollTo 滚底时容易算错锚点。
                 VStack(spacing: 8) {
                     if vm.hasMoreOlder {
                         Button {
