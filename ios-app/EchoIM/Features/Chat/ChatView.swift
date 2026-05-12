@@ -11,6 +11,7 @@ struct ChatView: View {
     @State private var lightboxBubble: LocalMessage?
     @State private var initialScrollPolicy = ChatInitialScrollPolicy()
     @State private var initialCatchUpScrollTrigger = 0
+    @State private var keyboardHeight: CGFloat = 0
     @FocusState private var isInputFocused: Bool
     private let presenceStore: PresenceStore?
     private let onNavigateToPeer: ((UserProfile) -> Void)?
@@ -50,10 +51,8 @@ struct ChatView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            messagesList
-            inputBar
-        }
+        chatContent
+        .ignoresSafeArea(.keyboard, edges: .bottom)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
@@ -85,6 +84,68 @@ struct ChatView: View {
                 remoteURL: Endpoints.absolute(bubble.message.mediaUrl),
                 onClose: { lightboxBubble = nil }
             )
+        }
+        .onReceive(NotificationCenter.default.publisher(
+            for: UIResponder.keyboardWillChangeFrameNotification
+        )) { notification in
+            handleKeyboardFrameChange(notification)
+        }
+        .onReceive(NotificationCenter.default.publisher(
+            for: UIResponder.keyboardWillHideNotification
+        )) { notification in
+            handleKeyboardWillHide(notification)
+        }
+    }
+
+    private var chatContent: some View {
+        VStack(spacing: 0) {
+            messagesList
+            inputBar
+        }
+        .offset(y: -keyboardHeight)
+    }
+
+    private func handleKeyboardFrameChange(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let endFrame = userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else {
+            return
+        }
+
+        let screenBounds = UIScreen.main.bounds
+        // iPad 浮动键盘宽度小于屏幕宽，不占据底部；若之前有偏移则归零。
+        guard endFrame.width >= screenBounds.width else {
+            let duration = userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0.25
+            withAnimation(.easeInOut(duration: duration)) { keyboardHeight = 0 }
+            return
+        }
+
+        let bottomInset = (UIApplication.shared.connectedScenes.first as? UIWindowScene)?
+            .keyWindow?.safeAreaInsets.bottom ?? 0
+
+        let duration = userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0.25
+        let curveRaw = userInfo[UIResponder.keyboardAnimationCurveUserInfoKey] as? Int ?? 0
+        withAnimation(keyboardAnimation(duration: duration, curveRaw: curveRaw)) {
+            keyboardHeight = ChatKeyboardAvoidance.height(
+                screenHeight: screenBounds.height - bottomInset,
+                keyboardMinY: endFrame.minY
+            )
+        }
+    }
+
+    private func handleKeyboardWillHide(_ notification: Notification) {
+        let duration = notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0.25
+        withAnimation(.easeIn(duration: duration)) {
+            keyboardHeight = 0
+        }
+    }
+
+    private func keyboardAnimation(duration: Double, curveRaw: Int) -> Animation {
+        switch curveRaw {
+        case 0: return .easeInOut(duration: duration)
+        case 1: return .easeIn(duration: duration)
+        case 2: return .easeOut(duration: duration)
+        case 3: return .linear(duration: duration)
+        default: return .easeInOut(duration: duration)  // covers keyboard-specific curve (7)
         }
     }
 
@@ -124,7 +185,7 @@ struct ChatView: View {
     private var messagesList: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(spacing: 8) {
+                VStack(spacing: 8) {
                     if vm.hasMoreOlder {
                         Button {
                             Task { await vm.loadOlder() }
@@ -167,7 +228,6 @@ struct ChatView: View {
                 .padding(.horizontal, 12)
                 .padding(.top, 10)
             }
-            .modifier(ChatDefaultScrollAnchor())
             .background(Color(uiColor: .systemBackground))
             .scrollDismissesKeyboard(.interactively)
             .contentShape(Rectangle())
@@ -287,18 +347,6 @@ struct ChatView: View {
         }
 
         await vm.sendImage(image)
-    }
-}
-
-private struct ChatDefaultScrollAnchor: ViewModifier {
-    func body(content: Content) -> some View {
-        if #available(iOS 18.0, *) {
-            // 只锚定初始偏移，避免键盘弹出导致 scroll view 尺寸变化时自动触发底部对齐重算
-            content
-                .defaultScrollAnchor(.bottom, for: .initialOffset)
-        } else {
-            content.defaultScrollAnchor(.bottom)
-        }
     }
 }
 
