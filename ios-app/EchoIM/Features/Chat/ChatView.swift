@@ -3,14 +3,16 @@ import SwiftUI
 import UIKit
 
 struct ChatView: View {
-    private static let bottomAnchorId = "chatBottomAnchor"
-
     @State private var vm: ChatViewModel
     @State private var draft = ""
     @State private var pickedItem: PhotosPickerItem?
     @State private var lightboxBubble: LocalMessage?
-    @State private var initialScrollPolicy = ChatInitialScrollPolicy()
-    @State private var initialCatchUpScrollTrigger = 0
+    @State private var scrollState = ChatScrollState()
+    @State private var scrollOffset: CGFloat = 0
+    @State private var scrollContentHeight: CGFloat = 0
+    @State private var viewportHeight: CGFloat = 0
+    @State private var isScrolling = false
+    @State private var scrollIdleTimer: Task<Void, Never>?
     @State private var keyboardHeight: CGFloat = 0
     @FocusState private var isInputFocused: Bool
     private let presenceStore: PresenceStore?
@@ -63,9 +65,6 @@ struct ChatView: View {
         .task {
             vm.attachWSSubscription()
             await vm.load()
-            if initialScrollPolicy.markInitialLoadFinished() {
-                initialCatchUpScrollTrigger += 1
-            }
         }
         .onDisappear {
             vm.stopTyping()                  // 不变式 4 触发点 ③
@@ -189,88 +188,191 @@ struct ChatView: View {
         .accessibilityIdentifier("chatPrincipalTitle")
     }
 
+    private var reversedMessages: [LocalMessage] {
+        Array(vm.messages.reversed())
+    }
+
     private var messagesList: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                // 刻意不用 LazyVStack：动态高度气泡配合 scrollTo 滚底时容易算错锚点。
-                VStack(spacing: 8) {
-                    if vm.hasMoreOlder {
-                        Button {
-                            Task { await vm.loadOlder() }
-                        } label: {
-                            if vm.isLoadingOlder {
-                                ProgressView()
-                            } else {
-                                Text("加载更早消息")
-                                    .font(.caption)
-                                    .foregroundStyle(Color.echoBlue)
-                            }
-                        }
-                        .buttonStyle(.borderless)
-                        .padding(.vertical, 6)
-                    }
+        GeometryReader { viewportGeo in
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 8) {
+                        ForEach(
+                            Array(reversedMessages.enumerated()),
+                            id: \.element.localId
+                        ) { revIndex, message in
+                            let originalIndex = vm.messages.count - 1 - revIndex
+                            VStack(spacing: 0) {
+                                MessageBubble(
+                                    message: message,
+                                    isSelf: message.message.senderId == vm.currentUserId,
+                                    isConsecutive: vm.isConsecutive(
+                                        message,
+                                        previous: originalIndex > 0
+                                            ? vm.messages[originalIndex - 1]
+                                            : nil
+                                    ),
+                                    onRetry: {
+                                        Task { await vm.retry(localId: message.localId) }
+                                    },
+                                    onOpenImage: {
+                                        lightboxBubble = message
+                                    }
+                                )
+                                .id(message.localId)
 
-                    ForEach(Array(vm.messages.enumerated()), id: \.element.localId) { index, message in
-                        if vm.shouldShowTimestamp(at: index) {
-                            TimestampPill(date: message.message.createdAt)
-                        }
-                        MessageBubble(
-                            message: message,
-                            isSelf: message.message.senderId == vm.currentUserId,
-                            isConsecutive: vm.isConsecutive(
-                                message,
-                                previous: index > 0 ? vm.messages[index - 1] : nil
-                            ),
-                            onRetry: {
-                                Task { await vm.retry(localId: message.localId) }
-                            },
-                            onOpenImage: {
-                                lightboxBubble = message
+                                if vm.shouldShowTimestamp(at: originalIndex) {
+                                    TimestampPill(date: message.message.createdAt)
+                                }
                             }
-                        )
-                        .id(message.localId)
-                    }
+                            .scaleEffect(x: 1, y: -1)
+                        }
 
-                    Color.clear.frame(height: 10).id(Self.bottomAnchorId)
+                        if vm.hasMoreOlder {
+                            Button {
+                                Task { await vm.loadOlder() }
+                            } label: {
+                                if vm.isLoadingOlder {
+                                    ProgressView()
+                                } else {
+                                    Text("加载更早消息")
+                                        .font(.caption)
+                                        .foregroundStyle(Color.echoBlue)
+                                }
+                            }
+                            .buttonStyle(.borderless)
+                            .padding(.vertical, 6)
+                            .scaleEffect(x: 1, y: -1)
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.top, 10)
+                    .background(
+                        GeometryReader { contentGeo in
+                            let frame = contentGeo.frame(in: .named("chatScroll"))
+                            Color.clear
+                                .preference(
+                                    key: ScrollOffsetPreferenceKey.self,
+                                    value: -frame.minY
+                                )
+                                .preference(
+                                    key: ContentHeightPreferenceKey.self,
+                                    value: contentGeo.size.height
+                                )
+                        }
+                    )
                 }
-                .padding(.horizontal, 12)
-                .padding(.top, 10)
-            }
-            .background(Color(uiColor: .systemBackground))
-            .scrollDismissesKeyboard(.interactively)
-            .contentShape(Rectangle())
-            .simultaneousGesture(TapGesture().onEnded { isInputFocused = false })
-            .overlay {
-                if vm.phase == .loading, vm.messages.isEmpty {
-                    ChatSkeletonView()
-                        .transition(.opacity)
+                .coordinateSpace(name: "chatScroll")
+                .scaleEffect(x: 1, y: -1)
+                .scrollIndicators(.hidden)
+                .scrollDismissesKeyboard(.interactively)
+                .contentShape(Rectangle())
+                .simultaneousGesture(
+                    TapGesture().onEnded { isInputFocused = false }
+                )
+                .onPreferenceChange(ScrollOffsetPreferenceKey.self) { offset in
+                    scrollOffset = offset
+                    scrollState.updateOffset(offset)
+                    handleScrollActivity()
                 }
-            }
-            .onChange(of: vm.messages.last?.localId) { _, newValue in
-                guard newValue != nil else { return }
-                guard initialScrollPolicy.consumeMessageChangeForScroll() else { return }
-                scrollToBottom(proxy, animated: true)
-            }
-            .onChange(of: initialCatchUpScrollTrigger) { _, _ in
-                scrollToBottom(proxy, animated: false)
+                .onPreferenceChange(ContentHeightPreferenceKey.self) { height in
+                    scrollContentHeight = height
+                }
+                .overlay(alignment: .trailing) {
+                    ChatScrollIndicator(
+                        metrics: ScrollIndicatorMetrics(
+                            contentHeight: scrollContentHeight,
+                            viewportHeight: viewportHeight,
+                            offset: scrollOffset
+                        ),
+                        isVisible: isScrolling
+                    )
+                }
+                .overlay(alignment: .bottom) {
+                    newMessagesButton(proxy: proxy)
+                }
+                .overlay {
+                    if vm.phase == .loading, vm.messages.isEmpty {
+                        ChatSkeletonView()
+                            .transition(.opacity)
+                    }
+                }
+                .onChange(of: vm.messages.last?.localId) { _, _ in
+                    handleNewMessage(proxy: proxy)
+                }
+                .onAppear {
+                    viewportHeight = viewportGeo.size.height
+                }
+                .onChange(of: viewportGeo.size.height) { _, newHeight in
+                    viewportHeight = newHeight
+                }
             }
         }
+        .background(Color(uiColor: .systemBackground))
     }
 
     private func scrollToBottom(_ proxy: ScrollViewProxy, animated: Bool) {
+        guard let newestId = vm.messages.last?.localId else { return }
         DispatchQueue.main.async {
-            // 锚定列表尾部而不是最后一个气泡，避免底部留白被算丢后看起来差一点。
             if animated {
                 withAnimation(.easeOut(duration: 0.2)) {
-                    proxy.scrollTo(Self.bottomAnchorId, anchor: .bottom)
+                    proxy.scrollTo(newestId, anchor: .top)
                 }
             } else {
                 var transaction = Transaction(animation: nil)
                 transaction.disablesAnimations = true
                 withTransaction(transaction) {
-                    proxy.scrollTo(Self.bottomAnchorId, anchor: .bottom)
+                    proxy.scrollTo(newestId, anchor: .top)
                 }
             }
+        }
+    }
+
+    private func handleScrollActivity() {
+        isScrolling = true
+        scrollIdleTimer?.cancel()
+        scrollIdleTimer = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.5))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: 0.3)) {
+                isScrolling = false
+            }
+        }
+    }
+
+    private func handleNewMessage(proxy: ScrollViewProxy) {
+        guard let last = vm.messages.last else { return }
+        if last.message.senderId == vm.currentUserId {
+            scrollToBottom(proxy, animated: true)
+        } else if scrollState.isNearBottom {
+            scrollToBottom(proxy, animated: true)
+        } else {
+            scrollState.recordIncomingMessage()
+        }
+    }
+
+    @ViewBuilder
+    private func newMessagesButton(proxy: ScrollViewProxy) -> some View {
+        if scrollState.newMessageCount > 0 {
+            Button {
+                scrollToBottom(proxy, animated: true)
+                scrollState.reset()
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "chevron.down")
+                        .font(.caption2.weight(.semibold))
+                    Text("\(scrollState.newMessageCount) 条新消息")
+                        .font(.caption2.weight(.medium))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Capsule().fill(Color.echoInteractive))
+                .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
+            }
+            .padding(.bottom, 8)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .animation(.spring(duration: 0.3), value: scrollState.newMessageCount)
         }
     }
 
