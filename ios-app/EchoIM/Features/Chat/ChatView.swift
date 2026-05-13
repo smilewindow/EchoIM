@@ -198,6 +198,9 @@ struct ChatView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 8) {
+                        Color.clear.frame(height: 10)
+                            .id("chatBottomAnchor")
+
                         ForEach(
                             Array(reversedMessages.enumerated()),
                             id: \.element.localId
@@ -247,7 +250,6 @@ struct ChatView: View {
                         }
                     }
                     .padding(.horizontal, 12)
-                    .padding(.top, 10)
                     .frame(minHeight: viewportGeo.size.height, alignment: .bottom)
                     .background(
                         GeometryReader { contentGeo in
@@ -314,17 +316,16 @@ struct ChatView: View {
     }
 
     private func scrollToBottom(_ proxy: ScrollViewProxy, animated: Bool) {
-        guard let newestId = vm.messages.last?.localId else { return }
         DispatchQueue.main.async {
             if animated {
                 withAnimation(.easeOut(duration: 0.2)) {
-                    proxy.scrollTo(newestId, anchor: .top)
+                    proxy.scrollTo("chatBottomAnchor", anchor: .top)
                 }
             } else {
                 var transaction = Transaction(animation: nil)
                 transaction.disablesAnimations = true
                 withTransaction(transaction) {
-                    proxy.scrollTo(newestId, anchor: .top)
+                    proxy.scrollTo("chatBottomAnchor", anchor: .top)
                 }
             }
         }
