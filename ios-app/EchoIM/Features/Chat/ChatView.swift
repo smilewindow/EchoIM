@@ -13,6 +13,7 @@ struct ChatView: View {
     @State private var viewportHeight: CGFloat = 0
     @State private var isScrolling = false
     @State private var scrollIdleTimer: Task<Void, Never>?
+    @State private var didInitialScroll = false
     @State private var keyboardHeight: CGFloat = 0
     @FocusState private var isInputFocused: Bool
     private let presenceStore: PresenceStore?
@@ -343,10 +344,14 @@ struct ChatView: View {
 
     private func handleNewMessage(proxy: ScrollViewProxy) {
         guard let last = vm.messages.last else { return }
+
+        let animated = didInitialScroll
+        if !didInitialScroll { didInitialScroll = true }
+
         if last.message.senderId == vm.currentUserId {
-            scrollToBottom(proxy, animated: true)
+            scrollToBottom(proxy, animated: animated)
         } else if scrollState.isNearBottom {
-            scrollToBottom(proxy, animated: true)
+            scrollToBottom(proxy, animated: animated)
         } else {
             scrollState.recordIncomingMessage()
         }
