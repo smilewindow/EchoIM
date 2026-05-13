@@ -207,6 +207,9 @@ struct ChatView: View {
                         ) { revIndex, message in
                             let originalIndex = vm.messages.count - 1 - revIndex
                             VStack(spacing: 0) {
+                                if vm.shouldShowTimestamp(at: originalIndex) {
+                                    TimestampPill(date: message.message.createdAt)
+                                }
                                 MessageBubble(
                                     message: message,
                                     isSelf: message.message.senderId == vm.currentUserId,
@@ -224,10 +227,6 @@ struct ChatView: View {
                                     }
                                 )
                                 .id(message.localId)
-
-                                if vm.shouldShowTimestamp(at: originalIndex) {
-                                    TimestampPill(date: message.message.createdAt)
-                                }
                             }
                             .scaleEffect(x: 1, y: -1)
                         }
