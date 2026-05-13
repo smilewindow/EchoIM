@@ -247,6 +247,7 @@ struct ChatView: View {
                     }
                     .padding(.horizontal, 12)
                     .padding(.top, 10)
+                    .frame(minHeight: viewportGeo.size.height, alignment: .bottom)
                     .background(
                         GeometryReader { contentGeo in
                             let frame = contentGeo.frame(in: .named("chatScroll"))
