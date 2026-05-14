@@ -59,6 +59,9 @@ struct MainTabView: View {
                 currentUserId: container.currentUser?.id ?? 0,
                 presenceStore: session.presenceStore,
                 initialConversations: session.cachedConversationsAtLaunch,
+                onSelectConversation: { conversation in
+                    path.append(ChatRoute.conversation(conversation))
+                },
                 tokenProvider: { [tokenStore = container.tokenStore] in
                     (try? tokenStore.load())?.token
                 }

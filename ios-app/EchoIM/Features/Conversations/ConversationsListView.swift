@@ -2,7 +2,9 @@ import SwiftUI
 
 struct ConversationsListView: View {
     @State private var vm: ConversationsListViewModel
+    @State private var highlightedConversationId: Int?
     private let presenceStore: PresenceStore?
+    private let onSelectConversation: (Conversation) -> Void
 
     init(
         repository: ConversationRepository,
@@ -11,6 +13,7 @@ struct ConversationsListView: View {
         currentUserId: Int,
         presenceStore: PresenceStore? = nil,
         initialConversations: [Conversation] = [],
+        onSelectConversation: @escaping (Conversation) -> Void,
         tokenProvider: @escaping @MainActor () -> String?
     ) {
         _vm = State(
@@ -24,6 +27,7 @@ struct ConversationsListView: View {
             )
         )
         self.presenceStore = presenceStore
+        self.onSelectConversation = onSelectConversation
     }
 
     var body: some View {
@@ -69,13 +73,33 @@ struct ConversationsListView: View {
 
     private var list: some View {
         List(vm.conversations) { conversation in
-            NavigationLink(value: ChatRoute.conversation(conversation)) {
+            Button {
+                selectConversation(conversation)
+            } label: {
                 ConversationRow(conversation: conversation, presenceStore: presenceStore)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .buttonStyle(
+                ConversationRowButtonStyle(isHighlighted: highlightedConversationId == conversation.id)
+            )
+            .listRowInsets(EdgeInsets())
             .accessibilityIdentifier("conversationRow_\(conversation.peer.username)")
         }
         .listStyle(.plain)
         .accessibilityIdentifier("conversationsList")
+    }
+
+    private func selectConversation(_ conversation: Conversation) {
+        guard highlightedConversationId == nil else { return }
+
+        highlightedConversationId = conversation.id
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.09) {
+            // 留一小段可感知的按下反馈，再触发页面跳转。
+            onSelectConversation(conversation)
+            highlightedConversationId = nil
+        }
     }
 
     private var emptyState: some View {
@@ -103,6 +127,22 @@ struct ConversationsListView: View {
         StateView.error(message: message) {
             Task { await vm.load() }
         }
+    }
+}
+
+private struct ConversationRowButtonStyle: ButtonStyle {
+    let isHighlighted: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .contentShape(Rectangle())
+            .background(
+                configuration.isPressed || isHighlighted
+                    ? Color(uiColor: .systemGray5)
+                    : Color.clear
+            )
+            .animation(.easeOut(duration: 0.08), value: configuration.isPressed)
+            .animation(.easeOut(duration: 0.08), value: isHighlighted)
     }
 }
 
