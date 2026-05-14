@@ -3,6 +3,11 @@ import SwiftUI
 import UIKit
 
 struct ChatView: View {
+    private enum ChatScrollIDs {
+        static let bottomAnchor = "chatBottomAnchor"
+        static let coordinateSpace = "chatScroll"
+    }
+
     @State private var vm: ChatViewModel
     @State private var draft = ""
     @State private var pickedItem: PhotosPickerItem?
@@ -13,7 +18,6 @@ struct ChatView: View {
     @State private var viewportHeight: CGFloat = 0
     @State private var isScrolling = false
     @State private var scrollIdleTimer: Task<Void, Never>?
-    @State private var didInitialScroll = false
     @State private var keyboardHeight: CGFloat = 0
     @FocusState private var isInputFocused: Bool
     private let presenceStore: PresenceStore?
@@ -189,23 +193,19 @@ struct ChatView: View {
         .accessibilityIdentifier("chatPrincipalTitle")
     }
 
-    private var reversedMessages: [LocalMessage] {
-        Array(vm.messages.reversed())
-    }
-
     private var messagesList: some View {
         GeometryReader { viewportGeo in
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 8) {
                         Color.clear.frame(height: 10)
-                            .id("chatBottomAnchor")
+                            .id(ChatScrollIDs.bottomAnchor)
 
                         ForEach(
-                            Array(reversedMessages.enumerated()),
-                            id: \.element.localId
-                        ) { revIndex, message in
-                            let originalIndex = vm.messages.count - 1 - revIndex
+                            ReversedMessageRows(messages: vm.messages)
+                        ) { row in
+                            let message = row.message
+                            let originalIndex = row.originalIndex
                             VStack(spacing: 0) {
                                 if vm.shouldShowTimestamp(at: originalIndex) {
                                     TimestampPill(date: message.message.createdAt)
@@ -252,20 +252,20 @@ struct ChatView: View {
                     .frame(minHeight: viewportGeo.size.height, alignment: .bottom)
                     .background(
                         GeometryReader { contentGeo in
-                            let frame = contentGeo.frame(in: .named("chatScroll"))
+                            let frame = contentGeo.frame(in: .named(ChatScrollIDs.coordinateSpace))
                             Color.clear
                                 .preference(
-                                    key: ScrollOffsetPreferenceKey.self,
+                                    key: ChatScrollOffsetPreferenceKey.self,
                                     value: -frame.minY
                                 )
                                 .preference(
-                                    key: ContentHeightPreferenceKey.self,
+                                    key: ChatContentHeightPreferenceKey.self,
                                     value: contentGeo.size.height
                                 )
                         }
                     )
                 }
-                .coordinateSpace(name: "chatScroll")
+                .coordinateSpace(name: ChatScrollIDs.coordinateSpace)
                 .scaleEffect(x: 1, y: -1)
                 .scrollIndicators(.hidden)
                 .scrollDismissesKeyboard(.interactively)
@@ -273,12 +273,13 @@ struct ChatView: View {
                 .simultaneousGesture(
                     TapGesture().onEnded { isInputFocused = false }
                 )
-                .onPreferenceChange(ScrollOffsetPreferenceKey.self) { offset in
+                .onPreferenceChange(ChatScrollOffsetPreferenceKey.self) { offset in
+                    guard scrollState.updateOffset(offset) else { return }
                     scrollOffset = offset
-                    scrollState.updateOffset(offset)
-                    handleScrollActivity()
+                    refreshScrollActivity()
                 }
-                .onPreferenceChange(ContentHeightPreferenceKey.self) { height in
+                .onPreferenceChange(ChatContentHeightPreferenceKey.self) { height in
+                    guard shouldUpdateMetric(scrollContentHeight, to: height) else { return }
                     scrollContentHeight = height
                 }
                 .overlay(alignment: .trailing) {
@@ -307,6 +308,7 @@ struct ChatView: View {
                     viewportHeight = viewportGeo.size.height
                 }
                 .onChange(of: viewportGeo.size.height) { _, newHeight in
+                    guard shouldUpdateMetric(viewportHeight, to: newHeight) else { return }
                     viewportHeight = newHeight
                 }
             }
@@ -318,20 +320,22 @@ struct ChatView: View {
         DispatchQueue.main.async {
             if animated {
                 withAnimation(.easeOut(duration: 0.2)) {
-                    proxy.scrollTo("chatBottomAnchor", anchor: .top)
+                    proxy.scrollTo(ChatScrollIDs.bottomAnchor, anchor: .top)
                 }
             } else {
                 var transaction = Transaction(animation: nil)
                 transaction.disablesAnimations = true
                 withTransaction(transaction) {
-                    proxy.scrollTo("chatBottomAnchor", anchor: .top)
+                    proxy.scrollTo(ChatScrollIDs.bottomAnchor, anchor: .top)
                 }
             }
         }
     }
 
-    private func handleScrollActivity() {
-        isScrolling = true
+    private func refreshScrollActivity() {
+        if !isScrolling {
+            isScrolling = true
+        }
         scrollIdleTimer?.cancel()
         scrollIdleTimer = Task { @MainActor in
             try? await Task.sleep(for: .seconds(1.5))
@@ -342,18 +346,18 @@ struct ChatView: View {
         }
     }
 
+    private func shouldUpdateMetric(_ currentValue: CGFloat, to nextValue: CGFloat) -> Bool {
+        abs(currentValue - nextValue) >= scrollState.offsetEpsilon
+    }
+
     private func handleNewMessage(proxy: ScrollViewProxy) {
         guard let last = vm.messages.last else { return }
 
-        let animated = didInitialScroll
-        if !didInitialScroll { didInitialScroll = true }
-
-        if last.message.senderId == vm.currentUserId {
+        switch scrollState.handleNewestMessage(isFromCurrentUser: last.message.senderId == vm.currentUserId) {
+        case let .scrollToBottom(animated):
             scrollToBottom(proxy, animated: animated)
-        } else if scrollState.isNearBottom {
-            scrollToBottom(proxy, animated: animated)
-        } else {
-            scrollState.recordIncomingMessage()
+        case .none:
+            break
         }
     }
 
@@ -488,5 +492,47 @@ private struct TimestampPill: View {
             )
             .frame(maxWidth: .infinity)
             .padding(.vertical, 4)
+    }
+}
+
+private struct ReversedMessageRows: RandomAccessCollection {
+    struct Row: Identifiable {
+        let originalIndex: Int
+        let message: LocalMessage
+
+        var id: String { message.localId }
+    }
+
+    private let messages: [LocalMessage]
+
+    init(messages: [LocalMessage]) {
+        self.messages = messages
+    }
+
+    var startIndex: Int { 0 }
+    var endIndex: Int { messages.count }
+
+    subscript(position: Int) -> Row {
+        let originalIndex = messages.count - 1 - position
+        return Row(
+            originalIndex: originalIndex,
+            message: messages[originalIndex]
+        )
+    }
+}
+
+private struct ChatScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+private struct ChatContentHeightPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }

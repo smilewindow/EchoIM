@@ -1,23 +1,5 @@
 import SwiftUI
 
-// MARK: - Preference Keys
-
-struct ScrollOffsetPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
-
-struct ContentHeightPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
-
-// MARK: - Metrics
-
 struct ScrollIndicatorMetrics {
     let indicatorHeight: CGFloat
     let indicatorTop: CGFloat

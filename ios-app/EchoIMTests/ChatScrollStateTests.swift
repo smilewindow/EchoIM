@@ -11,14 +11,24 @@ struct ChatScrollStateTests {
 
     @Test func offsetBelowThreshold_staysNearBottom() {
         var state = ChatScrollState(threshold: 60)
-        state.updateOffset(30)
+        let didUpdate = state.updateOffset(30)
+        #expect(didUpdate)
         #expect(state.isNearBottom)
     }
 
     @Test func offsetAboveThreshold_leavesBottom() {
         var state = ChatScrollState(threshold: 60)
-        state.updateOffset(100)
+        let didUpdate = state.updateOffset(100)
+        #expect(didUpdate)
         #expect(!state.isNearBottom)
+    }
+
+    @Test func offsetWithinEpsilon_isIgnored() {
+        var state = ChatScrollState(threshold: 60, offsetEpsilon: 0.5)
+
+        let didUpdate = state.updateOffset(0.25)
+        #expect(!didUpdate)
+        #expect(state.isNearBottom)
     }
 
     @Test func incomingMessage_whenNotNearBottom_increments() {
@@ -54,5 +64,37 @@ struct ChatScrollStateTests {
         state.recordIncomingMessage()
         state.reset()
         #expect(state.newMessageCount == 0)
+    }
+
+    @Test func firstNewestMessage_scrollsWithoutAnimation() {
+        var state = ChatScrollState()
+
+        #expect(state.handleNewestMessage(isFromCurrentUser: false) == .scrollToBottom(animated: false))
+    }
+
+    @Test func ownNewestMessage_scrollsWithAnimationAfterInitialMessage() {
+        var state = ChatScrollState()
+        _ = state.handleNewestMessage(isFromCurrentUser: false)
+        state.updateOffset(100)
+
+        #expect(state.handleNewestMessage(isFromCurrentUser: true) == .scrollToBottom(animated: true))
+        #expect(state.newMessageCount == 0)
+    }
+
+    @Test func peerNewestMessage_nearBottom_scrollsWithAnimationAfterInitialMessage() {
+        var state = ChatScrollState()
+        _ = state.handleNewestMessage(isFromCurrentUser: false)
+
+        #expect(state.handleNewestMessage(isFromCurrentUser: false) == .scrollToBottom(animated: true))
+        #expect(state.newMessageCount == 0)
+    }
+
+    @Test func peerNewestMessage_awayFromBottom_incrementsCountWithoutScrolling() {
+        var state = ChatScrollState()
+        _ = state.handleNewestMessage(isFromCurrentUser: false)
+        state.updateOffset(100)
+
+        #expect(state.handleNewestMessage(isFromCurrentUser: false) == .none)
+        #expect(state.newMessageCount == 1)
     }
 }
