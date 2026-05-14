@@ -13,11 +13,6 @@ struct ChatView: View {
     @State private var pickedItem: PhotosPickerItem?
     @State private var lightboxBubble: LocalMessage?
     @State private var scrollState = ChatScrollState()
-    @State private var scrollOffset: CGFloat = 0
-    @State private var scrollContentHeight: CGFloat = 0
-    @State private var viewportHeight: CGFloat = 0
-    @State private var isScrolling = false
-    @State private var scrollIdleTimer: Task<Void, Never>?
     @State private var keyboardHeight: CGFloat = 0
     @FocusState private var isInputFocused: Bool
     private let presenceStore: PresenceStore?
@@ -258,39 +253,18 @@ struct ChatView: View {
                                     key: ChatScrollOffsetPreferenceKey.self,
                                     value: -frame.minY
                                 )
-                                .preference(
-                                    key: ChatContentHeightPreferenceKey.self,
-                                    value: contentGeo.size.height
-                                )
                         }
                     )
                 }
                 .coordinateSpace(name: ChatScrollIDs.coordinateSpace)
                 .scaleEffect(x: 1, y: -1)
-                .scrollIndicators(.hidden)
                 .scrollDismissesKeyboard(.interactively)
                 .contentShape(Rectangle())
                 .simultaneousGesture(
                     TapGesture().onEnded { isInputFocused = false }
                 )
                 .onPreferenceChange(ChatScrollOffsetPreferenceKey.self) { offset in
-                    guard scrollState.updateOffset(offset) else { return }
-                    scrollOffset = offset
-                    refreshScrollActivity()
-                }
-                .onPreferenceChange(ChatContentHeightPreferenceKey.self) { height in
-                    guard shouldUpdateMetric(scrollContentHeight, to: height) else { return }
-                    scrollContentHeight = height
-                }
-                .overlay(alignment: .trailing) {
-                    ChatScrollIndicator(
-                        metrics: ScrollIndicatorMetrics(
-                            contentHeight: scrollContentHeight,
-                            viewportHeight: viewportHeight,
-                            offset: scrollOffset
-                        ),
-                        isVisible: isScrolling
-                    )
+                    scrollState.updateOffset(offset)
                 }
                 .overlay(alignment: .bottom) {
                     newMessagesButton(proxy: proxy)
@@ -303,13 +277,6 @@ struct ChatView: View {
                 }
                 .onChange(of: vm.messages.last?.localId) { _, _ in
                     handleNewMessage(proxy: proxy)
-                }
-                .onAppear {
-                    viewportHeight = viewportGeo.size.height
-                }
-                .onChange(of: viewportGeo.size.height) { _, newHeight in
-                    guard shouldUpdateMetric(viewportHeight, to: newHeight) else { return }
-                    viewportHeight = newHeight
                 }
             }
         }
@@ -330,24 +297,6 @@ struct ChatView: View {
                 }
             }
         }
-    }
-
-    private func refreshScrollActivity() {
-        if !isScrolling {
-            isScrolling = true
-        }
-        scrollIdleTimer?.cancel()
-        scrollIdleTimer = Task { @MainActor in
-            try? await Task.sleep(for: .seconds(1.5))
-            guard !Task.isCancelled else { return }
-            withAnimation(.easeOut(duration: 0.3)) {
-                isScrolling = false
-            }
-        }
-    }
-
-    private func shouldUpdateMetric(_ currentValue: CGFloat, to nextValue: CGFloat) -> Bool {
-        abs(currentValue - nextValue) >= scrollState.offsetEpsilon
     }
 
     private func handleNewMessage(proxy: ScrollViewProxy) {
@@ -522,14 +471,6 @@ private struct ReversedMessageRows: RandomAccessCollection {
 }
 
 private struct ChatScrollOffsetPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
-
-private struct ChatContentHeightPreferenceKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
 
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
