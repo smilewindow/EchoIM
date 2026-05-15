@@ -11,6 +11,12 @@ enum Log {
         })
     }()
 
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss.SSS"
+        return formatter
+    }()
+
     nonisolated static func info(
         _ category: LogCategory,
         _ message: @autoclosure () -> String,
@@ -90,7 +96,8 @@ enum Log {
         LogStore.shared.append(entry)
 
         let logger = loggers[category]
-        let formatted = "\(shortFile):\(line)  [\(category.rawValue)]  \(message)"
+        let time = timeFormatter.string(from: entry.timestamp)
+        let formatted = "\(shortFile):\(line)  \(time)  [\(category.rawValue)]  \(message)"
         switch level {
         case .debug:   logger?.debug("\(formatted, privacy: .public)")
         case .info:    logger?.info("\(formatted, privacy: .public)")
