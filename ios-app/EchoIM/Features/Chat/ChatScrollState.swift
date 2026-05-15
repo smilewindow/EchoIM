@@ -12,7 +12,7 @@ struct ChatScrollState {
     let threshold: CGFloat
     let offsetEpsilon: CGFloat
 
-    private var lastOffset: CGFloat = 0
+    private var lastDistanceFromBottom: CGFloat = 0
     private var hasHandledInitialNewestMessage = false
 
     init(threshold: CGFloat = 60, offsetEpsilon: CGFloat = 0.5) {
@@ -22,13 +22,16 @@ struct ChatScrollState {
 
     @discardableResult
     mutating func updateOffset(_ offset: CGFloat) -> Bool {
-        let nextIsNearBottom = offset < threshold
-        guard abs(offset - lastOffset) >= offsetEpsilon || nextIsNearBottom != isNearBottom else {
+        // 翻转 ScrollView 下 offset 可能为负；这里统一成“离视觉底部的距离”。
+        let distanceFromBottom = abs(offset)
+        let nextIsNearBottom = distanceFromBottom < threshold
+        guard abs(distanceFromBottom - lastDistanceFromBottom) >= offsetEpsilon
+                || nextIsNearBottom != isNearBottom else {
             return false
         }
 
         let wasNearBottom = isNearBottom
-        lastOffset = offset
+        lastDistanceFromBottom = distanceFromBottom
         isNearBottom = nextIsNearBottom
         if isNearBottom, !wasNearBottom {
             newMessageCount = 0

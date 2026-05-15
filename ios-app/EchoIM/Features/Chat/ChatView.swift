@@ -192,69 +192,66 @@ struct ChatView: View {
         GeometryReader { viewportGeo in
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(spacing: 8) {
-                        Color.clear.frame(height: 10)
-                            .id(ChatScrollIDs.bottomAnchor)
+                    ZStack(alignment: .top) {
+                        ScrollViewContentOffsetObserver { offset in
+                            handleObservedScrollOffset(offset)
+                        }
+                        .frame(width: 0, height: 0)
 
-                        ForEach(
-                            ReversedMessageRows(messages: vm.messages)
-                        ) { row in
-                            let message = row.message
-                            let originalIndex = row.originalIndex
-                            VStack(spacing: 0) {
-                                if vm.shouldShowTimestamp(at: originalIndex) {
-                                    TimestampPill(date: message.message.createdAt)
-                                }
-                                MessageBubble(
-                                    message: message,
-                                    isSelf: message.message.senderId == vm.currentUserId,
-                                    isConsecutive: vm.isConsecutive(
-                                        message,
-                                        previous: originalIndex > 0
-                                            ? vm.messages[originalIndex - 1]
-                                            : nil
-                                    ),
-                                    onRetry: {
-                                        Task { await vm.retry(localId: message.localId) }
-                                    },
-                                    onOpenImage: {
-                                        lightboxBubble = message
+                        LazyVStack(spacing: 8) {
+                            Color.clear.frame(height: 10)
+                                .id(ChatScrollIDs.bottomAnchor)
+
+                            ForEach(
+                                ReversedMessageRows(messages: vm.messages)
+                            ) { row in
+                                let message = row.message
+                                let originalIndex = row.originalIndex
+                                VStack(spacing: 0) {
+                                    if vm.shouldShowTimestamp(at: originalIndex) {
+                                        TimestampPill(date: message.message.createdAt)
                                     }
-                                )
-                                .id(message.localId)
-                            }
-                            .scaleEffect(x: 1, y: -1)
-                        }
-
-                        if vm.hasMoreOlder {
-                            Button {
-                                Task { await vm.loadOlder() }
-                            } label: {
-                                if vm.isLoadingOlder {
-                                    ProgressView()
-                                } else {
-                                    Text("加载更早消息")
-                                        .font(.caption)
-                                        .foregroundStyle(Color.echoBlue)
+                                    MessageBubble(
+                                        message: message,
+                                        isSelf: message.message.senderId == vm.currentUserId,
+                                        isConsecutive: vm.isConsecutive(
+                                            message,
+                                            previous: originalIndex > 0
+                                                ? vm.messages[originalIndex - 1]
+                                                : nil
+                                        ),
+                                        onRetry: {
+                                            Task { await vm.retry(localId: message.localId) }
+                                        },
+                                        onOpenImage: {
+                                            lightboxBubble = message
+                                        }
+                                    )
+                                    .id(message.localId)
                                 }
+                                .scaleEffect(x: 1, y: -1)
                             }
-                            .buttonStyle(.borderless)
-                            .padding(.vertical, 6)
-                            .scaleEffect(x: 1, y: -1)
+
+                            if vm.hasMoreOlder {
+                                Button {
+                                    Task { await vm.loadOlder() }
+                                } label: {
+                                    if vm.isLoadingOlder {
+                                        ProgressView()
+                                    } else {
+                                        Text("加载更早消息")
+                                            .font(.caption)
+                                            .foregroundStyle(Color.echoBlue)
+                                    }
+                                }
+                                .buttonStyle(.borderless)
+                                .padding(.vertical, 6)
+                                .scaleEffect(x: 1, y: -1)
+                            }
                         }
+                        .padding(.horizontal, 12)
+                        .frame(minHeight: viewportGeo.size.height, alignment: .bottom)
                     }
-                    .padding(.horizontal, 12)
-                    .frame(minHeight: viewportGeo.size.height, alignment: .bottom)
-                    .background(
-                        GeometryReader { contentGeo in
-                            let frame = contentGeo.frame(in: .named(ChatScrollIDs.coordinateSpace))
-                            Color.clear
-                                .preference(
-                                    key: ChatScrollOffsetPreferenceKey.self,
-                                    value: -frame.minY
-                                )
-                        }
-                    )
                 }
                 .coordinateSpace(name: ChatScrollIDs.coordinateSpace)
                 .scaleEffect(x: 1, y: -1)
@@ -263,9 +260,6 @@ struct ChatView: View {
                 .simultaneousGesture(
                     TapGesture().onEnded { isInputFocused = false }
                 )
-                .onPreferenceChange(ChatScrollOffsetPreferenceKey.self) { offset in
-                    scrollState.updateOffset(offset)
-                }
                 .overlay(alignment: .bottom) {
                     newMessagesButton(proxy: proxy)
                 }
@@ -283,7 +277,26 @@ struct ChatView: View {
         .background(Color(uiColor: .systemBackground))
     }
 
+    private func handleObservedScrollOffset(_ offset: CGFloat) {
+        let wasNearBottom = scrollState.isNearBottom
+        let oldNewMessageCount = scrollState.newMessageCount
+        let didUpdate = scrollState.updateOffset(offset)
+        let didChangeImportantState = wasNearBottom != scrollState.isNearBottom
+            || oldNewMessageCount != scrollState.newMessageCount
+        if didUpdate, didChangeImportantState {
+            Log.debug(
+                .app,
+                "scroll offset y=\(offset) distance=\(abs(offset)) "
+                + "updated=\(didUpdate) nearBottom:\(wasNearBottom)->\(scrollState.isNearBottom) "
+                + "badge:\(oldNewMessageCount)->\(scrollState.newMessageCount)"
+            )
+        }
+    }
+
     private func scrollToBottom(_ proxy: ScrollViewProxy, animated: Bool) {
+        let latestLocalId = vm.messages.last?.localId ?? "nil"
+        Log.debug(.app, "scrollToBottom animated=\(animated) target=bottomAnchor latest=\(latestLocalId)")
+
         DispatchQueue.main.async {
             if animated {
                 withAnimation(.easeOut(duration: 0.2)) {
@@ -302,7 +315,27 @@ struct ChatView: View {
     private func handleNewMessage(proxy: ScrollViewProxy) {
         guard let last = vm.messages.last else { return }
 
-        switch scrollState.handleNewestMessage(isFromCurrentUser: last.message.senderId == vm.currentUserId) {
+        let isFromCurrentUser = last.message.senderId == vm.currentUserId
+        let wasNearBottom = scrollState.isNearBottom
+        let oldNewMessageCount = scrollState.newMessageCount
+        let action = scrollState.handleNewestMessage(isFromCurrentUser: isFromCurrentUser)
+        let actionLabel: String
+
+        switch action {
+        case .scrollToBottom(let animated):
+            actionLabel = animated ? "autoScroll" : "initialScroll"
+        case .none:
+            actionLabel = "showBadge"
+        }
+
+        Log.debug(
+            .app,
+            "newest message id=\(last.message.id) sender=\(last.message.senderId) "
+            + "self=\(isFromCurrentUser) nearBottom:\(wasNearBottom)->\(scrollState.isNearBottom) "
+            + "badge:\(oldNewMessageCount)->\(scrollState.newMessageCount) action=\(actionLabel)"
+        )
+
+        switch action {
         case let .scrollToBottom(animated):
             scrollToBottom(proxy, animated: animated)
         case .none:
@@ -314,6 +347,7 @@ struct ChatView: View {
     private func newMessagesButton(proxy: ScrollViewProxy) -> some View {
         if scrollState.newMessageCount > 0 {
             Button {
+                Log.debug(.app, "newMessagesButton tap badge=\(scrollState.newMessageCount)")
                 scrollToBottom(proxy, animated: true)
                 scrollState.reset()
             } label: {
@@ -470,10 +504,100 @@ private struct ReversedMessageRows: RandomAccessCollection {
     }
 }
 
-private struct ChatScrollOffsetPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
+private struct ScrollViewContentOffsetObserver: UIViewRepresentable {
+    let onOffsetChange: (CGFloat) -> Void
 
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
+    func makeUIView(context: Context) -> ContentOffsetObserverView {
+        let view = ContentOffsetObserverView()
+        view.onOffsetChange = onOffsetChange
+        return view
+    }
+
+    func updateUIView(_ uiView: ContentOffsetObserverView, context: Context) {
+        uiView.onOffsetChange = onOffsetChange
+        uiView.scheduleAttach()
+    }
+}
+
+private final class ContentOffsetObserverView: UIView {
+    var onOffsetChange: ((CGFloat) -> Void)?
+
+    private weak var observedScrollView: UIScrollView?
+    private var observation: NSKeyValueObservation?
+    private var isAttachScheduled = false
+    private var isEmitScheduled = false
+    private var pendingOffset: CGFloat?
+
+    override func didMoveToSuperview() {
+        super.didMoveToSuperview()
+        scheduleAttach()
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        scheduleAttach()
+    }
+
+    deinit {
+        observation?.invalidate()
+    }
+
+    func scheduleAttach() {
+        guard !isAttachScheduled else { return }
+        isAttachScheduled = true
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.isAttachScheduled = false
+            self.attachToNearestScrollView()
+        }
+    }
+
+    private func attachToNearestScrollView() {
+        guard let scrollView = nearestScrollView() else { return }
+
+        if observedScrollView === scrollView {
+            emitOffset(from: scrollView)
+            return
+        }
+
+        observation?.invalidate()
+        observedScrollView = scrollView
+        observation = scrollView.observe(\.contentOffset, options: [.initial, .new]) {
+            [weak self] scrollView, _ in
+            self?.emitOffset(from: scrollView)
+        }
+    }
+
+    private func emitOffset(from scrollView: UIScrollView) {
+        // UIScrollView 顶部可能是 -adjustedContentInset.top；归一化后视觉底部附近为 0。
+        let offset = scrollView.contentOffset.y + scrollView.adjustedContentInset.top
+
+        pendingOffset = offset
+        guard !isEmitScheduled else { return }
+
+        isEmitScheduled = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.isEmitScheduled = false
+            guard self.window != nil else {
+                self.pendingOffset = nil
+                return
+            }
+            guard let offset = self.pendingOffset else { return }
+            self.pendingOffset = nil
+            self.onOffsetChange?(offset)
+        }
+    }
+
+    private func nearestScrollView() -> UIScrollView? {
+        var current = superview
+        while let view = current {
+            if let scrollView = view as? UIScrollView {
+                return scrollView
+            }
+            current = view.superview
+        }
+        return nil
     }
 }

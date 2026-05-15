@@ -23,11 +23,28 @@ struct ChatScrollStateTests {
         #expect(!state.isNearBottom)
     }
 
+    @Test func negativeOffsetAboveThreshold_leavesBottom() {
+        var state = ChatScrollState(threshold: 60)
+        let didUpdate = state.updateOffset(-100)
+        #expect(didUpdate)
+        #expect(!state.isNearBottom)
+    }
+
     @Test func offsetWithinEpsilon_isIgnored() {
         var state = ChatScrollState(threshold: 60, offsetEpsilon: 0.5)
 
         let didUpdate = state.updateOffset(0.25)
         #expect(!didUpdate)
+        #expect(state.isNearBottom)
+    }
+
+    @Test func offsetWithinEpsilon_crossingThreshold_updatesNearBottom() {
+        var state = ChatScrollState(threshold: 60, offsetEpsilon: 0.5)
+
+        state.updateOffset(60.1)
+        let didUpdate = state.updateOffset(59.9)
+
+        #expect(didUpdate)
         #expect(state.isNearBottom)
     }
 
@@ -93,6 +110,15 @@ struct ChatScrollStateTests {
         var state = ChatScrollState()
         _ = state.handleNewestMessage(isFromCurrentUser: false)
         state.updateOffset(100)
+
+        #expect(state.handleNewestMessage(isFromCurrentUser: false) == .none)
+        #expect(state.newMessageCount == 1)
+    }
+
+    @Test func peerNewestMessage_negativeOffsetAwayFromBottom_incrementsCountWithoutScrolling() {
+        var state = ChatScrollState()
+        _ = state.handleNewestMessage(isFromCurrentUser: false)
+        state.updateOffset(-100)
 
         #expect(state.handleNewestMessage(isFromCurrentUser: false) == .none)
         #expect(state.newMessageCount == 1)
