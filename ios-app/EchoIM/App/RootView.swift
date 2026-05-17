@@ -3,29 +3,50 @@ import SwiftUI
 struct RootView: View {
     let container: AppContainer
 
+    @State private var showLaunchSplash = true
+    @State private var didStartLaunchSequence = false
     @State private var showRegister = false
     @State private var sessionExpiredToastVisible = false
     @State private var toastDismissTask: Task<Void, Never>?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        Group {
-            if container.currentUser != nil {
-                MainTabView(container: container) {
-                    await container.logout()
-                    showRegister = false
+        ZStack {
+            Group {
+                if container.currentUser != nil {
+                    MainTabView(container: container) {
+                        await container.logout()
+                        showRegister = false
+                    }
+                    .task {
+                        container.connectWebSocketIfNeeded()
+                    }
+                } else if showRegister {
+                    RegisterView(vm: makeRegisterViewModel()) {
+                        showRegister = false
+                    }
+                } else {
+                    LoginView(vm: makeLoginViewModel()) {
+                        showRegister = true
+                    }
                 }
-                .task {
-                    container.connectWebSocketIfNeeded()
-                }
-            } else if showRegister {
-                RegisterView(vm: makeRegisterViewModel()) {
-                    showRegister = false
-                }
-            } else {
-                LoginView(vm: makeLoginViewModel()) {
-                    showRegister = true
-                }
+            }
+
+            if showLaunchSplash {
+                LaunchSplashView()
+                    .transition(.opacity)
+                    .zIndex(1)
+                    .allowsHitTesting(true)
+            }
+        }
+        .task {
+            guard !didStartLaunchSequence else { return }
+            didStartLaunchSequence = true
+
+            try? await Task.sleep(nanoseconds: launchSplashDuration)
+            withAnimation(reduceMotion ? .linear(duration: 0.12) : .easeOut(duration: 0.28)) {
+                showLaunchSplash = false
             }
         }
         .animation(.default, value: container.currentUser?.id)
@@ -93,5 +114,15 @@ struct RootView: View {
             .shadow(color: .black.opacity(0.16), radius: 14, x: 0, y: 8)
             .padding(.horizontal, 32)
             .accessibilityIdentifier("sessionExpiredToast")
+    }
+
+    private var launchSplashDuration: UInt64 {
+        let arguments = CommandLine.arguments
+        if let index = arguments.firstIndex(of: "-uitest-launch-splash-duration"),
+           arguments.indices.contains(index + 1),
+           let seconds = Double(arguments[index + 1]) {
+            return UInt64(seconds * 1_000_000_000)
+        }
+        return 1_500_000_000
     }
 }
