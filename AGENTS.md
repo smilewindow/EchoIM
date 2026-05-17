@@ -52,6 +52,10 @@ For low-risk UI-only iOS changes, prefer the smallest useful verification:
 
 If a change is ambiguous, briefly state the risk judgment and choose the lighter verification path unless the user explicitly asks for tests.
 
+### iOS Commit Verification Policy
+
+When the user asks to commit iOS code, assume the current changes have already passed the necessary verification and do not run build or test commands.
+
 **iOS simulator**: The local machine does not have an iPhone 16 simulator. Use `platform=iOS Simulator,name=iPhone 15,OS=17.5` for all `xcodebuild` `-destination` arguments.
 
 ## Commit & Pull Request Guidelines
