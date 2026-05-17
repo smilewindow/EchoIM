@@ -205,7 +205,8 @@ struct ServerAPIError: Decodable, Equatable {
 1. 优先使用 `code` 查 `Localizable.xcstrings`。
 2. 找不到本地化映射时，fallback 到后台 `message`。
 3. 网络断开、超时、解码失败、无效响应等非业务错误继续由 iOS 本地生成文案。
-4. 只有用户主动操作触发的失败展示 toast；后台同步、缓存写入、已读上报等失败继续静默或只写日志。
+4. HTTP/API 请求失败默认展示 toast，包括页面进入、刷新、用户动作和当前可见页面的自动补拉。
+5. 本地缓存写入、纯本地状态处理等非 HTTP/API 错误不属于本协议范围。
 
 ## 测试要求
 
