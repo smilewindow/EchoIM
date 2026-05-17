@@ -28,6 +28,30 @@ For `xcodebuild`, prefer the default `DerivedData`. Only set `-derivedDataPath` 
 ### iOS Test Execution Constraints
 - By default, run only the smallest test scope directly related to the change; do not run the full test suite.
 
+### iOS TDD / Test Policy
+
+For iOS work, do not apply TDD mechanically to every change.
+
+Use TDD or add/update tests for:
+- bug fixes
+- business logic changes
+- persistence, networking, sync, auth, permissions, or concurrency changes
+- behavior changes that affect user flows
+- refactors that may change observable behavior
+
+Do not write new tests by default for low-risk, visual-only or mechanical changes, such as:
+- colors, spacing, typography, icons, labels, copy, layout polish
+- SwiftUI view composition changes with no behavior change
+- previews, comments, docs, or naming-only cleanup
+- small UI style tweaks that can be verified by build/simulator inspection
+
+For low-risk UI-only iOS changes, prefer the smallest useful verification:
+- targeted build
+- affected preview/simulator screen inspection
+- screenshot or manual smoke check when relevant
+
+If a change is ambiguous, briefly state the risk judgment and choose the lighter verification path unless the user explicitly asks for tests.
+
 **iOS simulator**: The local machine does not have an iPhone 16 simulator. Use `platform=iOS Simulator,name=iPhone 15,OS=17.5` for all `xcodebuild` `-destination` arguments.
 
 ## Commit & Pull Request Guidelines
