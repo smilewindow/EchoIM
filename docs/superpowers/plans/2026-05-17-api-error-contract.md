@@ -1,44 +1,44 @@
-# API Error Contract Implementation Plan
+# API 错误协议实施计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **给执行代理的要求：** 实施本计划时必须使用 `superpowers:subagent-driven-development`（推荐）或 `superpowers:executing-plans`，并按任务逐项执行。步骤使用 checkbox（`- [ ]`）追踪进度。
 
-**Goal:** Upgrade EchoIM to a structured API error contract and make iOS show localized toast feedback for HTTP/API failures.
+**目标：** 将 EchoIM 升级为结构化 API 错误协议，并让 iOS 对 HTTP/API 请求失败展示本地化 toast。
 
-**Architecture:** Backend owns stable `snake_case` error codes and English fallback messages through a centralized `ApiErrors` registry. iOS decodes server errors, maps codes to localized copy, and routes HTTP/API failures through a shared toast presenter.
+**架构：** 后台集中维护稳定的 `snake_case` 错误码和英文 fallback message；iOS 解析结构化错误，用错误码映射本地化文案，并通过全局 toast 展示 HTTP/API 失败。后台和 iOS 必须同批完成，因为这是 breaking API contract。
 
-**Tech Stack:** Fastify 5, TypeScript, Vitest, Swift 6, SwiftUI Observation, Xcode project file-system synchronized groups.
+**技术栈：** Fastify 5、TypeScript、Vitest、Swift 6、SwiftUI Observation、Xcode file-system synchronized groups。
 
 ---
 
-## Reference Spec
+## 参考设计
 
 - `docs/superpowers/specs/2026-05-17-api-error-contract-design.md`
 
-## File Structure
+## 文件结构
 
-Backend files:
+后台文件：
 
-- Create `server/src/lib/api-errors.ts`: centralized error definitions and `sendApiError`.
-- Modify `server/src/app.ts`: global Fastify/AJV and 500 error conversion.
-- Modify `server/src/hooks/authenticate.ts`: structured auth errors.
-- Modify `server/src/routes/auth.ts`: structured auth business errors.
-- Modify `server/src/routes/friend-requests.ts`: structured friend request errors.
-- Modify `server/src/routes/messages.ts`: structured message errors.
-- Modify `server/src/routes/conversations.ts`: structured conversation errors.
-- Modify `server/src/routes/users.ts`: structured user errors.
-- Modify `server/src/routes/upload.ts`: structured upload errors.
-- Modify `server/tests/helpers.ts`: add `expectApiError`.
-- Modify backend tests under `server/tests/*.test.ts`: assert status and literal `code`.
+- 新建 `server/src/lib/api-errors.ts`：集中定义错误码、英文 fallback message 和 `sendApiError`。
+- 修改 `server/src/app.ts`：统一 Fastify/AJV 校验错误和 500 错误返回。
+- 修改 `server/src/hooks/authenticate.ts`：结构化鉴权错误。
+- 修改 `server/src/routes/auth.ts`：结构化登录/注册业务错误。
+- 修改 `server/src/routes/friend-requests.ts`：结构化好友申请错误。
+- 修改 `server/src/routes/messages.ts`：结构化发消息错误。
+- 修改 `server/src/routes/conversations.ts`：结构化会话/已读错误。
+- 修改 `server/src/routes/users.ts`：结构化用户资料错误。
+- 修改 `server/src/routes/upload.ts`：结构化上传错误。
+- 修改 `server/tests/helpers.ts`：新增 `expectApiError`。
+- 修改 `server/tests/*.test.ts`：断言状态码和字面量 `code`。
 
-iOS files:
+iOS 文件：
 
-- Modify `ios-app/EchoIM/Core/Networking/APIError.swift`: decode structured server errors from HTTP bodies.
-- Create `ios-app/EchoIM/Core/Networking/ErrorPresenter.swift`: map `APIError` and server codes to localized messages.
-- Create `ios-app/EchoIM/Core/UI/ToastCenter.swift`: observable toast state and auto-dismiss.
-- Create `ios-app/EchoIM/Core/UI/ToastOverlay.swift`: reusable SwiftUI toast overlay.
-- Modify `ios-app/EchoIM/App/AppContainer.swift`: own one `ToastCenter`.
-- Modify `ios-app/EchoIM/App/RootView.swift`: render global toast overlay.
-- Modify visible API request call sites to show toast on HTTP/API failures:
+- 修改 `ios-app/EchoIM/Core/Networking/APIError.swift`：从 HTTP body 解析结构化服务端错误。
+- 新建 `ios-app/EchoIM/Core/Networking/ErrorPresenter.swift`：把 `APIError` 和服务端 `code` 映射为本地化展示文案。
+- 新建 `ios-app/EchoIM/Core/UI/ToastCenter.swift`：全局 toast 状态和自动消失逻辑。
+- 新建 `ios-app/EchoIM/Core/UI/ToastOverlay.swift`：复用 SwiftUI toast 样式。
+- 修改 `ios-app/EchoIM/App/AppContainer.swift`：持有一个 `ToastCenter`。
+- 修改 `ios-app/EchoIM/App/RootView.swift`：统一渲染全局 toast。
+- 修改现有会发 HTTP/API 请求的 ViewModel/View，让失败走 toast：
   - `ios-app/EchoIM/Features/Auth/LoginViewModel.swift`
   - `ios-app/EchoIM/Features/Auth/RegisterViewModel.swift`
   - `ios-app/EchoIM/Features/Conversations/ConversationsListViewModel.swift`
@@ -50,22 +50,22 @@ iOS files:
   - `ios-app/EchoIM/Features/Chat/ChatView.swift`
   - `ios-app/EchoIM/Features/Me/ProfileEditViewModel.swift`
   - `ios-app/EchoIM/Features/Me/ProfileEditView.swift`
-- Modify `ios-app/EchoIM/Localizable.xcstrings`: add localized API error messages.
-- Modify iOS tests under `ios-app/EchoIMTests`: cover decoding, localization fallback, and representative view model toast calls.
+- 修改 `ios-app/EchoIM/Localizable.xcstrings`：新增 API 错误文案的中英文映射。
+- 修改或新增 `ios-app/EchoIMTests` 下测试：覆盖错误解析、本地化 fallback、代表性 ViewModel toast 回调。
 
-Xcode note: the project uses `PBXFileSystemSynchronizedRootGroup`, so adding Swift files under `ios-app/EchoIM/...` does not require manual `project.pbxproj` source-file entries.
+Xcode 注意事项：当前工程使用 `PBXFileSystemSynchronizedRootGroup`，在 `ios-app/EchoIM/...` 下新增 Swift 文件不需要手工改 `project.pbxproj` 的 source-file entries。
 
 ---
 
-### Task 1: Backend Error Registry
+### Task 1: 后台错误定义和测试 helper
 
-**Files:**
-- Create: `server/src/lib/api-errors.ts`
-- Test: `server/tests/helpers.ts`
+**文件：**
+- 新建：`server/src/lib/api-errors.ts`
+- 修改：`server/tests/helpers.ts`
 
-- [ ] **Step 1: Add the centralized backend error registry**
+- [ ] **Step 1: 新增集中错误定义**
 
-Create `server/src/lib/api-errors.ts`:
+创建 `server/src/lib/api-errors.ts`：
 
 ```ts
 import type { FastifyReply } from 'fastify'
@@ -241,13 +241,15 @@ export function sendApiError(reply: FastifyReply, error: ApiErrorDefinition) {
 }
 ```
 
-- [ ] **Step 2: Add the backend test helper**
+- [ ] **Step 2: 新增测试 helper**
 
-Modify `server/tests/helpers.ts` imports and append this helper:
+修改 `server/tests/helpers.ts`，加入 import：
 
 ```ts
 import { expect } from 'vitest'
 ```
+
+在文件末尾添加：
 
 ```ts
 type ApiErrorTestResponse = {
@@ -273,17 +275,19 @@ export function expectApiError(
 }
 ```
 
-- [ ] **Step 3: Run focused backend type/build check**
+说明：测试里传字面量 `code`，不要传 `ApiErrors.xxx.code`。这是为了锁住对外 API 契约，避免后端误改错误码但测试仍然通过，导致 iOS 本地化映射失效。
 
-Run:
+- [ ] **Step 3: 后台类型检查**
+
+运行：
 
 ```bash
 npm run build --prefix server
 ```
 
-Expected: PASS.
+预期：PASS。
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 4: 提交**
 
 ```bash
 git add server/src/lib/api-errors.ts server/tests/helpers.ts
@@ -292,72 +296,63 @@ git commit -m "feat: add structured API error helper"
 
 ---
 
-### Task 2: Backend Global And Auth Errors
+### Task 2: 全局错误和鉴权/Auth 错误
 
-**Files:**
-- Modify: `server/src/app.ts`
-- Modify: `server/src/hooks/authenticate.ts`
-- Modify: `server/src/routes/auth.ts`
-- Modify: `server/tests/auth.test.ts`
-- Modify: `server/tests/users.test.ts`
+**文件：**
+- 修改：`server/src/app.ts`
+- 修改：`server/src/hooks/authenticate.ts`
+- 修改：`server/src/routes/auth.ts`
+- 修改：`server/tests/auth.test.ts`
+- 修改：`server/tests/users.test.ts`
 
-- [ ] **Step 1: Write failing tests for structured auth errors**
+- [ ] **Step 1: 先写失败测试**
 
-Modify imports in `server/tests/auth.test.ts`:
+修改 `server/tests/auth.test.ts` import：
 
 ```ts
 import { getApp, truncateAll, registerUser, getInviteCode, expectApiError } from './helpers.js'
 ```
 
-Replace representative assertions:
+把代表性错误断言改成：
 
 ```ts
 expectApiError(res, 409, 'email_already_in_use')
-```
-
-```ts
 expectApiError(res, 409, 'username_already_taken')
-```
-
-```ts
 expectApiError(res, 401, 'invalid_credentials')
-```
-
-```ts
 expectApiError(res, 400, 'invalid_request')
 ```
 
-Modify imports in `server/tests/users.test.ts`:
+修改 `server/tests/users.test.ts` import：
 
 ```ts
 import { getApp, truncateAll, registerUser, expectApiError } from './helpers.js'
 ```
 
-For unauthenticated requests, use:
+未登录请求断言：
 
 ```ts
 expectApiError(res, 401, 'auth_missing')
 ```
 
-- [ ] **Step 2: Verify tests fail on old shape**
+- [ ] **Step 2: 确认测试会失败**
 
-Run:
+运行：
 
 ```bash
 npm test --prefix server -- auth.test.ts users.test.ts
 ```
 
-Expected: FAIL because responses still use `{ error: string }`.
+预期：FAIL，因为当前后台仍返回旧的 `{ error: string }`。
 
-- [ ] **Step 3: Convert global error handler**
+- [ ] **Step 3: 改全局错误处理**
 
-Modify `server/src/app.ts`:
+修改 `server/src/app.ts`，新增 import：
 
 ```ts
 import { ApiErrors, sendApiError } from './lib/api-errors.js'
 ```
 
-Replace `setErrorHandler` with:
+替换 `setErrorHandler`：
 
 ```ts
 app.setErrorHandler((err: FastifyError, _request, reply) => {
@@ -372,37 +367,33 @@ app.setErrorHandler((err: FastifyError, _request, reply) => {
 })
 ```
 
-- [ ] **Step 4: Convert auth hook**
+说明：Fastify/AJV schema 校验错误统一返回 `invalid_request`，不把技术化 message 透传给客户端。
 
-Modify `server/src/hooks/authenticate.ts`:
+- [ ] **Step 4: 改鉴权 hook**
+
+修改 `server/src/hooks/authenticate.ts`，新增 import：
 
 ```ts
 import { ApiErrors, sendApiError } from '../lib/api-errors.js'
 ```
 
-Replace auth failures:
+替换三个鉴权失败：
 
 ```ts
 return sendApiError(reply, ApiErrors.authMissing)
-```
-
-```ts
 return sendApiError(reply, ApiErrors.authInvalid)
-```
-
-```ts
 return sendApiError(reply, ApiErrors.authInvalidPayload)
 ```
 
-- [ ] **Step 5: Convert auth routes**
+- [ ] **Step 5: 改 Auth 路由**
 
-Modify `server/src/routes/auth.ts`:
+修改 `server/src/routes/auth.ts`，新增 import：
 
 ```ts
 import { ApiErrors, sendApiError } from '../lib/api-errors.js'
 ```
 
-Use these replacements:
+替换错误返回：
 
 ```ts
 return sendApiError(reply, ApiErrors.invalidInviteCode)
@@ -414,17 +405,17 @@ return sendApiError(reply, ApiErrors.accountAlreadyExists)
 return sendApiError(reply, ApiErrors.invalidCredentials)
 ```
 
-- [ ] **Step 6: Run focused backend tests**
+- [ ] **Step 6: 跑聚焦测试**
 
-Run:
+运行：
 
 ```bash
 npm test --prefix server -- auth.test.ts users.test.ts
 ```
 
-Expected: PASS.
+预期：PASS。
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 7: 提交**
 
 ```bash
 git add server/src/app.ts server/src/hooks/authenticate.ts server/src/routes/auth.ts server/tests/auth.test.ts server/tests/users.test.ts
@@ -433,30 +424,28 @@ git commit -m "feat: structure auth API errors"
 
 ---
 
-### Task 3: Backend Domain Route Errors
+### Task 3: 后台业务路由错误
 
-**Files:**
-- Modify: `server/src/routes/friend-requests.ts`
-- Modify: `server/src/routes/messages.ts`
-- Modify: `server/src/routes/conversations.ts`
-- Modify: `server/src/routes/users.ts`
-- Modify: `server/src/routes/upload.ts`
-- Modify: `server/tests/friends.test.ts`
-- Modify: `server/tests/messages.test.ts`
-- Modify: `server/tests/upload.test.ts`
-- Modify: `server/tests/users.test.ts`
+**文件：**
+- 修改：`server/src/routes/friend-requests.ts`
+- 修改：`server/src/routes/messages.ts`
+- 修改：`server/src/routes/conversations.ts`
+- 修改：`server/src/routes/users.ts`
+- 修改：`server/src/routes/upload.ts`
+- 修改：`server/tests/friends.test.ts`
+- 修改：`server/tests/messages.test.ts`
+- 修改：`server/tests/upload.test.ts`
+- 修改：`server/tests/users.test.ts`
 
-- [ ] **Step 1: Write failing route error assertions**
+- [ ] **Step 1: 先写失败测试**
 
-Update test imports to include `expectApiError`:
+各测试文件按需在 import 中加入 `expectApiError`：
 
 ```ts
 import { getApp, truncateAll, registerUser, expectApiError } from './helpers.js'
 ```
 
-For tests using more helpers, preserve existing imports and append `expectApiError`.
-
-Use these literal code assertions:
+根据场景使用这些字面量错误码断言：
 
 ```ts
 expectApiError(res, 400, 'friend_request_self')
@@ -478,25 +467,25 @@ expectApiError(res, 401, 'user_not_found')
 expectApiError(res, 400, 'no_fields_to_update')
 ```
 
-- [ ] **Step 2: Verify tests fail on old shape**
+- [ ] **Step 2: 确认测试会失败**
 
-Run:
+运行：
 
 ```bash
 npm test --prefix server -- friends.test.ts messages.test.ts users.test.ts upload.test.ts
 ```
 
-Expected: FAIL because route responses still use `{ error: string }`.
+预期：FAIL，因为业务路由仍是旧错误结构。
 
-- [ ] **Step 3: Convert friend request route**
+- [ ] **Step 3: 改好友申请路由**
 
-Modify `server/src/routes/friend-requests.ts`:
+修改 `server/src/routes/friend-requests.ts`，新增 import：
 
 ```ts
 import { ApiErrors, sendApiError } from '../lib/api-errors.js'
 ```
 
-Replace failures:
+替换错误返回：
 
 ```ts
 return sendApiError(reply, ApiErrors.friendRequestSelf)
@@ -506,17 +495,17 @@ return sendApiError(reply, ApiErrors.invalidRequest)
 return sendApiError(reply, ApiErrors.friendRequestNotFound)
 ```
 
-Use `friendRequestNotFound` for `Not found or already resolved`.
+`Not found or already resolved` 统一使用 `friendRequestNotFound`。好友申请冲突暂不细分，统一使用 `friendRequestAlreadyExists`。
 
-- [ ] **Step 4: Convert messages route**
+- [ ] **Step 4: 改消息路由**
 
-Modify `server/src/routes/messages.ts`:
+修改 `server/src/routes/messages.ts`，新增 import：
 
 ```ts
 import { ApiErrors, sendApiError } from '../lib/api-errors.js'
 ```
 
-Replace failures:
+替换错误返回：
 
 ```ts
 return sendApiError(reply, ApiErrors.messageBodyRequired)
@@ -526,15 +515,15 @@ return sendApiError(reply, ApiErrors.messageDimensionsInvalid)
 return sendApiError(reply, ApiErrors.notFriends)
 ```
 
-- [ ] **Step 5: Convert conversations route**
+- [ ] **Step 5: 改会话路由**
 
-Modify `server/src/routes/conversations.ts`:
+修改 `server/src/routes/conversations.ts`，新增 import：
 
 ```ts
 import { ApiErrors, sendApiError } from '../lib/api-errors.js'
 ```
 
-Replace failures:
+替换错误返回：
 
 ```ts
 return sendApiError(reply, ApiErrors.invalidConversationId)
@@ -543,32 +532,32 @@ return sendApiError(reply, ApiErrors.conversationNotFound)
 return sendApiError(reply, ApiErrors.invalidLastReadMessageId)
 ```
 
-Use `conversationNotFound` for membership failures to preserve resource-hiding behavior.
+成员校验失败继续返回 404，并使用 `conversationNotFound`，保持“隐藏资源存在性”的策略。
 
-- [ ] **Step 6: Convert users route**
+- [ ] **Step 6: 改用户路由**
 
-Modify `server/src/routes/users.ts`:
+修改 `server/src/routes/users.ts`，新增 import：
 
 ```ts
 import { ApiErrors, sendApiError } from '../lib/api-errors.js'
 ```
 
-Replace failures:
+替换错误返回：
 
 ```ts
 return sendApiError(reply, ApiErrors.userNotFound)
 return sendApiError(reply, ApiErrors.noFieldsToUpdate)
 ```
 
-- [ ] **Step 7: Convert upload route**
+- [ ] **Step 7: 改上传路由**
 
-Modify `server/src/routes/upload.ts`:
+修改 `server/src/routes/upload.ts`，新增 import：
 
 ```ts
 import { ApiErrors, sendApiError } from '../lib/api-errors.js'
 ```
 
-Replace failures:
+替换错误返回：
 
 ```ts
 return sendApiError(reply, ApiErrors.fileRequired)
@@ -576,27 +565,27 @@ return sendApiError(reply, ApiErrors.invalidImageFile)
 return sendApiError(reply, ApiErrors.userNotFound)
 ```
 
-- [ ] **Step 8: Scan for old backend error response shape**
+- [ ] **Step 8: 扫描旧错误结构**
 
-Run:
+运行：
 
 ```bash
 rg "send\\(\\{ error: '" server/src server/tests
 ```
 
-Expected: no matches.
+预期：无匹配。
 
-Run:
+运行：
 
 ```bash
 rg "send\\(\\{ error: \\\"" server/src server/tests
 ```
 
-Expected: no matches.
+预期：无匹配。
 
-- [ ] **Step 9: Run backend tests and build**
+- [ ] **Step 9: 后台全量验证**
 
-Run:
+运行：
 
 ```bash
 npm test --prefix server
@@ -604,9 +593,9 @@ npm run build --prefix server
 npm run lint --prefix server
 ```
 
-Expected: PASS.
+预期：PASS。
 
-- [ ] **Step 10: Commit**
+- [ ] **Step 10: 提交**
 
 ```bash
 git add server/src server/tests
@@ -615,17 +604,17 @@ git commit -m "feat: structure backend business errors"
 
 ---
 
-### Task 4: iOS Server Error Decoding
+### Task 4: iOS 解析结构化服务端错误
 
-**Files:**
-- Modify: `ios-app/EchoIM/Core/Networking/APIError.swift`
-- Modify: `ios-app/EchoIM/Features/Auth/AuthRepository.swift`
-- Modify: `ios-app/EchoIMTests/APIErrorTests.swift`
-- Modify: `ios-app/EchoIMTests/AuthRepositoryTests.swift`
+**文件：**
+- 修改：`ios-app/EchoIM/Core/Networking/APIError.swift`
+- 修改：`ios-app/EchoIM/Features/Auth/AuthRepository.swift`
+- 修改：`ios-app/EchoIMTests/APIErrorTests.swift`
+- 修改：`ios-app/EchoIMTests/AuthRepositoryTests.swift`
 
-- [ ] **Step 1: Write failing APIError decoding tests**
+- [ ] **Step 1: 先写失败测试**
 
-Append to `ios-app/EchoIMTests/APIErrorTests.swift`:
+在 `ios-app/EchoIMTests/APIErrorTests.swift` 中追加：
 
 ```swift
 @Test
@@ -645,26 +634,26 @@ func decodesStructuredServerErrorFromHTTPBody() throws {
 }
 
 @Test
-func fallsBackWhenHTTPBodyIsLegacyOrMalformed() {
+func fallsBackWhenHTTPBodyIsMalformed() {
     let error = APIError.http(status: 500, body: Data("oops".utf8))
 
     #expect(error.serverError == nil)
 }
 ```
 
-- [ ] **Step 2: Verify tests fail**
+- [ ] **Step 2: 确认测试会失败**
 
-Run:
+运行：
 
 ```bash
 xcodebuild test -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' -only-testing:EchoIMTests/APIErrorTests
 ```
 
-Expected: FAIL because `serverError` does not exist.
+预期：FAIL，因为 `serverError` 还不存在。
 
-- [ ] **Step 3: Add structured server error decoding**
+- [ ] **Step 3: 实现结构化错误解析**
 
-Modify `ios-app/EchoIM/Core/Networking/APIError.swift`:
+修改 `ios-app/EchoIM/Core/Networking/APIError.swift`：
 
 ```swift
 import Foundation
@@ -722,9 +711,9 @@ enum APIError: Error, Equatable {
 }
 ```
 
-- [ ] **Step 4: Update AuthRepository server message extraction**
+- [ ] **Step 4: 更新 AuthRepository 解析**
 
-Modify `AuthRepository.extractErrorMessage(_:)` to parse the new structured error body:
+修改 `AuthRepository.extractErrorMessage(_:)`，只解析新结构；不兼容旧 `{ "error": "..." }`：
 
 ```swift
 nonisolated private static func extractErrorMessage(_ body: Data) -> String {
@@ -736,19 +725,17 @@ nonisolated private static func extractErrorMessage(_ body: Data) -> String {
 }
 ```
 
-Do not add support for the old `{ "error": "..." }` shape; the backend migration is intentionally a breaking API contract change.
+- [ ] **Step 5: 跑聚焦 iOS 测试**
 
-- [ ] **Step 5: Run focused iOS tests**
-
-Run:
+运行：
 
 ```bash
 xcodebuild test -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' -only-testing:EchoIMTests/APIErrorTests -only-testing:EchoIMTests/AuthRepositoryTests
 ```
 
-Expected: PASS.
+预期：PASS。
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 6: 提交**
 
 ```bash
 git add ios-app/EchoIM/Core/Networking/APIError.swift ios-app/EchoIM/Features/Auth/AuthRepository.swift ios-app/EchoIMTests/APIErrorTests.swift ios-app/EchoIMTests/AuthRepositoryTests.swift
@@ -757,16 +744,16 @@ git commit -m "feat: decode structured API errors on iOS"
 
 ---
 
-### Task 5: iOS Error Presenter And Localization
+### Task 5: iOS 错误文案映射和本地化
 
-**Files:**
-- Create: `ios-app/EchoIM/Core/Networking/ErrorPresenter.swift`
-- Modify: `ios-app/EchoIM/Localizable.xcstrings`
-- Create: `ios-app/EchoIMTests/ErrorPresenterTests.swift`
+**文件：**
+- 新建：`ios-app/EchoIM/Core/Networking/ErrorPresenter.swift`
+- 修改：`ios-app/EchoIM/Localizable.xcstrings`
+- 新建：`ios-app/EchoIMTests/ErrorPresenterTests.swift`
 
-- [ ] **Step 1: Write failing ErrorPresenter tests**
+- [ ] **Step 1: 先写失败测试**
 
-Create `ios-app/EchoIMTests/ErrorPresenterTests.swift`:
+创建 `ios-app/EchoIMTests/ErrorPresenterTests.swift`：
 
 ```swift
 import Foundation
@@ -814,19 +801,19 @@ struct ErrorPresenterTests {
 }
 ```
 
-- [ ] **Step 2: Verify tests fail**
+- [ ] **Step 2: 确认测试会失败**
 
-Run:
+运行：
 
 ```bash
 xcodebuild test -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' -only-testing:EchoIMTests/ErrorPresenterTests
 ```
 
-Expected: FAIL because `ErrorPresenter` does not exist.
+预期：FAIL，因为 `ErrorPresenter` 还不存在。
 
-- [ ] **Step 3: Implement ErrorPresenter**
+- [ ] **Step 3: 实现 ErrorPresenter**
 
-Create `ios-app/EchoIM/Core/Networking/ErrorPresenter.swift`:
+创建 `ios-app/EchoIM/Core/Networking/ErrorPresenter.swift`：
 
 ```swift
 import Foundation
@@ -917,9 +904,11 @@ enum ErrorPresenter {
 }
 ```
 
-- [ ] **Step 4: Add localizations**
+- [ ] **Step 4: 新增本地化 key**
 
-Modify `ios-app/EchoIM/Localizable.xcstrings` by adding keys used above. Follow the existing JSON structure. At minimum add these entries with English translations:
+修改 `ios-app/EchoIM/Localizable.xcstrings`，给 `ErrorPresenter` 中引用但文件里还没有的中文 key 添加英文翻译。
+
+最少需要添加这些：
 
 ```json
 "好友申请已存在" : {
@@ -974,19 +963,19 @@ Modify `ios-app/EchoIM/Localizable.xcstrings` by adding keys used above. Follow 
 }
 ```
 
-Also add any missing keys referenced by `ErrorPresenter.message(forServerCode:)`.
+同时补齐 `ErrorPresenter.message(forServerCode:)` 里其它新增中文 key。不要修改已有无关翻译。
 
-- [ ] **Step 5: Run focused tests**
+- [ ] **Step 5: 跑聚焦测试**
 
-Run:
+运行：
 
 ```bash
 xcodebuild test -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' -only-testing:EchoIMTests/ErrorPresenterTests
 ```
 
-Expected: PASS.
+预期：PASS。
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 6: 提交**
 
 ```bash
 git add ios-app/EchoIM/Core/Networking/ErrorPresenter.swift ios-app/EchoIM/Localizable.xcstrings ios-app/EchoIMTests/ErrorPresenterTests.swift
@@ -995,17 +984,17 @@ git commit -m "feat: localize iOS API errors"
 
 ---
 
-### Task 6: iOS Global Toast Surface
+### Task 6: iOS 全局 toast 能力
 
-**Files:**
-- Create: `ios-app/EchoIM/Core/UI/ToastCenter.swift`
-- Create: `ios-app/EchoIM/Core/UI/ToastOverlay.swift`
-- Modify: `ios-app/EchoIM/App/AppContainer.swift`
-- Modify: `ios-app/EchoIM/App/RootView.swift`
+**文件：**
+- 新建：`ios-app/EchoIM/Core/UI/ToastCenter.swift`
+- 新建：`ios-app/EchoIM/Core/UI/ToastOverlay.swift`
+- 修改：`ios-app/EchoIM/App/AppContainer.swift`
+- 修改：`ios-app/EchoIM/App/RootView.swift`
 
-- [ ] **Step 1: Create ToastCenter**
+- [ ] **Step 1: 新建 ToastCenter**
 
-Create `ios-app/EchoIM/Core/UI/ToastCenter.swift`:
+创建 `ios-app/EchoIM/Core/UI/ToastCenter.swift`：
 
 ```swift
 import Foundation
@@ -1042,9 +1031,9 @@ struct ToastMessage: Identifiable, Equatable {
 }
 ```
 
-- [ ] **Step 2: Create ToastOverlay**
+- [ ] **Step 2: 新建 ToastOverlay**
 
-Create `ios-app/EchoIM/Core/UI/ToastOverlay.swift`:
+创建 `ios-app/EchoIM/Core/UI/ToastOverlay.swift`：
 
 ```swift
 import SwiftUI
@@ -1067,21 +1056,21 @@ struct ToastOverlay: View {
 }
 ```
 
-- [ ] **Step 3: Add ToastCenter to AppContainer**
+- [ ] **Step 3: AppContainer 持有 ToastCenter**
 
-Modify `ios-app/EchoIM/App/AppContainer.swift`:
+修改 `ios-app/EchoIM/App/AppContainer.swift`，添加属性：
 
 ```swift
 let toastCenter: ToastCenter
 ```
 
-Initialize it:
+在 `init` 中初始化：
 
 ```swift
 self.toastCenter = ToastCenter()
 ```
 
-Show auth expiry through the same center:
+添加便捷方法：
 
 ```swift
 func showErrorToast(for error: Error) {
@@ -1093,26 +1082,26 @@ func showToast(_ message: String) {
 }
 ```
 
-In `handleUnauthorized()`, after `sessionExpiredNoticeID = UUID()` add:
+在 `handleUnauthorized()` 里设置 `sessionExpiredNoticeID = UUID()` 后追加：
 
 ```swift
 toastCenter.show(String(localized: "登录状态已失效，请重新登录"))
 ```
 
-- [ ] **Step 4: Replace RootView private session toast overlay**
+- [ ] **Step 4: RootView 改成全局 toast overlay**
 
-Modify `ios-app/EchoIM/App/RootView.swift`:
+修改 `ios-app/EchoIM/App/RootView.swift`。
 
-Remove:
+移除：
 
 ```swift
 @State private var sessionExpiredToastVisible = false
 @State private var toastDismissTask: Task<Void, Never>?
 ```
 
-Remove the `.onChange(of: container.sessionExpiredNoticeID)` block that manages private toast visibility.
+移除原来监听 `container.sessionExpiredNoticeID` 控制私有 toast 的 `.onChange`。
 
-Replace the overlay with:
+替换 overlay：
 
 ```swift
 .overlay {
@@ -1125,19 +1114,19 @@ Replace the overlay with:
 .animation(.easeOut(duration: 0.18), value: container.toastCenter.current?.id)
 ```
 
-Remove the private `sessionExpiredToast(_:)` method.
+删除私有 `sessionExpiredToast(_:)` 方法。
 
-- [ ] **Step 5: Build iOS app**
+- [ ] **Step 5: 构建 iOS App**
 
-Run:
+运行：
 
 ```bash
 xcodebuild build -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5'
 ```
 
-Expected: PASS.
+预期：PASS。
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 6: 提交**
 
 ```bash
 git add ios-app/EchoIM/Core/UI/ToastCenter.swift ios-app/EchoIM/Core/UI/ToastOverlay.swift ios-app/EchoIM/App/AppContainer.swift ios-app/EchoIM/App/RootView.swift
@@ -1146,58 +1135,59 @@ git commit -m "feat: add global iOS toast surface"
 
 ---
 
-### Task 7: iOS Wire HTTP/API Failures To Toast
+### Task 7: iOS HTTP/API 失败接入 toast
 
-**Files:**
-- Modify: feature view models and views listed in File Structure.
-- Test: representative tests under `ios-app/EchoIMTests`.
+**文件：**
+- 修改：上文文件结构里列出的相关 ViewModel 和 View。
+- 修改：`ios-app/EchoIMTests` 中代表性测试。
 
-- [ ] **Step 1: Add a shared error callback pattern to view models**
+- [ ] **Step 1: 给 ViewModel 添加错误回调**
 
-For each view model that performs HTTP/API requests, add:
+对执行 HTTP/API 请求的 ViewModel 添加：
 
 ```swift
 private let onError: @MainActor (Error) -> Void
 ```
 
-Add initializer parameter with a default no-op:
+初始化参数添加默认 no-op：
 
 ```swift
 onError: @escaping @MainActor (Error) -> Void = { _ in }
 ```
 
-Assign it:
+保存：
 
 ```swift
 self.onError = onError
 ```
 
-When a caught error should be surfaced, call:
+需要 toast 的 catch 中调用：
 
 ```swift
 onError(error)
 ```
 
-Apply this to:
+至少应用到：
 
 - `ConversationsListViewModel`
 - `ContactsViewModel`
 - `ChatViewModel`
 - `ProfileEditViewModel`
 
-- [ ] **Step 2: Preserve existing auth view model string state while using ErrorPresenter**
+- [ ] **Step 2: Auth 继续保留现有字符串状态，但未知错误走 ErrorPresenter**
 
-Modify `LoginViewModel.toastMessage(for:)` and `RegisterViewModel` error paths so known `AuthError` mappings remain localized. For unexpected errors, use:
+修改 `LoginViewModel` 和 `RegisterViewModel`：
+
+- 已有 `AuthError` 映射继续保留，保护登录/注册现有 UX。
+- 非预期错误使用：
 
 ```swift
 toast = ErrorPresenter.message(for: error)
 ```
 
-Do not remove existing login/register tests in this task; they protect current auth UX.
+- [ ] **Step 3: 从 View 传入 ToastCenter**
 
-- [ ] **Step 3: Pass AppContainer toast closures from views**
-
-When constructing feature view models, pass:
+组装 feature view model 时传入：
 
 ```swift
 onError: { [toastCenter = container.toastCenter] error in
@@ -1205,9 +1195,7 @@ onError: { [toastCenter = container.toastCenter] error in
 }
 ```
 
-For views that do not receive `container`, pass `toastCenter` down explicitly from `MainTabView`.
-
-Update initializers:
+没有直接持有 `container` 的 View，从 `MainTabView` 显式向下传 `toastCenter`：
 
 ```swift
 ConversationsListView(..., toastCenter: container.toastCenter, ...)
@@ -1216,21 +1204,21 @@ ChatView(..., toastCenter: container.toastCenter, ...)
 ProfileEditView(..., toastCenter: container.toastCenter, ...)
 ```
 
-- [ ] **Step 4: Replace UserSearchSheetView local alert with toast**
+- [ ] **Step 4: UserSearchSheetView 从 alert 改 toast**
 
-Remove:
+移除：
 
 ```swift
 @State private var errorToast: String?
 ```
 
-Add:
+添加：
 
 ```swift
 let toastCenter: ToastCenter
 ```
 
-On send failure:
+发送好友申请失败：
 
 ```swift
 if case .failure(let error) = result {
@@ -1238,7 +1226,7 @@ if case .failure(let error) = result {
 }
 ```
 
-On search failure:
+搜索失败：
 
 ```swift
 } catch {
@@ -1247,11 +1235,11 @@ On search failure:
 }
 ```
 
-Remove the `.alert(item:)` block and `ErrorWrapper`.
+移除 `.alert(item:)` 和 `ErrorWrapper`。
 
-- [ ] **Step 5: Surface currently swallowed HTTP/API catch blocks**
+- [ ] **Step 5: 处理当前静默的 HTTP/API catch**
 
-Replace silent HTTP/API catches with `onError(error)` in visible flows:
+把当前可见流程里的静默 HTTP/API catch 改成：
 
 ```swift
 catch {
@@ -1259,7 +1247,7 @@ catch {
 }
 ```
 
-For chat send failure, keep bubble failed state and add toast:
+聊天发送失败需要保留失败气泡，并额外 toast：
 
 ```swift
 private func markFailed(tempId: String, error: Error) {
@@ -1271,7 +1259,7 @@ private func markFailed(tempId: String, error: Error) {
 }
 ```
 
-For `markReadIfNeeded`, also toast on catch because it is an HTTP/API failure under the simplified policy:
+按已确认策略，`markReadIfNeeded` 的 HTTP/API 失败也 toast：
 
 ```swift
 catch {
@@ -1279,11 +1267,9 @@ catch {
 }
 ```
 
-- [ ] **Step 6: Add representative tests**
+- [ ] **Step 6: 添加代表性测试**
 
-Add or update tests to cover one request failure per major area:
-
-`ios-app/EchoIMTests/ConversationsListViewModelTests.swift`:
+更新 `ios-app/EchoIMTests/ConversationsListViewModelTests.swift`，使用现有 stub 风格添加：
 
 ```swift
 @Test
@@ -1301,7 +1287,7 @@ func refreshFailureCallsOnError() async {
 }
 ```
 
-`ios-app/EchoIMTests/ChatViewModelSendTests.swift`:
+更新 `ios-app/EchoIMTests/ChatViewModelSendTests.swift`，使用现有 stub 风格添加：
 
 ```swift
 @Test
@@ -1322,29 +1308,29 @@ func sendFailureCallsOnError() async {
 }
 ```
 
-Use existing test stub styles in those files; if a stub type already exists, extend it instead of creating a duplicate.
+如果对应测试文件里已有 stub 类型，扩展现有 stub，不重复造一套。
 
-- [ ] **Step 7: Run focused iOS tests**
+- [ ] **Step 7: 跑聚焦 iOS 测试**
 
-Run:
+运行：
 
 ```bash
 xcodebuild test -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' -only-testing:EchoIMTests/APIErrorTests -only-testing:EchoIMTests/ErrorPresenterTests -only-testing:EchoIMTests/ConversationsListViewModelTests -only-testing:EchoIMTests/ChatViewModelSendTests -only-testing:EchoIMTests/LoginViewModelTests -only-testing:EchoIMTests/RegisterViewModelTests
 ```
 
-Expected: PASS.
+预期：PASS。
 
-- [ ] **Step 8: Build iOS app**
+- [ ] **Step 8: 构建 iOS App**
 
-Run:
+运行：
 
 ```bash
 xcodebuild build -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5'
 ```
 
-Expected: PASS.
+预期：PASS。
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 9: 提交**
 
 ```bash
 git add ios-app/EchoIM ios-app/EchoIMTests
@@ -1353,14 +1339,14 @@ git commit -m "feat: show API failures as iOS toasts"
 
 ---
 
-### Task 8: End-To-End Verification
+### Task 8: 端到端验证
 
-**Files:**
-- No new files.
+**文件：**
+- 不新增文件。
 
-- [ ] **Step 1: Run full backend verification**
+- [ ] **Step 1: 后台完整验证**
 
-Run:
+运行：
 
 ```bash
 npm test --prefix server
@@ -1368,31 +1354,31 @@ npm run build --prefix server
 npm run lint --prefix server
 ```
 
-Expected: PASS.
+预期：PASS。
 
-- [ ] **Step 2: Run targeted iOS verification**
+- [ ] **Step 2: iOS 聚焦验证**
 
-Run:
+运行：
 
 ```bash
 xcodebuild test -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' -only-testing:EchoIMTests/APIErrorTests -only-testing:EchoIMTests/ErrorPresenterTests -only-testing:EchoIMTests/ConversationsListViewModelTests -only-testing:EchoIMTests/ChatViewModelSendTests -only-testing:EchoIMTests/LoginViewModelTests -only-testing:EchoIMTests/RegisterViewModelTests
 ```
 
-Expected: PASS.
+预期：PASS。
 
-- [ ] **Step 3: Scan for old backend shape**
+- [ ] **Step 3: 扫描旧后台错误结构**
 
-Run:
+运行：
 
 ```bash
 rg "send\\(\\{ error: ['\\\"]" server/src server/tests
 ```
 
-Expected: no matches.
+预期：无匹配。
 
-- [ ] **Step 4: Smoke-test one structured API error manually**
+- [ ] **Step 4: 手动 smoke 一个结构化 API 错误**
 
-Start services if needed:
+如果本地服务未启动，先运行：
 
 ```bash
 docker compose up -d postgres
@@ -1400,39 +1386,43 @@ npm run migrate --prefix server
 npm run dev --prefix server
 ```
 
-Make a request without auth:
+请求未登录接口：
 
 ```bash
 curl -i --max-time 5 http://localhost:3000/api/users/me
 ```
 
-Expected response:
+预期状态：
 
 ```http
 HTTP/1.1 401 Unauthorized
 ```
 
+预期响应体：
+
 ```json
 {"error":{"code":"auth_missing","message":"Missing or invalid Authorization header"}}
 ```
 
-- [ ] **Step 5: Final commit if verification required small fixes**
+- [ ] **Step 5: 如验证修了小问题，再补提交**
+
+如果 Step 1-4 期间有修复：
 
 ```bash
 git add server ios-app
 git commit -m "test: verify structured API errors"
 ```
 
-Skip this commit if Step 1-4 required no changes.
+如果没有改动，跳过此步骤。
 
 ---
 
-## Self-Review Checklist
+## 自检清单
 
-- [ ] Backend exposes only `{ error: { code, message } }` for errors.
-- [ ] Tests lock literal backend `code` strings, not `ApiErrors.xxx.code`.
-- [ ] Backend implementation references centralized `ApiErrors`.
-- [ ] iOS maps known codes through localized strings and falls back to server `message`.
-- [ ] iOS HTTP/API failures are routed to toast.
-- [ ] Local cache write failures are not part of this protocol.
-- [ ] No legacy backend `{ error: string }` shape remains.
+- [ ] 后台所有错误都返回 `{ error: { code, message } }`。
+- [ ] 后台实现只引用集中定义的 `ApiErrors`。
+- [ ] 后台测试用字面量 `code` 锁住外部契约，而不是引用 `ApiErrors.xxx.code`。
+- [ ] iOS 能从 HTTP body 解析 `ServerAPIError`。
+- [ ] iOS 已知错误码走本地化文案，未知错误码 fallback 到后台英文 `message`。
+- [ ] iOS HTTP/API 请求失败默认 toast。
+- [ ] 后台不再残留旧 `{ error: string }` 响应结构。
