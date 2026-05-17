@@ -210,16 +210,31 @@ struct ServerAPIError: Decodable, Equatable {
 
 ## 测试要求
 
-后台测试需要从只断言状态码，升级为同时断言错误结构：
+后台测试需要从只断言状态码，升级为同时断言错误结构。测试里使用字面量 `code`
+保护对外 API 契约，避免后端错误码被无意改名后 iOS 本地化映射失效。
 
 ```ts
-expect(res.statusCode).toBe(409)
-expect(res.json()).toEqual({
-  error: {
-    code: 'friend_request_already_exists',
-    message: 'Friend request already exists',
-  },
-})
+expectApiError(res, 409, 'friend_request_already_exists')
+```
+
+测试 helper 只统一检查结构和非空英文 fallback，不在每个业务测试里硬编码 `message`：
+
+```ts
+export function expectApiError(
+  res: LightMyRequestResponse,
+  statusCode: number,
+  code: string,
+) {
+  expect(res.statusCode).toBe(statusCode)
+  const body = res.json()
+  expect(body).toEqual({
+    error: {
+      code,
+      message: expect.any(String),
+    },
+  })
+  expect(body.error.message.length).toBeGreaterThan(0)
+}
 ```
 
 需要覆盖：
