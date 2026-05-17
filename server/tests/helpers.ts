@@ -1,4 +1,5 @@
 import WebSocket from 'ws'
+import { expect } from 'vitest'
 import { buildApp } from '../src/app.js'
 
 export type App = Awaited<ReturnType<typeof buildApp>>
@@ -150,4 +151,22 @@ export async function waitForCondition(
     await new Promise((resolve) => setTimeout(resolve, interval))
   }
   throw new Error('Timed out waiting for condition')
+}
+
+type ApiErrorTestResponse = {
+  statusCode: number
+  json: () => unknown
+}
+
+export function expectApiError(res: ApiErrorTestResponse, statusCode: number, code: string) {
+  expect(res.statusCode).toBe(statusCode)
+
+  const body = res.json() as { error?: { code?: unknown; message?: unknown } }
+  expect(body).toEqual({
+    error: {
+      code,
+      message: expect.any(String),
+    },
+  })
+  expect(body.error?.message).not.toBe('')
 }
