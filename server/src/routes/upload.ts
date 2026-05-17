@@ -4,6 +4,7 @@ import sharp from 'sharp'
 import { mkdir, writeFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { authenticate } from '../hooks/authenticate.js'
+import { ApiErrors, sendApiError } from '../lib/api-errors.js'
 import { getAvatarUploadsDir, getMessageUploadsDir } from '../lib/uploads.js'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB (front-end compresses before upload)
@@ -31,7 +32,7 @@ const uploadRoutes: FastifyPluginAsync = async (fastify) => {
     const file = await request.file()
 
     if (!file) {
-      return reply.status(400).send({ error: 'No file provided' })
+      return sendApiError(reply, ApiErrors.fileRequired)
     }
 
     const buffer = await file.toBuffer()
@@ -48,7 +49,7 @@ const uploadRoutes: FastifyPluginAsync = async (fastify) => {
         .jpeg({ quality: AVATAR_CONFIG.outputQuality })
         .toBuffer()
     } catch {
-      return reply.status(400).send({ error: 'Invalid image file' })
+      return sendApiError(reply, ApiErrors.invalidImageFile)
     }
 
     // Generate filename
@@ -68,7 +69,7 @@ const uploadRoutes: FastifyPluginAsync = async (fastify) => {
 
     // User might have been deleted while processing
     if (oldAvatarResult.rowCount === 0) {
-      return reply.status(401).send({ error: 'User no longer exists' })
+      return sendApiError(reply, ApiErrors.userNotFound)
     }
 
     const oldAvatarUrl = oldAvatarResult.rows[0]?.avatar_url as string | null
@@ -85,7 +86,7 @@ const uploadRoutes: FastifyPluginAsync = async (fastify) => {
       // User deleted between SELECT and UPDATE
       if (updateResult.rowCount === 0) {
         await rm(filepath, { force: true }).catch(() => {})
-        return reply.status(401).send({ error: 'User no longer exists' })
+        return sendApiError(reply, ApiErrors.userNotFound)
       }
     } catch (err) {
       // Clean up file on DB error, then re-throw
@@ -110,7 +111,7 @@ const uploadRoutes: FastifyPluginAsync = async (fastify) => {
     const file = await request.file()
 
     if (!file) {
-      return reply.status(400).send({ error: 'No file provided' })
+      return sendApiError(reply, ApiErrors.fileRequired)
     }
 
     const buffer = await file.toBuffer()
@@ -133,7 +134,7 @@ const uploadRoutes: FastifyPluginAsync = async (fastify) => {
       outputWidth = result.info.width
       outputHeight = result.info.height
     } catch {
-      return reply.status(400).send({ error: 'Invalid image file' })
+      return sendApiError(reply, ApiErrors.invalidImageFile)
     }
 
     // Generate filename

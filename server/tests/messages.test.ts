@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
-import { getApp, truncateAll, registerUser } from './helpers.js'
+import { getApp, truncateAll, registerUser, expectApiError } from './helpers.js'
 import type { App } from './helpers.js'
 
 type UserInfo = { token: string; user: { id: number; username: string; email: string } }
@@ -89,7 +89,7 @@ describe('POST /api/messages', () => {
     const alice = await registerUser(app)
     const bob = await registerUser(app, { username: 'bob', email: 'bob@test.com', password: 'password123' })
     const res = await sendMessage(app, alice.token, bob.user.id, 'Hello')
-    expect(res.statusCode).toBe(403)
+    expectApiError(res, 403, 'not_friends')
   })
 
   it('returns 400 for missing body', async () => {
@@ -100,7 +100,7 @@ describe('POST /api/messages', () => {
       headers: { authorization: `Bearer ${alice.token}` },
       payload: { recipient_id: bob.user.id },
     })
-    expect(res.statusCode).toBe(400)
+    expectApiError(res, 400, 'message_body_required')
   })
 
   it('returns 400 for missing recipient_id', async () => {
@@ -111,7 +111,7 @@ describe('POST /api/messages', () => {
       headers: { authorization: `Bearer ${alice.token}` },
       payload: { body: 'Hello' },
     })
-    expect(res.statusCode).toBe(400)
+    expectApiError(res, 400, 'invalid_request')
   })
 
   it('returns 401 when unauthenticated', async () => {
@@ -120,7 +120,7 @@ describe('POST /api/messages', () => {
       url: '/api/messages',
       payload: { recipient_id: 1, body: 'Hello' },
     })
-    expect(res.statusCode).toBe(401)
+    expectApiError(res, 401, 'auth_missing')
   })
 
   it('returns 400 when text message has empty body', async () => {
@@ -131,7 +131,7 @@ describe('POST /api/messages', () => {
       headers: { authorization: `Bearer ${alice.token}` },
       payload: { recipient_id: bob.user.id, message_type: 'text', body: '' },
     })
-    expect(res.statusCode).toBe(400)
+    expectApiError(res, 400, 'message_body_required')
   })
 
   it('returns 400 when text message has null body', async () => {
@@ -142,7 +142,7 @@ describe('POST /api/messages', () => {
       headers: { authorization: `Bearer ${alice.token}` },
       payload: { recipient_id: bob.user.id, message_type: 'text', body: null },
     })
-    expect(res.statusCode).toBe(400)
+    expectApiError(res, 400, 'message_body_required')
   })
 
   it('returns 400 when image message has no media_url', async () => {
@@ -153,7 +153,7 @@ describe('POST /api/messages', () => {
       headers: { authorization: `Bearer ${alice.token}` },
       payload: { recipient_id: bob.user.id, message_type: 'image' },
     })
-    expect(res.statusCode).toBe(400)
+    expectApiError(res, 400, 'message_media_required')
   })
 
   it('returns 400 when image message has media_url from another user', async () => {
@@ -164,7 +164,7 @@ describe('POST /api/messages', () => {
       headers: { authorization: `Bearer ${alice.token}` },
       payload: { recipient_id: bob.user.id, message_type: 'image', media_url: `/uploads/messages/${bob.user.id}-1234567890123.jpg` },
     })
-    expect(res.statusCode).toBe(400)
+    expectApiError(res, 400, 'message_media_invalid')
   })
 
   it('returns 400 when image message has media_url pointing to avatars directory', async () => {
@@ -175,7 +175,7 @@ describe('POST /api/messages', () => {
       headers: { authorization: `Bearer ${alice.token}` },
       payload: { recipient_id: bob.user.id, message_type: 'image', media_url: `/uploads/avatars/${alice.user.id}-1234567890123.jpg` },
     })
-    expect(res.statusCode).toBe(400)
+    expectApiError(res, 400, 'message_media_invalid')
   })
 
   it('returns 400 when image message has external URL as media_url', async () => {
@@ -186,7 +186,7 @@ describe('POST /api/messages', () => {
       headers: { authorization: `Bearer ${alice.token}` },
       payload: { recipient_id: bob.user.id, message_type: 'image', media_url: 'https://evil.com/x.jpg' },
     })
-    expect(res.statusCode).toBe(400)
+    expectApiError(res, 400, 'message_media_invalid')
   })
 
   it('returns 400 when image message has media_url with single-digit timestamp', async () => {
@@ -197,7 +197,7 @@ describe('POST /api/messages', () => {
       headers: { authorization: `Bearer ${alice.token}` },
       payload: { recipient_id: bob.user.id, message_type: 'image', media_url: `/uploads/messages/${alice.user.id}-1.jpg` },
     })
-    expect(res.statusCode).toBe(400)
+    expectApiError(res, 400, 'message_media_invalid')
   })
 
   it('returns 201 for valid image message with correct media_url', async () => {
@@ -254,7 +254,7 @@ describe('POST /api/messages', () => {
         media_width: 1600,
       },
     })
-    expect(res.statusCode).toBe(400)
+    expectApiError(res, 400, 'message_dimensions_invalid')
   })
 
   // Known limitation: server only validates media_url ownership pattern, not file existence.
@@ -390,7 +390,7 @@ describe('GET /api/conversations', () => {
 
   it('returns 401 when unauthenticated', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/conversations' })
-    expect(res.statusCode).toBe(401)
+    expectApiError(res, 401, 'auth_missing')
   })
 
   it('returns last_message_type reflecting the latest message type', async () => {
@@ -502,7 +502,7 @@ describe('GET /api/conversations/:id/messages', () => {
       url: `/api/conversations/${convId}/messages?before=${id}&after=${id}`,
       headers: { authorization: `Bearer ${alice.token}` },
     })
-    expect(res.statusCode).toBe(400)
+    expectApiError(res, 400, 'pagination_cursor_conflict')
   })
 
   it('rejects malformed conversation id', async () => {
@@ -512,7 +512,7 @@ describe('GET /api/conversations/:id/messages', () => {
       url: '/api/conversations/1abc/messages',
       headers: { authorization: `Bearer ${alice.token}` },
     })
-    expect(res.statusCode).toBe(400)
+    expectApiError(res, 400, 'invalid_conversation_id')
   })
 
   it('paginates by message id', async () => {
@@ -544,12 +544,12 @@ describe('GET /api/conversations/:id/messages', () => {
       url: `/api/conversations/${convId}/messages`,
       headers: { authorization: `Bearer ${carol.token}` },
     })
-    expect(res.statusCode).toBe(404)
+    expectApiError(res, 404, 'conversation_not_found')
   })
 
   it('returns 401 when unauthenticated', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/conversations/1/messages' })
-    expect(res.statusCode).toBe(401)
+    expectApiError(res, 401, 'auth_missing')
   })
 
   it('limits results when ?limit=N is provided', async () => {
@@ -581,14 +581,14 @@ describe('GET /api/conversations/:id/messages', () => {
       url: `/api/conversations/${convId}/messages?limit=0`,
       headers: { authorization: `Bearer ${alice.token}` },
     })
-    expect(tooLow.statusCode).toBe(400)
+    expectApiError(tooLow, 400, 'invalid_request')
 
     const tooHigh = await app.inject({
       method: 'GET',
       url: `/api/conversations/${convId}/messages?limit=51`,
       headers: { authorization: `Bearer ${alice.token}` },
     })
-    expect(tooHigh.statusCode).toBe(400)
+    expectApiError(tooHigh, 400, 'invalid_request')
   })
 
   it('combines ?after= with ?limit= (ASC order, capped)', async () => {
@@ -649,7 +649,7 @@ describe('PUT /api/conversations/:id/read', () => {
       headers: { authorization: `Bearer ${carol.token}` },
       payload: { last_read_message_id: firstMessageId },
     })
-    expect(res.statusCode).toBe(404)
+    expectApiError(res, 404, 'conversation_not_found')
   })
 
   it('keeps the read cursor monotonic when an older ack arrives later', async () => {
@@ -694,7 +694,7 @@ describe('PUT /api/conversations/:id/read', () => {
       headers: { authorization: `Bearer ${bob.token}` },
       payload: { last_read_message_id: otherConversationMessage.json().id },
     })
-    expect(res.statusCode).toBe(400)
+    expectApiError(res, 400, 'invalid_last_read_message_id')
   })
 
   it('rejects malformed conversation id', async () => {
@@ -705,7 +705,7 @@ describe('PUT /api/conversations/:id/read', () => {
       headers: { authorization: `Bearer ${alice.token}` },
       payload: { last_read_message_id: 1 },
     })
-    expect(res.statusCode).toBe(400)
+    expectApiError(res, 400, 'invalid_conversation_id')
   })
 
   it('rejects a missing last_read_message_id', async () => {
@@ -719,7 +719,7 @@ describe('PUT /api/conversations/:id/read', () => {
       headers: { authorization: `Bearer ${bob.token}` },
       payload: {},
     })
-    expect(res.statusCode).toBe(400)
+    expectApiError(res, 400, 'invalid_request')
   })
 
   it('returns 401 when unauthenticated', async () => {
@@ -728,6 +728,6 @@ describe('PUT /api/conversations/:id/read', () => {
       url: '/api/conversations/1/read',
       payload: { last_read_message_id: 1 },
     })
-    expect(res.statusCode).toBe(401)
+    expectApiError(res, 401, 'auth_missing')
   })
 })

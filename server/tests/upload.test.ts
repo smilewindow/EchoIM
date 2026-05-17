@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import sharp from 'sharp'
 import { rm, readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { getApp, truncateAll, registerUser } from './helpers.js'
+import { getApp, truncateAll, registerUser, expectApiError } from './helpers.js'
 import type { App } from './helpers.js'
 import { getAvatarUploadsDir, getMessageUploadsDir } from '../src/lib/uploads.js'
 
@@ -46,7 +46,7 @@ describe('POST /api/upload/avatar', () => {
       headers: form.headers,
       payload: form.body,
     })
-    expect(res.statusCode).toBe(401)
+    expectApiError(res, 401, 'auth_missing')
   })
 
   it('returns 400 when no file provided (empty multipart)', async () => {
@@ -60,8 +60,7 @@ describe('POST /api/upload/avatar', () => {
       },
       payload: form.body,
     })
-    expect(res.statusCode).toBe(400)
-    expect(res.json().error).toBe('No file provided')
+    expectApiError(res, 400, 'file_required')
   })
 
   it('returns 400 for invalid image (not decodable by sharp)', async () => {
@@ -75,8 +74,7 @@ describe('POST /api/upload/avatar', () => {
       },
       payload: form.body,
     })
-    expect(res.statusCode).toBe(400)
-    expect(res.json().error).toContain('Invalid image')
+    expectApiError(res, 400, 'invalid_image_file')
   })
 
   it('returns 200 and updates user avatar_url for valid PNG', async () => {
@@ -140,8 +138,7 @@ describe('POST /api/upload/avatar', () => {
       },
       payload: form.body,
     })
-    expect(res.statusCode).toBe(401)
-    expect(res.json().error).toBe('User no longer exists')
+    expectApiError(res, 401, 'user_not_found')
 
     // Verify no orphan file was left
     const files = await readdir(uploadsDir)
@@ -292,7 +289,7 @@ describe('POST /api/upload/message-image', () => {
       headers: form.headers,
       payload: form.body,
     })
-    expect(res.statusCode).toBe(401)
+    expectApiError(res, 401, 'auth_missing')
   })
 
   it('returns 400 when no file provided (empty multipart)', async () => {
@@ -306,8 +303,7 @@ describe('POST /api/upload/message-image', () => {
       },
       payload: form.body,
     })
-    expect(res.statusCode).toBe(400)
-    expect(res.json().error).toBe('No file provided')
+    expectApiError(res, 400, 'file_required')
   })
 
   it('returns 400 for invalid image (not decodable by sharp)', async () => {
@@ -321,8 +317,7 @@ describe('POST /api/upload/message-image', () => {
       },
       payload: form.body,
     })
-    expect(res.statusCode).toBe(400)
-    expect(res.json().error).toContain('Invalid image')
+    expectApiError(res, 400, 'invalid_image_file')
   })
 
   it('returns 200 with media_url matching expected pattern for valid PNG', async () => {

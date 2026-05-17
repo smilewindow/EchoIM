@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { authenticate } from '../hooks/authenticate.js'
+import { ApiErrors, sendApiError } from '../lib/api-errors.js'
 
 const messageRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('preHandler', authenticate)
@@ -44,20 +45,20 @@ const messageRoutes: FastifyPluginAsync = async (fastify) => {
     // Validate content based on message type
     if (message_type === 'text') {
       if (!body || body.trim() === '') {
-        return reply.status(400).send({ error: 'body is required for text messages' })
+        return sendApiError(reply, ApiErrors.messageBodyRequired)
       }
     } else if (message_type === 'image') {
       if (!media_url) {
-        return reply.status(400).send({ error: 'media_url is required for image messages' })
+        return sendApiError(reply, ApiErrors.messageMediaRequired)
       }
       // Ownership check: media_url must match the sender's own upload path
       const mediaUrlPattern = new RegExp(`^/uploads/messages/${sender_id}-\\d{10,16}\\.jpg$`)
       if (!mediaUrlPattern.test(media_url)) {
-        return reply.status(400).send({ error: 'Invalid media_url' })
+        return sendApiError(reply, ApiErrors.messageMediaInvalid)
       }
       // 客户端要么两个尺寸都给，要么都不给（兼容老客户端）；只给一个视为非法。
       if ((media_width === undefined) !== (media_height === undefined)) {
-        return reply.status(400).send({ error: 'media_width and media_height must be provided together' })
+        return sendApiError(reply, ApiErrors.messageDimensionsInvalid)
       }
     }
 
@@ -69,7 +70,7 @@ const messageRoutes: FastifyPluginAsync = async (fastify) => {
       [sender_id, recipient_id]
     )
     if (friendCheck.rowCount === 0) {
-      return reply.status(403).send({ error: 'Not friends' })
+      return sendApiError(reply, ApiErrors.notFriends)
     }
 
     // Find or create conversation + insert message — all in one transaction with advisory lock

@@ -42,7 +42,7 @@ describe('GET /api/users/me', () => {
       url: '/api/users/me',
       headers: { authorization: 'Bearer invalidtoken' },
     })
-    expect(res.statusCode).toBe(401)
+    expectApiError(res, 401, 'auth_invalid')
   })
 
   it('returns 401 when token is valid but the user no longer exists', async () => {
@@ -54,8 +54,7 @@ describe('GET /api/users/me', () => {
       headers: { authorization: `Bearer ${token}` },
     })
 
-    expect(res.statusCode).toBe(401)
-    expect(res.json().error).toBe('User no longer exists')
+    expectApiError(res, 401, 'user_not_found')
   })
 })
 
@@ -139,8 +138,7 @@ describe('PUT /api/users/me', () => {
       headers: { authorization: `Bearer ${token}` },
       payload: {},
     })
-    expect(res.statusCode).toBe(400)
-    expect(res.json().error).toBe('No fields to update')
+    expectApiError(res, 400, 'no_fields_to_update')
   })
 
   it('returns 401 when unauthenticated', async () => {
@@ -149,7 +147,7 @@ describe('PUT /api/users/me', () => {
       url: '/api/users/me',
       payload: { display_name: 'Alice W' },
     })
-    expect(res.statusCode).toBe(401)
+    expectApiError(res, 401, 'auth_missing')
   })
 
   it('returns 401 when token is valid but the user no longer exists', async () => {
@@ -162,8 +160,7 @@ describe('PUT /api/users/me', () => {
       payload: { display_name: 'Alice W' },
     })
 
-    expect(res.statusCode).toBe(401)
-    expect(res.json().error).toBe('User no longer exists')
+    expectApiError(res, 401, 'user_not_found')
   })
 
   it('deletes old local avatar file when avatar_url changes to external URL', async () => {

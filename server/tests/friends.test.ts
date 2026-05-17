@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
-import { getApp, truncateAll, registerUser } from './helpers.js'
+import { getApp, truncateAll, registerUser, expectApiError } from './helpers.js'
 import type { App } from './helpers.js'
 
 // Helper: register two users and return their tokens + ids
@@ -101,7 +101,7 @@ describe('GET /api/users/search', () => {
       url: '/api/users/search',
       headers: { authorization: `Bearer ${alice.token}` },
     })
-    expect(res.statusCode).toBe(400)
+    expectApiError(res, 400, 'invalid_request')
   })
 
   it('returns 401 when unauthenticated', async () => {
@@ -109,7 +109,7 @@ describe('GET /api/users/search', () => {
       method: 'GET',
       url: '/api/users/search?q=bob',
     })
-    expect(res.statusCode).toBe(401)
+    expectApiError(res, 401, 'auth_missing')
   })
 })
 
@@ -135,20 +135,20 @@ describe('POST /api/friend-requests', () => {
   it('returns 400 when sending request to self', async () => {
     const { alice } = await setupTwoUsers(app)
     const res = await sendFriendRequest(app, alice.token, alice.user.id)
-    expect(res.statusCode).toBe(400)
+    expectApiError(res, 400, 'friend_request_self')
   })
 
   it('returns 404 when recipient does not exist', async () => {
     const { alice } = await setupTwoUsers(app)
     const res = await sendFriendRequest(app, alice.token, 99999)
-    expect(res.statusCode).toBe(404)
+    expectApiError(res, 404, 'recipient_not_found')
   })
 
   it('returns 409 on duplicate request', async () => {
     const { alice, bob } = await setupTwoUsers(app)
     await sendFriendRequest(app, alice.token, bob.user.id)
     const res = await sendFriendRequest(app, alice.token, bob.user.id)
-    expect(res.statusCode).toBe(409)
+    expectApiError(res, 409, 'friend_request_already_exists')
   })
 
   it('returns 409 when reversed request already exists', async () => {
@@ -170,7 +170,7 @@ describe('POST /api/friend-requests', () => {
       url: '/api/friend-requests',
       payload: { recipient_id: bob.user.id },
     })
-    expect(res.statusCode).toBe(401)
+    expectApiError(res, 401, 'auth_missing')
   })
 })
 
@@ -230,7 +230,7 @@ describe('GET /api/friend-requests', () => {
 
   it('returns 401 when unauthenticated', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/friend-requests' })
-    expect(res.statusCode).toBe(401)
+    expectApiError(res, 401, 'auth_missing')
   })
 })
 
@@ -266,7 +266,7 @@ describe('PUT /api/friend-requests/:id', () => {
   it('returns 404 for non-existent request', async () => {
     const { alice } = await setupTwoUsers(app)
     const res = await respondToRequest(app, alice.token, 99999, 'accepted')
-    expect(res.statusCode).toBe(404)
+    expectApiError(res, 404, 'friend_request_not_found')
   })
 
   it('returns 404 when sender tries to accept their own request', async () => {
@@ -276,7 +276,7 @@ describe('PUT /api/friend-requests/:id', () => {
 
     // alice (sender) cannot accept — only recipient can
     const res = await respondToRequest(app, alice.token, requestId, 'accepted')
-    expect(res.statusCode).toBe(404)
+    expectApiError(res, 404, 'friend_request_not_found')
   })
 
   it('returns 404 when request is already resolved', async () => {
@@ -286,7 +286,7 @@ describe('PUT /api/friend-requests/:id', () => {
     await respondToRequest(app, bob.token, requestId, 'accepted')
 
     const res = await respondToRequest(app, bob.token, requestId, 'declined')
-    expect(res.statusCode).toBe(404)
+    expectApiError(res, 404, 'friend_request_not_found')
   })
 
   it('returns 400 for invalid status value', async () => {
@@ -300,7 +300,7 @@ describe('PUT /api/friend-requests/:id', () => {
       headers: { authorization: `Bearer ${bob.token}` },
       payload: { status: 'pending' },
     })
-    expect(res.statusCode).toBe(400)
+    expectApiError(res, 400, 'invalid_request')
   })
 
   it('returns 401 when unauthenticated', async () => {
@@ -309,7 +309,7 @@ describe('PUT /api/friend-requests/:id', () => {
       url: '/api/friend-requests/1',
       payload: { status: 'accepted' },
     })
-    expect(res.statusCode).toBe(401)
+    expectApiError(res, 401, 'auth_missing')
   })
 })
 
@@ -406,6 +406,6 @@ describe('GET /api/friends', () => {
 
   it('returns 401 when unauthenticated', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/friends' })
-    expect(res.statusCode).toBe(401)
+    expectApiError(res, 401, 'auth_missing')
   })
 })

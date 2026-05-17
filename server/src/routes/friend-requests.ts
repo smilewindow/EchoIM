@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { authenticate } from '../hooks/authenticate.js'
+import { ApiErrors, sendApiError } from '../lib/api-errors.js'
 
 const friendRequestRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('preHandler', authenticate)
@@ -20,7 +21,7 @@ const friendRequestRoutes: FastifyPluginAsync = async (fastify) => {
     const senderId = request.user.id
 
     if (recipient_id === senderId) {
-      return reply.status(400).send({ error: 'Cannot send friend request to yourself' })
+      return sendApiError(reply, ApiErrors.friendRequestSelf)
     }
 
     const recipientCheck = await fastify.pool.query(
@@ -28,7 +29,7 @@ const friendRequestRoutes: FastifyPluginAsync = async (fastify) => {
       [recipient_id]
     )
     if (recipientCheck.rowCount === 0) {
-      return reply.status(404).send({ error: 'Recipient not found' })
+      return sendApiError(reply, ApiErrors.recipientNotFound)
     }
 
     try {
@@ -52,7 +53,7 @@ const friendRequestRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(201).send(row)
     } catch (err: unknown) {
       if (typeof err === 'object' && err !== null && (err as { code?: string }).code === '23505') {
-        return reply.status(409).send({ error: 'Friend request already exists' })
+        return sendApiError(reply, ApiErrors.friendRequestAlreadyExists)
       }
       throw err
     }
@@ -117,7 +118,7 @@ const friendRequestRoutes: FastifyPluginAsync = async (fastify) => {
 
     const numericId = parseInt(id, 10)
     if (!Number.isInteger(numericId) || numericId <= 0) {
-      return reply.status(400).send({ error: 'Invalid id' })
+      return sendApiError(reply, ApiErrors.invalidRequest)
     }
 
     const result = await fastify.pool.query(
@@ -129,7 +130,7 @@ const friendRequestRoutes: FastifyPluginAsync = async (fastify) => {
     )
 
     if (result.rowCount === 0) {
-      return reply.status(404).send({ error: 'Not found or already resolved' })
+      return sendApiError(reply, ApiErrors.friendRequestNotFound)
     }
 
     const row = result.rows[0]

@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { authenticate } from '../hooks/authenticate.js'
+import { ApiErrors, sendApiError } from '../lib/api-errors.js'
 
 const conversationRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('preHandler', authenticate)
@@ -55,10 +56,10 @@ const conversationRoutes: FastifyPluginAsync = async (fastify) => {
     const userId = request.user.id
 
     if (!/^\d+$/.test(id)) {
-      return reply.status(400).send({ error: 'Invalid id' })
+      return sendApiError(reply, ApiErrors.invalidConversationId)
     }
     if (before !== undefined && after !== undefined) {
-      return reply.status(400).send({ error: 'Cannot use both before and after' })
+      return sendApiError(reply, ApiErrors.paginationCursorConflict)
     }
     const convId = Number(id)
 
@@ -68,7 +69,7 @@ const conversationRoutes: FastifyPluginAsync = async (fastify) => {
       [convId, userId]
     )
     if (memberCheck.rowCount === 0) {
-      return reply.status(404).send({ error: 'Not a member of this conversation' })
+      return sendApiError(reply, ApiErrors.conversationNotFound)
     }
 
     let result
@@ -110,7 +111,7 @@ const conversationRoutes: FastifyPluginAsync = async (fastify) => {
     const userId = request.user.id
 
     if (!/^\d+$/.test(id)) {
-      return reply.status(400).send({ error: 'Invalid id' })
+      return sendApiError(reply, ApiErrors.invalidConversationId)
     }
     const convId = Number(id)
 
@@ -122,10 +123,10 @@ const conversationRoutes: FastifyPluginAsync = async (fastify) => {
     )
     const { is_member, is_valid_message } = checkResult.rows[0]
     if (!is_member) {
-      return reply.status(404).send({ error: 'Not a member of this conversation' })
+      return sendApiError(reply, ApiErrors.conversationNotFound)
     }
     if (!is_valid_message) {
-      return reply.status(400).send({ error: 'Invalid last_read_message_id' })
+      return sendApiError(reply, ApiErrors.invalidLastReadMessageId)
     }
 
     const result = await fastify.pool.query(

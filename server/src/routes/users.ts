@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { authenticate } from '../hooks/authenticate.js'
+import { ApiErrors, sendApiError } from '../lib/api-errors.js'
 import { getAvatarUploadsDir } from '../lib/uploads.js'
 
 const userRoutes: FastifyPluginAsync = async (fastify) => {
@@ -15,7 +16,7 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
     )
     if (result.rowCount === 0) {
       // JWT 仍然合法但用户已被删库/清库时，明确返回 401，避免前端拿到 200 空响应体。
-      return reply.status(401).send({ error: 'User no longer exists' })
+      return sendApiError(reply, ApiErrors.userNotFound)
     }
     return reply.status(200).send(result.rows[0])
   })
@@ -38,7 +39,7 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     if (display_name === undefined && avatar_url === undefined) {
-      return reply.status(400).send({ error: 'No fields to update' })
+      return sendApiError(reply, ApiErrors.noFieldsToUpdate)
     }
 
     const trimmedDisplayName = display_name !== undefined ? display_name.trim() : undefined
@@ -51,7 +52,7 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
         [request.user.id],
       )
       if (oldResult.rowCount === 0) {
-        return reply.status(401).send({ error: 'User no longer exists' })
+        return sendApiError(reply, ApiErrors.userNotFound)
       }
       oldAvatarUrl = oldResult.rows[0]?.avatar_url as string | null
     }
@@ -65,7 +66,7 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
       [trimmedDisplayName ?? null, avatar_url ?? null, request.user.id]
     )
     if (result.rowCount === 0) {
-      return reply.status(401).send({ error: 'User no longer exists' })
+      return sendApiError(reply, ApiErrors.userNotFound)
     }
 
     // Clean up old local avatar file if avatar_url changed (best-effort)
