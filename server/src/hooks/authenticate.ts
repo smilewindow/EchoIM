@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import type { JwtPayload } from '../types/auth.js'
+import { ApiErrors, sendApiError } from '../lib/api-errors.js'
 
 // WeakMap stores the per-request user value (Fastify 5 getter/setter pattern)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -20,7 +21,7 @@ export function registerAuthDecorator(fastify: FastifyInstance) {
 export async function authenticate(request: FastifyRequest, reply: FastifyReply) {
   const authHeader = request.headers.authorization
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return reply.status(401).send({ error: 'Missing or invalid Authorization header' })
+    return sendApiError(reply, ApiErrors.authMissing)
   }
 
   const token = authHeader.slice(7)
@@ -30,7 +31,7 @@ export async function authenticate(request: FastifyRequest, reply: FastifyReply)
   try {
     decoded = jwt.verify(token, secret)
   } catch {
-    return reply.status(401).send({ error: 'Invalid or expired token' })
+    return sendApiError(reply, ApiErrors.authInvalid)
   }
 
   if (
@@ -39,7 +40,7 @@ export async function authenticate(request: FastifyRequest, reply: FastifyReply)
     !('id' in decoded) ||
     typeof (decoded as JwtPayload).id !== 'number'
   ) {
-    return reply.status(401).send({ error: 'Invalid token payload' })
+    return sendApiError(reply, ApiErrors.authInvalidPayload)
   }
 
   request.user = { id: (decoded as JwtPayload).id }

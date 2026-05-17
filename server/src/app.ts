@@ -12,6 +12,7 @@ import messageRoutes from './routes/messages.js'
 import conversationRoutes from './routes/conversations.js'
 import staticPlugin from './plugins/static.js'
 import uploadRoutes from './routes/upload.js'
+import { ApiErrors, sendApiError } from './lib/api-errors.js'
 
 export async function buildApp(opts: FastifyServerOptions = {}) {
   const app = Fastify({
@@ -24,11 +25,13 @@ export async function buildApp(opts: FastifyServerOptions = {}) {
 
   app.setErrorHandler((err: FastifyError, _request, reply) => {
     const statusCode = err.statusCode ?? 500
+
     if (statusCode >= 400 && statusCode < 500) {
-      return reply.status(statusCode).send({ error: err.message })
+      return sendApiError(reply, ApiErrors.invalidRequest)
     }
+
     app.log.error(err)
-    return reply.status(500).send({ error: 'Internal server error' })
+    return sendApiError(reply, ApiErrors.internalError)
   })
 
   app.get('/healthz', async () => ({ status: 'ok' }))

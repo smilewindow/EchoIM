@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import { mkdir, writeFile, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
-import { getApp, truncateAll, registerUser } from './helpers.js'
+import { getApp, truncateAll, registerUser, expectApiError } from './helpers.js'
 import type { App } from './helpers.js'
 import { getAvatarUploadsDir } from '../src/lib/uploads.js'
 
@@ -33,7 +33,7 @@ describe('GET /api/users/me', () => {
 
   it('returns 401 when no Authorization header', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/users/me' })
-    expect(res.statusCode).toBe(401)
+    expectApiError(res, 401, 'auth_missing')
   })
 
   it('returns 401 when token is invalid', async () => {

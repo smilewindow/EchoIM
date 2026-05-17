@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import jwt from 'jsonwebtoken'
-import { getApp, truncateAll, registerUser, getInviteCode } from './helpers.js'
+import { getApp, truncateAll, registerUser, getInviteCode, expectApiError } from './helpers.js'
 import type { App } from './helpers.js'
 
 describe('POST /api/auth/register', () => {
@@ -78,8 +78,7 @@ describe('POST /api/auth/register', () => {
       url: '/api/auth/register',
       payload: { username: 'bob', email: 'alice@test.com', password: 'password123', inviteCode: getInviteCode() },
     })
-    expect(res.statusCode).toBe(409)
-    expect(res.json().error).toMatch(/email/i)
+    expectApiError(res, 409, 'email_already_in_use')
   })
 
   it('returns 409 when username is already taken', async () => {
@@ -89,8 +88,7 @@ describe('POST /api/auth/register', () => {
       url: '/api/auth/register',
       payload: { username: 'alice', email: 'other@test.com', password: 'password123', inviteCode: getInviteCode() },
     })
-    expect(res.statusCode).toBe(409)
-    expect(res.json().error).toMatch(/username/i)
+    expectApiError(res, 409, 'username_already_taken')
   })
 
   it('normalises email to lowercase and strips whitespace', async () => {
@@ -133,8 +131,7 @@ describe('POST /api/auth/login', () => {
       url: '/api/auth/login',
       payload: { email: 'alice@test.com', password: 'wrongpassword' },
     })
-    expect(res.statusCode).toBe(401)
-    expect(res.json().error).toBe('Invalid email or password')
+    expectApiError(res, 401, 'invalid_credentials')
   })
 
   it('returns 401 on non-existent email', async () => {
@@ -143,8 +140,7 @@ describe('POST /api/auth/login', () => {
       url: '/api/auth/login',
       payload: { email: 'nobody@test.com', password: 'password123' },
     })
-    expect(res.statusCode).toBe(401)
-    expect(res.json().error).toBe('Invalid email or password')
+    expectApiError(res, 401, 'invalid_credentials')
   })
 
   it('email lookup is case-insensitive', async () => {
@@ -162,6 +158,6 @@ describe('POST /api/auth/login', () => {
       url: '/api/auth/login',
       payload: { email: 'alice@test.com', password: 'password123', extra: 'field' },
     })
-    expect(res.statusCode).toBe(400)
+    expectApiError(res, 400, 'invalid_request')
   })
 })

@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import type { FastifyPluginAsync } from 'fastify'
+import { ApiErrors, sendApiError } from '../lib/api-errors.js'
 
 const authRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/register', {
@@ -27,17 +28,17 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
 
     const validCodes = (process.env['INVITE_CODES'] ?? '').split(',').map(c => c.trim()).filter(Boolean)
     if (validCodes.length === 0 || !validCodes.includes(inviteCode.trim())) {
-      return reply.status(403).send({ error: 'Invalid invite code' })
+      return sendApiError(reply, ApiErrors.invalidInviteCode)
     }
 
     const username = rawUsername.trim()
     const email = rawEmail.trim().toLowerCase()
 
     if (username.length < 3) {
-      return reply.status(400).send({ error: 'Username must be at least 3 characters' })
+      return sendApiError(reply, ApiErrors.usernameTooShort)
     }
     if (email.length < 3 || !email.includes('@')) {
-      return reply.status(400).send({ error: 'Invalid email address' })
+      return sendApiError(reply, ApiErrors.invalidEmail)
     }
 
     const passwordHash = await bcrypt.hash(password, 12)
@@ -60,12 +61,12 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       ) {
         const constraint = (err as { constraint?: string }).constraint ?? ''
         if (constraint.includes('email')) {
-          return reply.status(409).send({ error: 'Email already in use' })
+          return sendApiError(reply, ApiErrors.emailAlreadyInUse)
         }
         if (constraint.includes('username')) {
-          return reply.status(409).send({ error: 'Username already taken' })
+          return sendApiError(reply, ApiErrors.usernameAlreadyTaken)
         }
-        return reply.status(409).send({ error: 'Account already exists' })
+        return sendApiError(reply, ApiErrors.accountAlreadyExists)
       }
       throw err
     }
@@ -99,7 +100,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
 
     const row = result.rows[0]
     if (!row || !(await bcrypt.compare(password, row.password_hash))) {
-      return reply.status(401).send({ error: 'Invalid email or password' })
+      return sendApiError(reply, ApiErrors.invalidCredentials)
     }
 
     const token = jwt.sign({ id: row.id }, process.env['JWT_SECRET']!, { expiresIn: '7d' })
