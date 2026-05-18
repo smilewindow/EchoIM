@@ -646,7 +646,7 @@ func fallsBackWhenHTTPBodyIsMalformed() {
 运行：
 
 ```bash
-xcodebuild test -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' -only-testing:EchoIMTests/APIErrorTests
+set -o pipefail; xcodebuild test -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' -only-testing:EchoIMTests/APIErrorTests 2>&1 | grep -E "passed|failed|SUCCEEDED|FAILED|PASS|FAIL"
 ```
 
 预期：FAIL，因为 `serverError` 还不存在。
@@ -730,7 +730,7 @@ nonisolated private static func extractErrorMessage(_ body: Data) -> String {
 运行：
 
 ```bash
-xcodebuild test -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' -only-testing:EchoIMTests/APIErrorTests -only-testing:EchoIMTests/AuthRepositoryTests
+set -o pipefail; xcodebuild test -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' -only-testing:EchoIMTests/APIErrorTests -only-testing:EchoIMTests/AuthRepositoryTests 2>&1 | grep -E "passed|failed|SUCCEEDED|FAILED|PASS|FAIL"
 ```
 
 预期：PASS。
@@ -806,7 +806,7 @@ struct ErrorPresenterTests {
 运行：
 
 ```bash
-xcodebuild test -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' -only-testing:EchoIMTests/ErrorPresenterTests
+set -o pipefail; xcodebuild test -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' -only-testing:EchoIMTests/ErrorPresenterTests 2>&1 | grep -E "passed|failed|SUCCEEDED|FAILED|PASS|FAIL"
 ```
 
 预期：FAIL，因为 `ErrorPresenter` 还不存在。
@@ -970,7 +970,7 @@ enum ErrorPresenter {
 运行：
 
 ```bash
-xcodebuild test -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' -only-testing:EchoIMTests/ErrorPresenterTests
+set -o pipefail; xcodebuild test -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' -only-testing:EchoIMTests/ErrorPresenterTests 2>&1 | grep -E "passed|failed|SUCCEEDED|FAILED|PASS|FAIL"
 ```
 
 预期：PASS。
@@ -1121,7 +1121,7 @@ toastCenter.show(String(localized: "登录状态已失效，请重新登录"))
 运行：
 
 ```bash
-xcodebuild build -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5'
+set -o pipefail; xcodebuild build -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' 2>&1 | grep -E "BUILD SUCCEEDED|BUILD FAILED|error:|fatal error:"
 ```
 
 预期：PASS。
@@ -1315,7 +1315,7 @@ func sendFailureCallsOnError() async {
 运行：
 
 ```bash
-xcodebuild test -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' -only-testing:EchoIMTests/APIErrorTests -only-testing:EchoIMTests/ErrorPresenterTests -only-testing:EchoIMTests/ConversationsListViewModelTests -only-testing:EchoIMTests/ChatViewModelSendTests -only-testing:EchoIMTests/LoginViewModelTests -only-testing:EchoIMTests/RegisterViewModelTests
+set -o pipefail; xcodebuild test -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' -only-testing:EchoIMTests/APIErrorTests -only-testing:EchoIMTests/ErrorPresenterTests -only-testing:EchoIMTests/ConversationsListViewModelTests -only-testing:EchoIMTests/ChatViewModelSendTests -only-testing:EchoIMTests/LoginViewModelTests -only-testing:EchoIMTests/RegisterViewModelTests 2>&1 | grep -E "passed|failed|SUCCEEDED|FAILED|PASS|FAIL"
 ```
 
 预期：PASS。
@@ -1325,7 +1325,7 @@ xcodebuild test -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'p
 运行：
 
 ```bash
-xcodebuild build -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5'
+set -o pipefail; xcodebuild build -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' 2>&1 | grep -E "BUILD SUCCEEDED|BUILD FAILED|error:|fatal error:"
 ```
 
 预期：PASS。
@@ -1361,7 +1361,7 @@ npm run lint --prefix server
 运行：
 
 ```bash
-xcodebuild test -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' -only-testing:EchoIMTests/APIErrorTests -only-testing:EchoIMTests/ErrorPresenterTests -only-testing:EchoIMTests/ConversationsListViewModelTests -only-testing:EchoIMTests/ChatViewModelSendTests -only-testing:EchoIMTests/LoginViewModelTests -only-testing:EchoIMTests/RegisterViewModelTests
+set -o pipefail; xcodebuild test -project ios-app/EchoIM.xcodeproj -scheme EchoIM -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' -only-testing:EchoIMTests/APIErrorTests -only-testing:EchoIMTests/ErrorPresenterTests -only-testing:EchoIMTests/ConversationsListViewModelTests -only-testing:EchoIMTests/ChatViewModelSendTests -only-testing:EchoIMTests/LoginViewModelTests -only-testing:EchoIMTests/RegisterViewModelTests 2>&1 | grep -E "passed|failed|SUCCEEDED|FAILED|PASS|FAIL"
 ```
 
 预期：PASS。
