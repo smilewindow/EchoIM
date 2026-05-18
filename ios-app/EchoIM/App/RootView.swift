@@ -6,8 +6,6 @@ struct RootView: View {
     @State private var showLaunchSplash = true
     @State private var didStartLaunchSequence = false
     @State private var showRegister = false
-    @State private var sessionExpiredToastVisible = false
-    @State private var toastDismissTask: Task<Void, Never>?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
 
@@ -52,28 +50,13 @@ struct RootView: View {
         .animation(.default, value: container.currentUser?.id)
         .animation(.default, value: showRegister)
         .overlay {
-            if sessionExpiredToastVisible {
-                sessionExpiredToast("登录状态已失效，请重新登录")
+            if let toast = container.toastCenter.current {
+                ToastOverlay(toast: toast)
                     .allowsHitTesting(false)
                     .transition(.opacity.combined(with: .scale(scale: 0.96)))
             }
         }
-        .animation(.easeOut(duration: 0.18), value: sessionExpiredToastVisible)
-        .onChange(of: container.sessionExpiredNoticeID) { _, noticeID in
-            toastDismissTask?.cancel()
-            guard noticeID != nil else {
-                sessionExpiredToastVisible = false
-                return
-            }
-
-            sessionExpiredToastVisible = true
-            toastDismissTask = Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 2_500_000_000)
-                if !Task.isCancelled {
-                    sessionExpiredToastVisible = false
-                }
-            }
-        }
+        .animation(.easeOut(duration: 0.18), value: container.toastCenter.current?.id)
         .onChange(of: scenePhase) { _, newPhase in
             guard let session = container.session else { return }
             switch newPhase {
@@ -101,19 +84,6 @@ struct RootView: View {
             container.handleLoginSuccess(response)
             showRegister = false
         }
-    }
-
-    private func sessionExpiredToast(_ message: LocalizedStringKey) -> some View {
-        Text(message)
-            .font(.subheadline.weight(.semibold))
-            .foregroundStyle(.white)
-            .multilineTextAlignment(.center)
-            .padding(.horizontal, 18)
-            .padding(.vertical, 12)
-            .background(.black.opacity(0.78), in: Capsule())
-            .shadow(color: .black.opacity(0.16), radius: 14, x: 0, y: 8)
-            .padding(.horizontal, 32)
-            .accessibilityIdentifier("sessionExpiredToast")
     }
 
     private var launchSplashDuration: UInt64 {

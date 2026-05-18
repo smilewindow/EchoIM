@@ -1,0 +1,32 @@
+import Foundation
+import Observation
+
+@MainActor
+@Observable
+final class ToastCenter {
+    private(set) var current: ToastMessage?
+    private var dismissTask: Task<Void, Never>?
+
+    func show(_ message: String) {
+        dismissTask?.cancel()
+        current = ToastMessage(message: message)
+
+        dismissTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            if !Task.isCancelled {
+                current = nil
+            }
+        }
+    }
+
+    func clear() {
+        dismissTask?.cancel()
+        dismissTask = nil
+        current = nil
+    }
+}
+
+struct ToastMessage: Identifiable, Equatable {
+    let id = UUID()
+    let message: String
+}

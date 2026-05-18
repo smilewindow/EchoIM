@@ -9,6 +9,7 @@ import Observation
 final class AppContainer {
     let tokenStore: KeychainTokenStore
     let apiClient: APIClient
+    let toastCenter: ToastCenter
     private let currentUserCache: CurrentUserCacheStore
     var currentUser: AuthenticatedUser?
     var isRestoringCurrentUser = false
@@ -28,6 +29,7 @@ final class AppContainer {
     ) {
         self.tokenStore = tokenStore ?? KeychainTokenStore()
         self.apiClient = apiClient ?? APIClient()
+        self.toastCenter = ToastCenter()
         self.currentUserCache = currentUserCache ?? CurrentUserCacheStore()
         self.resetKeychainOnLaunch = resetKeychainOnLaunch
 
@@ -60,6 +62,14 @@ final class AppContainer {
 
     func makeFriendRequestRepository() -> FriendRequestRepository {
         FriendRequestRepositoryImpl(api: apiClient)
+    }
+
+    func showErrorToast(for error: Error) {
+        toastCenter.show(ErrorPresenter.message(for: error))
+    }
+
+    func showToast(_ message: String) {
+        toastCenter.show(message)
     }
 
     // MARK: - Session lifecycle
@@ -145,6 +155,7 @@ final class AppContainer {
         try? tokenStore.clear()
         await tearDownSession()
         sessionExpiredNoticeID = UUID()
+        toastCenter.show(String(localized: "登录状态已失效，请重新登录"))
     }
 
     /// 设计 §5.5 的三阶段清理。必须按顺序：
