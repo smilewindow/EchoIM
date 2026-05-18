@@ -22,9 +22,25 @@ struct AuthRepositoryErrorMapTests {
     }
 
     @Test
+    func invalidInviteCodeUsesServerCodeWhenMessageIsGeneric() {
+        let error = AuthRepositoryImpl.mapRegisterError(
+            .http(status: 403, body: makeBody(code: "invalid_invite_code", message: "Forbidden"))
+        )
+        #expect(error == .invalidInviteCode)
+    }
+
+    @Test
     func emailTakenIs409() {
         let error = AuthRepositoryImpl.mapRegisterError(
             .http(status: 409, body: makeBody(code: "email_already_in_use", message: "Email already in use"))
+        )
+        #expect(error == .emailTaken)
+    }
+
+    @Test
+    func emailTakenUsesServerCodeWhenMessageIsGeneric() {
+        let error = AuthRepositoryImpl.mapRegisterError(
+            .http(status: 409, body: makeBody(code: "email_already_in_use", message: "Conflict"))
         )
         #expect(error == .emailTaken)
     }

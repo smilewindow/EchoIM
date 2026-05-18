@@ -50,13 +50,13 @@ struct RootView: View {
         .animation(.default, value: container.currentUser?.id)
         .animation(.default, value: showRegister)
         .overlay {
-            if let toast = container.toastCenter.current {
+            if let toast = container.currentToast {
                 ToastOverlay(toast: toast)
                     .allowsHitTesting(false)
                     .transition(.opacity.combined(with: .scale(scale: 0.96)))
             }
         }
-        .animation(.easeOut(duration: 0.18), value: container.toastCenter.current?.id)
+        .animation(.easeOut(duration: 0.18), value: container.currentToast?.id)
         .onChange(of: scenePhase) { _, newPhase in
             guard let session = container.session else { return }
             switch newPhase {

@@ -9,11 +9,14 @@ import Observation
 final class AppContainer {
     let tokenStore: KeychainTokenStore
     let apiClient: APIClient
-    let toastCenter: ToastCenter
+    private let toastCenter: ToastCenter
     private let currentUserCache: CurrentUserCacheStore
     var currentUser: AuthenticatedUser?
     var isRestoringCurrentUser = false
-    var sessionExpiredNoticeID: UUID?
+
+    var currentToast: ToastMessage? {
+        toastCenter.current
+    }
 
     /// 当前登录用户的会话。未登录时 nil。P4 起 wsClient / 会话相关 repo 都从这里取。
     private(set) var session: UserSession?
@@ -79,7 +82,6 @@ final class AppContainer {
             try? tokenStore.clear()
             currentUser = nil
             isRestoringCurrentUser = false
-            sessionExpiredNoticeID = nil
             session = nil
             return
         }
@@ -87,7 +89,6 @@ final class AppContainer {
         guard let stored = try? tokenStore.load() else {
             currentUser = nil
             isRestoringCurrentUser = false
-            sessionExpiredNoticeID = nil
             session = nil
             Log.info(.app, "bootstrap no stored token")
             return
@@ -109,7 +110,6 @@ final class AppContainer {
     func handleLoginSuccess(_ response: AuthResponse) {
         updateCurrentUser(response.user)
         isRestoringCurrentUser = false
-        sessionExpiredNoticeID = nil
         try? bootstrapSession(userId: response.user.id)
         session?.connectWebSocketIfNeeded()
         Log.info(.auth, "login success userId=\(response.user.id)")
@@ -139,7 +139,6 @@ final class AppContainer {
 
     func logout() async {
         Log.info(.auth, "logout, tearing down session")
-        sessionExpiredNoticeID = nil
         await makeAuthRepository().logout()
         await tearDownSession()
     }
@@ -154,8 +153,7 @@ final class AppContainer {
         }
         try? tokenStore.clear()
         await tearDownSession()
-        sessionExpiredNoticeID = UUID()
-        toastCenter.show(String(localized: "登录状态已失效，请重新登录"))
+        showToast(String(localized: "登录状态已失效，请重新登录"))
     }
 
     /// 设计 §5.5 的三阶段清理。必须按顺序：

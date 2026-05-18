@@ -121,7 +121,7 @@ struct AppContainerTests {
     }
 
     @Test
-    func handleUnauthorizedPublishesSessionExpiredNotice() async throws {
+    func handleUnauthorizedShowsSessionExpiredToast() async throws {
         let setup = makeSetup()
         defer { setup.cleanup() }
         let container = setup.container
@@ -134,7 +134,7 @@ struct AppContainerTests {
         #expect(container.currentUser == nil)
         #expect(!container.isRestoringCurrentUser)
         #expect(try store.load() == nil)
-        #expect(container.sessionExpiredNoticeID != nil)
+        #expect(container.currentToast?.message == "登录状态已失效，请重新登录")
     }
 
     @Test

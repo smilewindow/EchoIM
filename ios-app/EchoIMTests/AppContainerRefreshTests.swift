@@ -131,7 +131,7 @@ struct AppContainerRefreshTests {
 
         #expect(container.currentUser == nil)
         #expect(try store.load() == nil)
-        #expect(container.sessionExpiredNoticeID != nil)
+        #expect(container.currentToast?.message == "登录状态已失效，请重新登录")
     }
 
     @Test
