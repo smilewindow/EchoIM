@@ -37,6 +37,7 @@ final class ChatViewModel {
     weak var wsClient: WebSocketClient?
     private let tokenProvider: @MainActor () -> String?
     private let haptics: HapticFeedbackProvider
+    private let onError: @MainActor (Error) -> Void
 
     // P6：只读 typingStore（不变式 8：VM 不路由 typing 事件，UserSession 是唯一写入方）
     private let typingStore: TypingStore?
@@ -71,7 +72,8 @@ final class ChatViewModel {
         typingSender: @escaping @MainActor (Int, Bool) -> Void = { _, _ in },
         idleTypingDuration: TimeInterval = 3.0,
         tokenProvider: @escaping @MainActor () -> String?,
-        haptics: HapticFeedbackProvider? = nil
+        haptics: HapticFeedbackProvider? = nil,
+        onError: @escaping @MainActor (Error) -> Void = { _ in }
     ) {
         switch route {
         case .conversation(let conversation):
@@ -95,6 +97,7 @@ final class ChatViewModel {
         self.idleTypingDuration = idleTypingDuration
         self.tokenProvider = tokenProvider
         self.haptics = haptics ?? UIKitHapticFeedback()
+        self.onError = onError
     }
 
     /// 对方是否正在输入。仅当 conversationId 已知且 typingStore 命中时为 true（不变式 8）。
@@ -152,6 +155,7 @@ final class ChatViewModel {
                 await markReadIfNeeded()
             } catch {
                 phase = .error(String(describing: error))
+                onError(error)
             }
         } else {
             await refetchMissedMessages()
@@ -245,6 +249,7 @@ final class ChatViewModel {
             await writeThroughAndMeta(rows)
         } catch {
             // 上滑分页失败不打断现有聊天内容，下一次触顶时允许自然重试。
+            onError(error)
         }
     }
 
@@ -433,7 +438,9 @@ final class ChatViewModel {
 
     private func markFailed(tempId: String, error: Error) {
         guard let index = messages.firstIndex(where: { $0.localId == tempId }) else { return }
-        messages[index].sendState = .failed(String(describing: error))
+        let message = ErrorPresenter.message(for: error)
+        messages[index].sendState = .failed(message)
+        onError(error)
         haptics.warning()
     }
 
@@ -461,7 +468,7 @@ final class ChatViewModel {
             lastReadMessageId = latest
             await writeReadProgress(latest)
         } catch {
-            // 静默失败；下一次进入页面或收到新消息时重试。
+            onError(error)
         }
     }
 
@@ -588,6 +595,7 @@ final class ChatViewModel {
                 await reconcileAfterReconnect(conversations: conversations)
             } catch {
                 // 草稿 promote 失败不影响当前聊天页，下一次 ready / 重进页面会再补。
+                onError(error)
             }
         } else {
             await refetchMissedMessages()
@@ -663,6 +671,7 @@ final class ChatViewModel {
                 guard rows.count == pageSize else { return }
             } catch {
                 // 补拉失败保持现有消息；下一次 reconnect 或重进页面会再尝试。
+                onError(error)
                 return
             }
         }

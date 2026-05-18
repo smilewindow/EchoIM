@@ -30,6 +30,7 @@ final class ProfileEditViewModel {
     private let uploadRepo: UploadRepository
     private let refreshCurrentUser: @MainActor () async -> Void
     private let onUnauthorized: @MainActor () async -> Void
+    private let onError: @MainActor (Error) -> Void
 
     init(
         currentUser: @escaping @MainActor () -> AuthenticatedUser?,
@@ -38,7 +39,8 @@ final class ProfileEditViewModel {
         userRepo: UserRepository,
         uploadRepo: UploadRepository,
         refreshCurrentUser: @escaping @MainActor () async -> Void,
-        onUnauthorized: @escaping @MainActor () async -> Void
+        onUnauthorized: @escaping @MainActor () async -> Void,
+        onError: @escaping @MainActor (Error) -> Void = { _ in }
     ) {
         self.currentUser = currentUser
         self.currentUserSetter = currentUserSetter
@@ -47,6 +49,7 @@ final class ProfileEditViewModel {
         self.uploadRepo = uploadRepo
         self.refreshCurrentUser = refreshCurrentUser
         self.onUnauthorized = onUnauthorized
+        self.onError = onError
     }
 
     /// View 出现时调用一次，把 currentUser.displayName 拷进 draft。
@@ -85,6 +88,9 @@ final class ProfileEditViewModel {
         } catch APIError.unauthorized {
             await onUnauthorized()
             throw APIError.unauthorized
+        } catch {
+            onError(error)
+            throw error
         }
     }
 
@@ -104,7 +110,8 @@ final class ProfileEditViewModel {
             await onUnauthorized()
             throw APIError.unauthorized
         } catch {
-            uploadError = String(describing: error)
+            uploadError = ErrorPresenter.message(for: error)
+            onError(error)
             throw error
         }
     }

@@ -13,6 +13,7 @@ struct ConversationsListView: View {
         currentUserId: Int,
         presenceStore: PresenceStore? = nil,
         initialConversations: [Conversation] = [],
+        toastCenter: ToastCenter,
         onSelectConversation: @escaping (Conversation) -> Void,
         tokenProvider: @escaping @MainActor () -> String?
     ) {
@@ -23,7 +24,10 @@ struct ConversationsListView: View {
                 initialConversations: initialConversations,
                 tokenProvider: tokenProvider,
                 currentUserId: { currentUserId },
-                wsClient: wsClient
+                wsClient: wsClient,
+                onError: { [toastCenter] error in
+                    toastCenter.show(ErrorPresenter.message(for: error))
+                }
             )
         )
         self.presenceStore = presenceStore

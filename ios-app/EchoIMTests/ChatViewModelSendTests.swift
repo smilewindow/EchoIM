@@ -144,6 +144,25 @@ struct ChatViewModelSendTests {
     }
 
     @Test
+    func sendFailureCallsOnError() async {
+        var received: Error?
+        let repo = FakeMessageRepo()
+        repo.sendResult = .failure(APIError.network(URLError(.notConnectedToInternet)))
+        let vm = ChatViewModel(
+            route: .peer(UserProfile(id: 2, username: "bob", displayName: nil, avatarUrl: nil)),
+            currentUserId: 1,
+            messageRepo: repo,
+            wsClient: nil,
+            tokenProvider: { "token" },
+            onError: { received = $0 }
+        )
+
+        await vm.sendText("hi")
+
+        #expect(received != nil)
+    }
+
+    @Test
     func retryFailedMessageResendsWithSameTempId() async {
         let repo = FakeMessageRepo()
         repo.sendResult = .failure(APIError.invalidResponse)

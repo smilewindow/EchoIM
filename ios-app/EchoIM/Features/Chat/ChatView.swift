@@ -30,6 +30,7 @@ struct ChatView: View {
         presenceStore: PresenceStore? = nil,
         typingStore: TypingStore? = nil,
         typingSender: @escaping @MainActor (Int, Bool) -> Void = { _, _ in },
+        toastCenter: ToastCenter,
         tokenProvider: @escaping @MainActor () -> String?,
         onNavigateToPeer: ((UserProfile) -> Void)? = nil
     ) {
@@ -45,7 +46,10 @@ struct ChatView: View {
                 uploadRepo: uploadRepo,
                 typingStore: typingStore,
                 typingSender: typingSender,
-                tokenProvider: tokenProvider
+                tokenProvider: tokenProvider,
+                onError: { [toastCenter] error in
+                    toastCenter.show(ErrorPresenter.message(for: error))
+                }
             )
         )
         self.presenceStore = presenceStore

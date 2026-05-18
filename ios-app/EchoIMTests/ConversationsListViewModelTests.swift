@@ -76,6 +76,21 @@ struct ConversationsListViewModelTests {
     }
 
     @Test
+    func refreshFailureCallsOnError() async {
+        var received: Error?
+        let vm = ConversationsListViewModel(
+            repository: FakeRepo(.failure(APIError.network(URLError(.timedOut)))),
+            metaStore: nil,
+            tokenProvider: { "jwt" },
+            onError: { received = $0 }
+        )
+
+        await vm.refresh()
+
+        #expect(received != nil)
+    }
+
+    @Test
     func refreshReplacesExisting() async throws {
         let old = try makeConversation(id: 1, peerName: "old")
         let repo = FakeRepo(.success([old]))

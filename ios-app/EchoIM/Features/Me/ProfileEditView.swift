@@ -5,7 +5,6 @@ import UIKit
 struct ProfileEditView: View {
     @State private var vm: ProfileEditViewModel
     @State private var pickerItem: PhotosPickerItem?
-    @State private var saveErrorMessage: String?
     @Environment(\.dismiss) private var dismiss
 
     private let username: String
@@ -69,17 +68,6 @@ struct ProfileEditView: View {
                 await handlePickedItem(newItem)
                 pickerItem = nil
             }
-        }
-        .alert(
-            "保存失败",
-            isPresented: Binding(
-                get: { saveErrorMessage != nil },
-                set: { if !$0 { saveErrorMessage = nil } }
-            )
-        ) {
-            Button("知道了", role: .cancel) { saveErrorMessage = nil }
-        } message: {
-            Text(saveErrorMessage ?? "")
         }
     }
 
@@ -156,7 +144,7 @@ struct ProfileEditView: View {
             } catch APIError.unauthorized {
                 // VM 已触发 onUnauthorized，外层 RootView 会切回 Login；不再展示 alert。
             } catch {
-                saveErrorMessage = String(describing: error)
+                // VM 已通过全局 toast 展示错误。
             }
         }
     }

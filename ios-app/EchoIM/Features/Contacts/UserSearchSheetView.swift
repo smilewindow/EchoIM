@@ -3,6 +3,7 @@ import SwiftUI
 struct UserSearchSheetView: View {
     @Bindable var vm: ContactsViewModel
     let userRepo: UserRepository
+    let toastCenter: ToastCenter
     let tokenProvider: () -> String?
     var onClose: () -> Void
 
@@ -10,7 +11,6 @@ struct UserSearchSheetView: View {
     @State private var results: [UserProfile] = []
     @State private var isSearching = false
     @State private var sendingId: Int?
-    @State private var errorToast: String?
     @State private var searchTask: Task<Void, Never>?
 
     var body: some View {
@@ -27,18 +27,6 @@ struct UserSearchSheetView: View {
                         onClose()
                     }
                 }
-            }
-            .alert(
-                item: Binding(
-                    get: { errorToast.map { ErrorWrapper(message: $0) } },
-                    set: { errorToast = $0?.message }
-                )
-            ) { wrapper in
-                Alert(
-                    title: Text("发送失败"),
-                    message: Text(wrapper.message),
-                    dismissButton: .default(Text("好"))
-                )
             }
         }
     }
@@ -126,7 +114,7 @@ struct UserSearchSheetView: View {
                             sendingId = nil
 
                             if case .failure(let error) = result {
-                                errorToast = String(describing: error)
+                                toastCenter.show(ErrorPresenter.message(for: error))
                             }
                         }
                     }
@@ -180,14 +168,7 @@ struct UserSearchSheetView: View {
             results = try await userRepo.searchUsers(query: trimmed, token: token)
         } catch {
             results = []
-        }
-    }
-
-    private struct ErrorWrapper: Identifiable {
-        let message: String
-
-        var id: String {
-            message
+            toastCenter.show(ErrorPresenter.message(for: error))
         }
     }
 }

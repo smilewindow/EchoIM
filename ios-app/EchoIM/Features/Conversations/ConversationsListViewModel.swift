@@ -34,6 +34,7 @@ final class ConversationsListViewModel {
     private let metaStore: ConversationMetaStore?
     private let tokenProvider: @MainActor () -> String?
     private let currentUserId: @MainActor () -> Int?
+    private let onError: @MainActor (Error) -> Void
     private weak var wsClient: WebSocketClient?
     private var wsSubscription: WSSubscription?
     private var readySubscription: WSSubscription?
@@ -44,12 +45,14 @@ final class ConversationsListViewModel {
         initialConversations: [Conversation] = [],
         tokenProvider: @escaping @MainActor () -> String?,
         currentUserId: @escaping @MainActor () -> Int? = { nil },
-        wsClient: WebSocketClient? = nil
+        wsClient: WebSocketClient? = nil,
+        onError: @escaping @MainActor (Error) -> Void = { _ in }
     ) {
         self.repository = repository
         self.metaStore = metaStore
         self.tokenProvider = tokenProvider
         self.currentUserId = currentUserId
+        self.onError = onError
         self.wsClient = wsClient
         self.conversations = initialConversations
     }
@@ -85,6 +88,7 @@ final class ConversationsListViewModel {
             await writeBack(fresh)
         } catch {
             phase = .error(String(describing: error))
+            onError(error)
         }
     }
 

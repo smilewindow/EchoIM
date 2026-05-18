@@ -229,6 +229,9 @@ struct MeView: View {
             },
             onUnauthorized: { [weak container] in
                 await container?.handleUnauthorized()
+            },
+            onError: { [toastCenter = container.toastCenter] error in
+                toastCenter.show(ErrorPresenter.message(for: error))
             }
         )
     }

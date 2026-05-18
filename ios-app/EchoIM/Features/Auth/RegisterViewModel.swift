@@ -77,7 +77,7 @@ final class RegisterViewModel {
             mapServerError(error)
             state = .failed(error)
         } catch {
-            toast = String(localized: "注册失败，请重试")
+            toast = ErrorPresenter.message(for: error)
             state = .failed(.unknown(String(describing: error)))
         }
     }

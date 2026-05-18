@@ -47,7 +47,7 @@ final class LoginViewModel {
             toast = Self.toastMessage(for: error)
         } catch {
             state = .failed(.unknown(String(describing: error)))
-            toast = String(localized: "登录失败，请重试")
+            toast = ErrorPresenter.message(for: error)
         }
     }
 

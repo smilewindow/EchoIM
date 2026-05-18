@@ -15,19 +15,22 @@ final class ContactsViewModel {
     private let tokenProvider: () -> String?
     private let haptics: HapticFeedbackProvider
     private let friendCacheStore: FriendCacheStore?
+    private let onError: @MainActor (Error) -> Void
 
     init(
         friendRepo: FriendRepository,
         requestRepo: FriendRequestRepository,
         tokenProvider: @escaping () -> String?,
         friendCacheStore: FriendCacheStore? = nil,
-        haptics: HapticFeedbackProvider? = nil
+        haptics: HapticFeedbackProvider? = nil,
+        onError: @escaping @MainActor (Error) -> Void = { _ in }
     ) {
         self.friendRepo = friendRepo
         self.requestRepo = requestRepo
         self.tokenProvider = tokenProvider
         self.friendCacheStore = friendCacheStore
         self.haptics = haptics ?? UIKitHapticFeedback()
+        self.onError = onError
     }
 
     var pendingIncomingCount: Int {
@@ -77,7 +80,7 @@ final class ContactsViewModel {
         do {
             sent = try await requestRepo.listSent(token: token)
         } catch {
-            // silently ignored
+            onError(error)
         }
     }
 
@@ -97,7 +100,7 @@ final class ContactsViewModel {
             async let requestRefresh: Void = loadRequestDetails(token: token)
             _ = await (friendsRefresh, requestRefresh)
         } catch {
-            // silently ignored
+            onError(error)
         }
     }
 
@@ -121,7 +124,7 @@ final class ContactsViewModel {
             friends = fresh
             try? await friendCacheStore?.saveAll(fresh)
         } catch {
-            // silently ignored; stale cache remains visible
+            onError(error)
         }
     }
 
@@ -129,7 +132,7 @@ final class ContactsViewModel {
         do {
             incoming = try await requestRepo.listIncoming(token: token)
         } catch {
-            // silently ignored
+            onError(error)
         }
     }
 
@@ -145,7 +148,7 @@ final class ContactsViewModel {
             self.sent = sent
             self.history = history
         } catch {
-            // silently ignored
+            onError(error)
         }
     }
 }
