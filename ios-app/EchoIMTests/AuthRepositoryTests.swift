@@ -4,14 +4,19 @@ import Testing
 
 @Suite("AuthRepository error mapping")
 struct AuthRepositoryErrorMapTests {
-    func makeBody(_ message: String) -> Data {
-        try! JSONSerialization.data(withJSONObject: ["error": message])
+    func makeBody(code: String, message: String) -> Data {
+        try! JSONSerialization.data(withJSONObject: [
+            "error": [
+                "code": code,
+                "message": message,
+            ],
+        ])
     }
 
     @Test
     func invalidInviteCodeIs403() {
         let error = AuthRepositoryImpl.mapRegisterError(
-            .http(status: 403, body: makeBody("Invalid invite code"))
+            .http(status: 403, body: makeBody(code: "invalid_invite_code", message: "Invalid invite code"))
         )
         #expect(error == .invalidInviteCode)
     }
@@ -19,7 +24,7 @@ struct AuthRepositoryErrorMapTests {
     @Test
     func emailTakenIs409() {
         let error = AuthRepositoryImpl.mapRegisterError(
-            .http(status: 409, body: makeBody("Email already in use"))
+            .http(status: 409, body: makeBody(code: "email_already_in_use", message: "Email already in use"))
         )
         #expect(error == .emailTaken)
     }
@@ -27,7 +32,7 @@ struct AuthRepositoryErrorMapTests {
     @Test
     func usernameTakenIs409() {
         let error = AuthRepositoryImpl.mapRegisterError(
-            .http(status: 409, body: makeBody("Username already taken"))
+            .http(status: 409, body: makeBody(code: "username_already_taken", message: "Username already taken"))
         )
         #expect(error == .usernameTaken)
     }
@@ -35,7 +40,7 @@ struct AuthRepositoryErrorMapTests {
     @Test
     func fieldValidationEmailIs400() {
         let error = AuthRepositoryImpl.mapRegisterError(
-            .http(status: 400, body: makeBody("Invalid email address"))
+            .http(status: 400, body: makeBody(code: "invalid_email", message: "Invalid email address"))
         )
 
         if case .fieldValidation(let field, let message) = error {
@@ -49,7 +54,13 @@ struct AuthRepositoryErrorMapTests {
     @Test
     func fieldValidationUsernameIs400() {
         let error = AuthRepositoryImpl.mapRegisterError(
-            .http(status: 400, body: makeBody("Username must be at least 3 characters"))
+            .http(
+                status: 400,
+                body: makeBody(
+                    code: "username_too_short",
+                    message: "Username must be at least 3 characters"
+                )
+            )
         )
 
         if case .fieldValidation(let field, _) = error {
@@ -62,7 +73,13 @@ struct AuthRepositoryErrorMapTests {
     @Test
     func fieldValidationPasswordIs400() {
         let error = AuthRepositoryImpl.mapRegisterError(
-            .http(status: 400, body: makeBody("body/password must NOT have fewer than 8 characters"))
+            .http(
+                status: 400,
+                body: makeBody(
+                    code: "invalid_request",
+                    message: "body/password must NOT have fewer than 8 characters"
+                )
+            )
         )
 
         if case .fieldValidation(let field, _) = error {
@@ -75,7 +92,13 @@ struct AuthRepositoryErrorMapTests {
     @Test
     func fieldValidationInviteCodeIs400() {
         let error = AuthRepositoryImpl.mapRegisterError(
-            .http(status: 400, body: makeBody("body/inviteCode must NOT have fewer than 1 character"))
+            .http(
+                status: 400,
+                body: makeBody(
+                    code: "invalid_request",
+                    message: "body/inviteCode must NOT have fewer than 1 character"
+                )
+            )
         )
 
         if case .fieldValidation(let field, _) = error {
@@ -88,7 +111,7 @@ struct AuthRepositoryErrorMapTests {
     @Test
     func fieldValidationUnknownFieldFallsToToast() {
         let error = AuthRepositoryImpl.mapRegisterError(
-            .http(status: 400, body: makeBody("something obscure"))
+            .http(status: 400, body: makeBody(code: "invalid_request", message: "something obscure"))
         )
 
         if case .fieldValidation(let field, _) = error {

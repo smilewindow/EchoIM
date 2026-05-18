@@ -140,9 +140,8 @@ final class AuthRepositoryImpl: AuthRepository {
     }
 
     nonisolated private static func extractErrorMessage(_ body: Data) -> String {
-        if let object = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
-           let message = object["error"] as? String {
-            return message
+        if let serverError = APIError.decodeServerError(from: body) {
+            return serverError.message
         }
 
         return String(data: body, encoding: .utf8) ?? ""

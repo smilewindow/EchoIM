@@ -1,11 +1,30 @@
 import Foundation
 
+struct ServerAPIError: Decodable, Equatable, Sendable {
+    let code: String
+    let message: String
+}
+
+private struct ServerAPIErrorEnvelope: Decodable {
+    let error: ServerAPIError
+}
+
 enum APIError: Error, Equatable {
     case network(URLError)
     case unauthorized
     case http(status: Int, body: Data)
     case decoding(String)
     case invalidResponse
+
+    var serverError: ServerAPIError? {
+        guard case .http(_, let body) = self else { return nil }
+        return Self.decodeServerError(from: body)
+    }
+
+    static func decodeServerError(from body: Data) -> ServerAPIError? {
+        guard !body.isEmpty else { return nil }
+        return try? APIClient.jsonDecoder.decode(ServerAPIErrorEnvelope.self, from: body).error
+    }
 
     static func fromStatus(_ status: Int, body: Data) -> APIError {
         if status == 401 {
