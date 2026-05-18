@@ -3,6 +3,7 @@ import SwiftUI
 struct ConversationsListView: View {
     @State private var vm: ConversationsListViewModel
     @State private var highlightedConversationId: Int?
+    @Environment(\.showErrorToast) private var showErrorToast
     private let presenceStore: PresenceStore?
     private let onSelectConversation: (Conversation) -> Void
 
@@ -13,7 +14,6 @@ struct ConversationsListView: View {
         currentUserId: Int,
         presenceStore: PresenceStore? = nil,
         initialConversations: [Conversation] = [],
-        toastCenter: ToastCenter,
         onSelectConversation: @escaping (Conversation) -> Void,
         tokenProvider: @escaping @MainActor () -> String?
     ) {
@@ -24,10 +24,7 @@ struct ConversationsListView: View {
                 initialConversations: initialConversations,
                 tokenProvider: tokenProvider,
                 currentUserId: { currentUserId },
-                wsClient: wsClient,
-                onError: { [toastCenter] error in
-                    toastCenter.show(error: error)
-                }
+                wsClient: wsClient
             )
         )
         self.presenceStore = presenceStore
@@ -38,6 +35,7 @@ struct ConversationsListView: View {
         content
             .refreshable { await vm.refresh() }
             .task {
+                vm.setOnErrorHandler(showErrorToast)
                 vm.attachWSSubscription()
                 await vm.load()
             }

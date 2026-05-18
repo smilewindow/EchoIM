@@ -4,6 +4,7 @@ struct MeView: View {
     let container: AppContainer
     var onLogout: () async -> Void
 
+    @Environment(\.showErrorToast) private var showErrorToast
     @State private var showClearCacheConfirm = false
     @State private var isClearing = false
     @State private var showLogViewer = false
@@ -230,9 +231,7 @@ struct MeView: View {
             onUnauthorized: { [weak container] in
                 await container?.handleUnauthorized()
             },
-            onError: { [toastCenter = container.toastCenter] error in
-                toastCenter.show(error: error)
-            }
+            onError: showErrorToast
         )
     }
 

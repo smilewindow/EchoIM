@@ -59,7 +59,6 @@ struct MainTabView: View {
                 currentUserId: container.currentUser?.id ?? 0,
                 presenceStore: session.presenceStore,
                 initialConversations: session.cachedConversationsAtLaunch,
-                toastCenter: container.toastCenter,
                 onSelectConversation: { conversation in
                     path.append(ChatRoute.conversation(conversation))
                 },
@@ -84,7 +83,6 @@ struct MainTabView: View {
                 onPendingIncomingCountChange: { pendingIncomingCount = $0 },
                 presenceStore: session.presenceStore,
                 friendCacheStore: session.friendCacheStore(),
-                toastCenter: container.toastCenter,
                 tokenProvider: { [tokenStore = container.tokenStore] in
                     (try? tokenStore.load())?.token
                 }
@@ -116,7 +114,6 @@ struct MainTabView: View {
                 typingSender: { [weak ws = session.wsClient] cid, isStart in
                     ws?.sendTyping(conversationId: cid, isStart: isStart)
                 },
-                toastCenter: container.toastCenter,
                 tokenProvider: { [tokenStore = container.tokenStore] in
                     (try? tokenStore.load())?.token
                 },

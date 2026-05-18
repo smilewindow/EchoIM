@@ -15,6 +15,7 @@ struct ChatView: View {
     @State private var scrollState = ChatScrollState()
     @State private var keyboardHeight: CGFloat = 0
     @FocusState private var isInputFocused: Bool
+    @Environment(\.showErrorToast) private var showErrorToast
     private let presenceStore: PresenceStore?
     private let onNavigateToPeer: ((UserProfile) -> Void)?
 
@@ -30,7 +31,6 @@ struct ChatView: View {
         presenceStore: PresenceStore? = nil,
         typingStore: TypingStore? = nil,
         typingSender: @escaping @MainActor (Int, Bool) -> Void = { _, _ in },
-        toastCenter: ToastCenter,
         tokenProvider: @escaping @MainActor () -> String?,
         onNavigateToPeer: ((UserProfile) -> Void)? = nil
     ) {
@@ -46,10 +46,7 @@ struct ChatView: View {
                 uploadRepo: uploadRepo,
                 typingStore: typingStore,
                 typingSender: typingSender,
-                tokenProvider: tokenProvider,
-                onError: { [toastCenter] error in
-                    toastCenter.show(error: error)
-                }
+                tokenProvider: tokenProvider
             )
         )
         self.presenceStore = presenceStore
@@ -67,6 +64,7 @@ struct ChatView: View {
         }
         .echoNavigationBarStyle()
         .task {
+            vm.setOnErrorHandler(showErrorToast)
             vm.attachWSSubscription()
             await vm.load()
         }

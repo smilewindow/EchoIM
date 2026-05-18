@@ -2,8 +2,8 @@ import SwiftUI
 
 struct ContactsView: View {
     @State private var vm: ContactsViewModel
+    @Environment(\.showErrorToast) private var showErrorToast
     private let userRepo: UserRepository
-    private let toastCenter: ToastCenter
     private let tokenProvider: () -> String?
     private let onPendingIncomingCountChange: (Int) -> Void
 
@@ -22,7 +22,6 @@ struct ContactsView: View {
         onPendingIncomingCountChange: @escaping (Int) -> Void = { _ in },
         presenceStore: PresenceStore? = nil,
         friendCacheStore: FriendCacheStore? = nil,
-        toastCenter: ToastCenter,
         tokenProvider: @escaping () -> String?
     ) {
         _vm = State(
@@ -30,14 +29,10 @@ struct ContactsView: View {
                 friendRepo: friendRepo,
                 requestRepo: requestRepo,
                 tokenProvider: tokenProvider,
-                friendCacheStore: friendCacheStore,
-                onError: { [toastCenter] error in
-                    toastCenter.show(error: error)
-                }
+                friendCacheStore: friendCacheStore
             )
         )
         self.userRepo = userRepo
-        self.toastCenter = toastCenter
         self.presenceStore = presenceStore
         self.tokenProvider = tokenProvider
         self.onPendingIncomingCountChange = onPendingIncomingCountChange
@@ -48,6 +43,7 @@ struct ContactsView: View {
     var body: some View {
         FriendsListView(friends: vm.friends, presenceStore: presenceStore)
             .task {
+                vm.setOnErrorHandler(showErrorToast)
                 await vm.refresh()
                 reportPendingIncomingCount()
             }
@@ -67,7 +63,6 @@ struct ContactsView: View {
                 UserSearchSheetView(
                     vm: vm,
                     userRepo: userRepo,
-                    toastCenter: toastCenter,
                     tokenProvider: tokenProvider
                 ) {
                     showSearch = false

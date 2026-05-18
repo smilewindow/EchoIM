@@ -30,7 +30,7 @@ final class ProfileEditViewModel {
     private let uploadRepo: UploadRepository
     private let refreshCurrentUser: @MainActor () async -> Void
     private let onUnauthorized: @MainActor () async -> Void
-    private let onError: @MainActor (Error) -> Void
+    private var onError: @MainActor (Error) -> Void
 
     init(
         currentUser: @escaping @MainActor () -> AuthenticatedUser?,
@@ -50,6 +50,10 @@ final class ProfileEditViewModel {
         self.refreshCurrentUser = refreshCurrentUser
         self.onUnauthorized = onUnauthorized
         self.onError = onError
+    }
+
+    func setOnErrorHandler(_ handler: @escaping @MainActor (Error) -> Void) {
+        onError = handler
     }
 
     /// View 出现时调用一次，把 currentUser.displayName 拷进 draft。

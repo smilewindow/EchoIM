@@ -37,7 +37,7 @@ final class ChatViewModel {
     weak var wsClient: WebSocketClient?
     private let tokenProvider: @MainActor () -> String?
     private let haptics: HapticFeedbackProvider
-    private let onError: @MainActor (Error) -> Void
+    private var onError: @MainActor (Error) -> Void
 
     // P6：只读 typingStore（不变式 8：VM 不路由 typing 事件，UserSession 是唯一写入方）
     private let typingStore: TypingStore?
@@ -98,6 +98,10 @@ final class ChatViewModel {
         self.tokenProvider = tokenProvider
         self.haptics = haptics ?? UIKitHapticFeedback()
         self.onError = onError
+    }
+
+    func setOnErrorHandler(_ handler: @escaping @MainActor (Error) -> Void) {
+        onError = handler
     }
 
     /// 对方是否正在输入。仅当 conversationId 已知且 typingStore 命中时为 true（不变式 8）。

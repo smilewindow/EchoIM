@@ -34,7 +34,7 @@ final class ConversationsListViewModel {
     private let metaStore: ConversationMetaStore?
     private let tokenProvider: @MainActor () -> String?
     private let currentUserId: @MainActor () -> Int?
-    private let onError: @MainActor (Error) -> Void
+    private var onError: @MainActor (Error) -> Void
     private weak var wsClient: WebSocketClient?
     private var wsSubscription: WSSubscription?
     private var readySubscription: WSSubscription?
@@ -55,6 +55,10 @@ final class ConversationsListViewModel {
         self.onError = onError
         self.wsClient = wsClient
         self.conversations = initialConversations
+    }
+
+    func setOnErrorHandler(_ handler: @escaping @MainActor (Error) -> Void) {
+        onError = handler
     }
 
     // MARK: - Load

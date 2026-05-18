@@ -2,8 +2,8 @@ import SwiftUI
 
 struct UserSearchSheetView: View {
     @Bindable var vm: ContactsViewModel
+    @Environment(\.showErrorToast) private var showErrorToast
     let userRepo: UserRepository
-    let toastCenter: ToastCenter
     let tokenProvider: () -> String?
     var onClose: () -> Void
 
@@ -114,7 +114,7 @@ struct UserSearchSheetView: View {
                             sendingId = nil
 
                             if case .failure(let error) = result {
-                                toastCenter.show(error: error)
+                                showErrorToast(error)
                             }
                         }
                     }
@@ -168,7 +168,7 @@ struct UserSearchSheetView: View {
             results = try await userRepo.searchUsers(query: trimmed, token: token)
         } catch {
             results = []
-            toastCenter.show(error: error)
+            showErrorToast(error)
         }
     }
 }

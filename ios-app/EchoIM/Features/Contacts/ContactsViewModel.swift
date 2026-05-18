@@ -15,7 +15,7 @@ final class ContactsViewModel {
     private let tokenProvider: () -> String?
     private let haptics: HapticFeedbackProvider
     private let friendCacheStore: FriendCacheStore?
-    private let onError: @MainActor (Error) -> Void
+    private var onError: @MainActor (Error) -> Void
 
     init(
         friendRepo: FriendRepository,
@@ -31,6 +31,10 @@ final class ContactsViewModel {
         self.friendCacheStore = friendCacheStore
         self.haptics = haptics ?? UIKitHapticFeedback()
         self.onError = onError
+    }
+
+    func setOnErrorHandler(_ handler: @escaping @MainActor (Error) -> Void) {
+        onError = handler
     }
 
     var pendingIncomingCount: Int {

@@ -57,6 +57,7 @@ struct RootView: View {
             }
         }
         .animation(.easeOut(duration: 0.18), value: container.currentToast?.id)
+        .environment(\.showErrorToast, container.showErrorToast(for:))
         .onChange(of: scenePhase) { _, newPhase in
             guard let session = container.session else { return }
             switch newPhase {
