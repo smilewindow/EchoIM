@@ -4,6 +4,7 @@
 EchoIM is a small monorepo with a clear split between frontend and backend:
 - `client/`: React 18 + Vite app. Main code lives in `client/src`, reusable UI primitives in `client/src/components/ui`, and shared helpers in `client/src/lib`.
 - `server/`: Fastify + TypeScript API. The current entry point is `server/src/index.ts`; keep new routes, services, and database helpers under `server/src`.
+- `ios-app/`: SwiftUI iOS app. Xcode uses file-system-synchronized root groups, so new files under `ios-app/EchoIM` are automatically included in the project.
 - Root files: `docker-compose.yml` starts PostgreSQL, `.env.example` documents local configuration, and `prd.md` / `tasks.md` describe product scope and implementation order.
 
 ## Build, Test, and Development Commands

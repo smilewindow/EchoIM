@@ -90,6 +90,8 @@ npm run lint --prefix server
 ### iOS 客户端（`/ios-app`）
 尚在脚手架阶段。技术栈规划：SwiftUI + iOS 17+（`@Observable`）+ MVVM + URLSession/`URLSessionWebSocketTask` + SwiftData（轻量缓存）+ Nuke（图片磁盘缓存）+ KeychainAccess。见 `docs/superpowers/specs/` 下的设计文档。
 
+iOS 工程使用 Xcode 的文件系统同步 root group；`ios-app/EchoIM` 下新增文件会自动纳入工程。
+
 ### 数据模型
 五张表（所有业务 ID 都是 PostgreSQL `SERIAL`/整数，不是 UUID）：
 - **`users`**：`id`、`username`、`email`、`password_hash`、`display_name`、`avatar_url`
