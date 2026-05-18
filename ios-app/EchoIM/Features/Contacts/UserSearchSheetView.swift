@@ -114,7 +114,7 @@ struct UserSearchSheetView: View {
                             sendingId = nil
 
                             if case .failure(let error) = result {
-                                toastCenter.show(ErrorPresenter.message(for: error))
+                                toastCenter.show(error: error)
                             }
                         }
                     }
@@ -168,7 +168,7 @@ struct UserSearchSheetView: View {
             results = try await userRepo.searchUsers(query: trimmed, token: token)
         } catch {
             results = []
-            toastCenter.show(ErrorPresenter.message(for: error))
+            toastCenter.show(error: error)
         }
     }
 }

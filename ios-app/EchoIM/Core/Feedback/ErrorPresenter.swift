@@ -1,6 +1,14 @@
 import Foundation
 
 enum ErrorPresenter {
+    static func displayMessage(for error: Error) -> String? {
+        guard !isCancellation(error) else {
+            return nil
+        }
+
+        return message(for: error)
+    }
+
     static func message(for error: Error) -> String {
         if let apiError = error as? APIError {
             return message(for: apiError)
@@ -82,5 +90,22 @@ enum ErrorPresenter {
         default:
             return nil
         }
+    }
+
+    private static func isCancellation(_ error: Error) -> Bool {
+        if error is CancellationError {
+            return true
+        }
+
+        if let apiError = error as? APIError,
+           case .network(let urlError) = apiError {
+            return urlError.code == .cancelled
+        }
+
+        if let urlError = error as? URLError {
+            return urlError.code == .cancelled
+        }
+
+        return false
     }
 }

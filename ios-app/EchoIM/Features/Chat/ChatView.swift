@@ -48,7 +48,7 @@ struct ChatView: View {
                 typingSender: typingSender,
                 tokenProvider: tokenProvider,
                 onError: { [toastCenter] error in
-                    toastCenter.show(ErrorPresenter.message(for: error))
+                    toastCenter.show(error: error)
                 }
             )
         )

@@ -26,7 +26,7 @@ struct ConversationsListView: View {
                 currentUserId: { currentUserId },
                 wsClient: wsClient,
                 onError: { [toastCenter] error in
-                    toastCenter.show(ErrorPresenter.message(for: error))
+                    toastCenter.show(error: error)
                 }
             )
         )

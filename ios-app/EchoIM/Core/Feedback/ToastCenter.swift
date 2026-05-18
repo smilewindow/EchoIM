@@ -19,6 +19,14 @@ final class ToastCenter {
         }
     }
 
+    func show(error: Error) {
+        guard let message = ErrorPresenter.displayMessage(for: error) else {
+            return
+        }
+
+        show(message)
+    }
+
     func clear() {
         dismissTask?.cancel()
         dismissTask = nil

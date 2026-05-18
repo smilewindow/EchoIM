@@ -40,4 +40,18 @@ struct ErrorPresenterTests {
 
         #expect(ErrorPresenter.message(for: error) == "网络不可用，请检查连接")
     }
+
+    @Test
+    func suppressesCancelledNetworkErrorForDisplay() {
+        let error = APIError.network(URLError(.cancelled))
+
+        #expect(ErrorPresenter.displayMessage(for: error) == nil)
+    }
+
+    @Test
+    func keepsRealNetworkErrorDisplayMessage() {
+        let error = APIError.network(URLError(.notConnectedToInternet))
+
+        #expect(ErrorPresenter.displayMessage(for: error) == "网络不可用，请检查连接")
+    }
 }

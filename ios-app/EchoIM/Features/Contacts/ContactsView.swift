@@ -32,7 +32,7 @@ struct ContactsView: View {
                 tokenProvider: tokenProvider,
                 friendCacheStore: friendCacheStore,
                 onError: { [toastCenter] error in
-                    toastCenter.show(ErrorPresenter.message(for: error))
+                    toastCenter.show(error: error)
                 }
             )
         )

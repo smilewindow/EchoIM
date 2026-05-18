@@ -65,7 +65,7 @@ final class AppContainer {
     }
 
     func showErrorToast(for error: Error) {
-        toastCenter.show(ErrorPresenter.message(for: error))
+        toastCenter.show(error: error)
     }
 
     func showToast(_ message: String) {

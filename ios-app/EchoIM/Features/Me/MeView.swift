@@ -231,7 +231,7 @@ struct MeView: View {
                 await container?.handleUnauthorized()
             },
             onError: { [toastCenter = container.toastCenter] error in
-                toastCenter.show(ErrorPresenter.message(for: error))
+                toastCenter.show(error: error)
             }
         )
     }
