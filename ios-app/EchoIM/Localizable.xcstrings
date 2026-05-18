@@ -100,6 +100,16 @@
         }
       }
     },
+    "不能添加自己为好友" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You cannot add yourself as a friend"
+          }
+        }
+      }
+    },
     "从「联系人」里选一个好友\n开始聊天" : {
 
     },
@@ -124,6 +134,16 @@
         }
       }
     },
+    "会话不存在" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conversation not found"
+          }
+        }
+      }
+    },
     "保存" : {
       "localizations" : {
         "en" : {
@@ -135,6 +155,7 @@
       }
     },
     "保存失败" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -256,6 +277,16 @@
         }
       }
     },
+    "只能给好友发送消息" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can only message friends"
+          }
+        }
+      }
+    },
     "同意" : {
       "localizations" : {
         "en" : {
@@ -268,6 +299,36 @@
     },
     "图片加载失败" : {
 
+    },
+    "图片尺寸信息无效，请重新选择" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid image size. Choose another image."
+          }
+        }
+      }
+    },
+    "图片文件无效，请重新选择" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid image file. Choose another image."
+          }
+        }
+      }
+    },
+    "图片消息无效，请重新选择" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid image message. Choose another image."
+          }
+        }
+      }
     },
     "在线" : {
       "localizations" : {
@@ -308,6 +369,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Friend Requests"
+          }
+        }
+      }
+    },
+    "好友申请不存在或已处理" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Friend request not found or already handled"
+          }
+        }
+      }
+    },
+    "好友申请已存在" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Friend request already exists"
           }
         }
       }
@@ -446,12 +527,32 @@
     "搜索日志" : {
 
     },
+    "操作失败，请稍后重试" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Operation failed. Try again later."
+          }
+        }
+      }
+    },
     "收到" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Received"
+          }
+        }
+      }
+    },
+    "数据异常，请稍后重试" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unexpected data. Try again later."
           }
         }
       }
@@ -509,6 +610,16 @@
         }
       }
     },
+    "服务器开小差了，请稍后重试" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server error. Try again later."
+          }
+        }
+      }
+    },
     "服务恢复后会自动同步" : {
 
     },
@@ -531,6 +642,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No users match"
+          }
+        }
+      }
+    },
+    "没有可保存的修改" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No changes to save"
           }
         }
       }
@@ -575,6 +696,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sign up failed. Please try again."
+          }
+        }
+      }
+    },
+    "消息内容不能为空" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Message cannot be empty"
           }
         }
       }
@@ -674,6 +805,16 @@
         }
       }
     },
+    "用户不存在" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "User not found"
+          }
+        }
+      }
+    },
     "用户名" : {
       "localizations" : {
         "en" : {
@@ -695,6 +836,16 @@
       }
     },
     "用户名至少 3 位" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Username must be at least 3 characters"
+          }
+        }
+      }
+    },
+    "用户名至少需要 3 个字符" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -756,6 +907,7 @@
       }
     },
     "知道了" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -798,6 +950,16 @@
         }
       }
     },
+    "网络不可用，请检查连接" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Network unavailable. Check your connection."
+          }
+        }
+      }
+    },
     "网络错误，请检查连接" : {
       "localizations" : {
         "en" : {
@@ -807,6 +969,9 @@
           }
         }
       }
+    },
+    "网络错误，请稍后重试" : {
+
     },
     "聊天" : {
       "localizations" : {
@@ -855,6 +1020,56 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Say something..."
+          }
+        }
+      }
+    },
+    "请求参数无效，请重试" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid request. Try again."
+          }
+        }
+      }
+    },
+    "请求失败，请稍后重试" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Request failed. Try again later."
+          }
+        }
+      }
+    },
+    "请求超时，请稍后重试" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Request timed out. Try again later."
+          }
+        }
+      }
+    },
+    "请选择要上传的文件" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a file to upload"
+          }
+        }
+      }
+    },
+    "账号已存在" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account already exists"
           }
         }
       }
@@ -942,6 +1157,16 @@
         }
       }
     },
+    "邮箱已被使用" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Email already in use"
+          }
+        }
+      }
+    },
     "邮箱已被注册" : {
       "localizations" : {
         "en" : {
@@ -968,226 +1193,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Invalid email format"
-          }
-        }
-      }
-    },
-    "不能添加自己为好友" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You cannot add yourself as a friend"
-          }
-        }
-      }
-    },
-    "会话不存在" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Conversation not found"
-          }
-        }
-      }
-    },
-    "好友申请不存在或已处理" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Friend request not found or already handled"
-          }
-        }
-      }
-    },
-    "好友申请已存在" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Friend request already exists"
-          }
-        }
-      }
-    },
-    "图片尺寸信息无效，请重新选择" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invalid image size. Choose another image."
-          }
-        }
-      }
-    },
-    "图片文件无效，请重新选择" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invalid image file. Choose another image."
-          }
-        }
-      }
-    },
-    "图片消息无效，请重新选择" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invalid image message. Choose another image."
-          }
-        }
-      }
-    },
-    "操作失败，请稍后重试" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Operation failed. Try again later."
-          }
-        }
-      }
-    },
-    "没有可保存的修改" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No changes to save"
-          }
-        }
-      }
-    },
-    "消息内容不能为空" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Message cannot be empty"
-          }
-        }
-      }
-    },
-    "只能给好友发送消息" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You can only message friends"
-          }
-        }
-      }
-    },
-    "请选择要上传的文件" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choose a file to upload"
-          }
-        }
-      }
-    },
-    "账号已存在" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Account already exists"
-          }
-        }
-      }
-    },
-    "请求参数无效，请重试" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invalid request. Try again."
-          }
-        }
-      }
-    },
-    "请求失败，请稍后重试" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Request failed. Try again later."
-          }
-        }
-      }
-    },
-    "请求超时，请稍后重试" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Request timed out. Try again later."
-          }
-        }
-      }
-    },
-    "数据异常，请稍后重试" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Unexpected data. Try again later."
-          }
-        }
-      }
-    },
-    "服务器开小差了，请稍后重试" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Server error. Try again later."
-          }
-        }
-      }
-    },
-    "用户不存在" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "User not found"
-          }
-        }
-      }
-    },
-    "用户名至少需要 3 个字符" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Username must be at least 3 characters"
-          }
-        }
-      }
-    },
-    "网络不可用，请检查连接" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Network unavailable. Check your connection."
-          }
-        }
-      }
-    },
-    "邮箱已被使用" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Email already in use"
           }
         }
       }
