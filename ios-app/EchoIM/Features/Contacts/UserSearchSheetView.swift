@@ -110,12 +110,8 @@ struct UserSearchSheetView: View {
                     Button(buttonLabel(for: user)) {
                         sendingId = user.id
                         Task {
-                            let result = await vm.send(recipientId: user.id)
+                            await vm.send(recipientId: user.id)
                             sendingId = nil
-
-                            if case .failure(let error) = result {
-                                showErrorToast(error)
-                            }
                         }
                     }
                     .buttonStyle(.bordered)

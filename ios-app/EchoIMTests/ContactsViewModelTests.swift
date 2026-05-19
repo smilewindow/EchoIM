@@ -236,11 +236,8 @@ struct ContactsViewModelTests {
             tokenProvider: { "jwt" }
         )
 
-        let result = await vm.send(recipientId: 2)
+        await vm.send(recipientId: 2)
 
-        if case .failure(let error) = result {
-            Issue.record("expected .success, got \(String(describing: error))")
-        }
         #expect(requestRepo.sendCalls == [2])
         #expect(requestRepo.listCallCounts.sent == 1)
     }
@@ -248,19 +245,22 @@ struct ContactsViewModelTests {
     @Test
     func sendSurfacesErrorOnFailure() async {
         let requestRepo = FakeRequestRepo()
-        requestRepo.sendResult = .failure(APIError.http(status: 409, body: Data()))
+        let expectedError = APIError.http(status: 409, body: Data())
+        requestRepo.sendResult = .failure(expectedError)
+        var capturedError: Error?
 
         let vm = ContactsViewModel(
             friendRepo: FakeFriendRepo(),
             requestRepo: requestRepo,
-            tokenProvider: { "jwt" }
+            tokenProvider: { "jwt" },
+            onError: { error in
+                capturedError = error
+            }
         )
 
-        let result = await vm.send(recipientId: 3)
+        await vm.send(recipientId: 3)
 
-        if case .success = result {
-            Issue.record("expected failure")
-        }
+        #expect(capturedError as? APIError == expectedError)
         #expect(requestRepo.listCallCounts.sent == 0)
     }
 

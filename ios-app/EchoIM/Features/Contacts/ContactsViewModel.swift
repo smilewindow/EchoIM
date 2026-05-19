@@ -108,17 +108,17 @@ final class ContactsViewModel {
         }
     }
 
-    func send(recipientId: Int) async -> Result<Void, Error> {
+    func send(recipientId: Int) async {
         guard let token = tokenProvider() else {
-            return .failure(APIError.unauthorized)
+            onError(APIError.unauthorized)
+            return
         }
 
         do {
             _ = try await requestRepo.send(recipientId: recipientId, token: token)
             await loadSentRequests()
-            return .success(())
         } catch {
-            return .failure(error)
+            onError(error)
         }
     }
 

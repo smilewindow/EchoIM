@@ -6,6 +6,8 @@ struct RootView: View {
     @State private var showLaunchSplash = true
     @State private var didStartLaunchSequence = false
     @State private var showRegister = false
+    @State private var toastScene: UIWindowScene?
+    @State private var toastPresenter = ToastWindowPresenter()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
 
@@ -49,15 +51,17 @@ struct RootView: View {
         }
         .animation(.default, value: container.currentUser?.id)
         .animation(.default, value: showRegister)
-        .overlay {
-            if let toast = container.currentToast {
-                ToastOverlay(toast: toast)
-                    .allowsHitTesting(false)
-                    .transition(.opacity.combined(with: .scale(scale: 0.96)))
+        .background {
+            WindowSceneReader { scene in
+                toastScene = scene
+                syncToastPresentation(toast: container.currentToast, scene: scene)
             }
+            .frame(width: 0, height: 0)
         }
-        .animation(.easeOut(duration: 0.18), value: container.currentToast?.id)
         .environment(\.showErrorToast, container.showErrorToast(for:))
+        .onChange(of: container.currentToast?.id) { _, _ in
+            syncToastPresentation(toast: container.currentToast, scene: toastScene)
+        }
         .onChange(of: scenePhase) { _, newPhase in
             guard let session = container.session else { return }
             switch newPhase {
@@ -95,5 +99,14 @@ struct RootView: View {
             return UInt64(seconds * 1_000_000_000)
         }
         return 1_500_000_000
+    }
+
+    private func syncToastPresentation(toast: ToastMessage?, scene: UIWindowScene?) {
+        guard let toast, let scene else {
+            toastPresenter.hide()
+            return
+        }
+
+        toastPresenter.show(toast, in: scene)
     }
 }
