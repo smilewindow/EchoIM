@@ -154,13 +154,19 @@ describe('POST /api/friend-requests', () => {
   it('returns 409 when reversed request already exists', async () => {
     const { alice, bob } = await setupTwoUsers(app)
     await sendFriendRequest(app, bob.token, alice.user.id)
-    // alice tries to send to bob when bob already sent to alice
+
     const res = await sendFriendRequest(app, alice.token, bob.user.id)
-    // The unique constraint covers (sender_id, recipient_id) but not the reverse,
-    // so we just verify the first request succeeded and alice can still send
-    // (reversed duplicate is not blocked at DB level unless a constraint exists)
-    // This test validates whatever behavior the server has: either 201 or 409
-    expect([201, 409]).toContain(res.statusCode)
+    expectApiError(res, 409, 'friend_request_already_exists')
+  })
+
+  it('returns 409 when users are already friends in the reverse direction', async () => {
+    const { alice, bob } = await setupTwoUsers(app)
+    const createRes = await sendFriendRequest(app, alice.token, bob.user.id)
+    const requestId = createRes.json().id
+    await respondToRequest(app, bob.token, requestId, 'accepted')
+
+    const res = await sendFriendRequest(app, bob.token, alice.user.id)
+    expectApiError(res, 409, 'friend_request_already_exists')
   })
 
   it('returns 401 when unauthenticated', async () => {
