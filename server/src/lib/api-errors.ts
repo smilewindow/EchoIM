@@ -6,13 +6,6 @@ export type ApiErrorDefinition = {
   message: string
 }
 
-export type ApiErrorResponse = {
-  error: {
-    code: string
-    message: string
-  }
-}
-
 export const ApiErrors = {
   invalidRequest: {
     statusCode: 400,
@@ -161,7 +154,17 @@ export const ApiErrors = {
   },
 } as const satisfies Record<string, ApiErrorDefinition>
 
-export function sendApiError(reply: FastifyReply, error: ApiErrorDefinition) {
+export type ApiErrorEntry = (typeof ApiErrors)[keyof typeof ApiErrors]
+export type ApiErrorCode = ApiErrorEntry['code']
+
+export type ApiErrorResponse = {
+  error: {
+    code: ApiErrorCode
+    message: string
+  }
+}
+
+export function sendApiError(reply: FastifyReply, error: ApiErrorEntry) {
   return reply.status(error.statusCode).send({
     error: {
       code: error.code,
