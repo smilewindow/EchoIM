@@ -9,7 +9,9 @@ final class ToastCenter {
 
     func show(_ message: String) {
         dismissTask?.cancel()
-        current = ToastMessage(message: message)
+        if current?.message != message {
+            current = ToastMessage(message: message)
+        }
 
         dismissTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 2_500_000_000)
