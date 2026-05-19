@@ -156,13 +156,9 @@ final class AppContainer {
         showToast(String(localized: "登录状态已失效，请重新登录"))
     }
 
-    /// 设计 §5.5 的三阶段清理。必须按顺序：
-    /// 1. Nuke 独立清（与 SwiftData 无关）
-    /// 2. 放掉 session（含 ModelContainer）+ yield 一次让 actor 排空
-    /// 3. 删按 userId 的 store 目录
+    /// 释放登录态资源。不要删除 SwiftData 用户目录：登出/401 不是“清除本机数据”，
+    /// 且 SQLite 连接仍可能持有 `cache.sqlite` / WAL / SHM 文件句柄。
     func tearDownSession() async {
-        let userId = session?.userId
-
         // 仅清内存缓存，磁盘缓存保留，以便再次登录或服务端不可用时仍能离线展示历史图片。
         ImagePipeline.shared.cache.removeAll(caches: .memory)
 
@@ -170,14 +166,6 @@ final class AppContainer {
         session = nil
         currentUser = nil
         isRestoringCurrentUser = false
-        await Task.yield()
-
-        if let userId {
-            let dir = URL.applicationSupportDirectory
-                .appendingPathComponent("EchoIM/users/\(userId)")
-            try? FileManager.default.removeItem(at: dir)
-            Log.info(.cache, "user dir removed u=\(userId)")
-        }
     }
 
     /// Me 页“清除聊天缓存”按钮入口。保留 session / token，只清 SwiftData + Nuke。

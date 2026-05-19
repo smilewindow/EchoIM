@@ -11,6 +11,7 @@ struct AppContainerTests {
         let currentUserCache: CurrentUserCacheStore
         let cacheBaseDirectory: URL
 
+        @MainActor
         func cleanup() {
             try? store.clear()
             try? FileManager.default.removeItem(at: cacheBaseDirectory)
@@ -35,6 +36,12 @@ struct AppContainerTests {
             currentUserCache: currentUserCache,
             cacheBaseDirectory: cacheBaseDirectory
         )
+    }
+
+    private func removeUserCacheDirectory(userId: Int) {
+        let dir = URL.applicationSupportDirectory
+            .appendingPathComponent("EchoIM/users/\(userId)")
+        try? FileManager.default.removeItem(at: dir)
     }
 
     @Test
@@ -70,6 +77,7 @@ struct AppContainerTests {
         let firstContainer = setup.container
         let store = setup.store
         let userId = Int.random(in: 800_000_000...899_999_999)
+        defer { removeUserCacheDirectory(userId: userId) }
         let cachedUser = AuthenticatedUser(
             id: userId,
             username: "alice",
@@ -138,13 +146,14 @@ struct AppContainerTests {
     }
 
     @Test
-    func tearDownSessionClearsAllUserStateAndFiles() async throws {
+    func tearDownSessionClearsUserStateButKeepsCacheFiles() async throws {
         let setup = makeSetup()
         defer { setup.cleanup() }
         let container = setup.container
         let store = setup.store
         // 不依赖真实服务端用户；这里只验证 AppContainer 对当前 session 的本地资源清理。
         let userId = Int.random(in: 900_000_000...999_999_999)
+        defer { removeUserCacheDirectory(userId: userId) }
 
         container.handleLoginSuccess(
             AuthResponse(
@@ -173,7 +182,7 @@ struct AppContainerTests {
         #expect(container.session == nil)
         #expect(container.currentUser == nil)
         #expect(!container.isRestoringCurrentUser)
-        #expect(!FileManager.default.fileExists(atPath: userDir.path))
+        #expect(FileManager.default.fileExists(atPath: userDir.path))
         #expect(try store.load() != nil)
     }
 
