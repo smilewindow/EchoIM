@@ -1,6 +1,13 @@
 import SwiftUI
 
 struct UserSearchSheetView: View {
+    private enum SearchActionState {
+        case friend
+        case sent
+        case sending
+        case add
+    }
+
     @Bindable var vm: ContactsViewModel
     @Environment(\.showErrorToast) private var showErrorToast
     let userRepo: UserRepository
@@ -107,7 +114,8 @@ struct UserSearchSheetView: View {
 
                     Spacer()
 
-                    Button(buttonLabel(for: user)) {
+                    let actionState = actionState(for: user)
+                    Button(buttonLabel(for: actionState)) {
                         sendingId = user.id
                         Task {
                             await vm.send(recipientId: user.id)
@@ -116,7 +124,7 @@ struct UserSearchSheetView: View {
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
-                    .disabled(isAlreadySent(user.id) || sendingId == user.id)
+                    .disabled(actionState != .add)
                     .accessibilityIdentifier("sendFriendRequest_\(user.username)")
                 }
                 .accessibilityIdentifier("userSearchResult_\(user.username)")
@@ -126,16 +134,33 @@ struct UserSearchSheetView: View {
         }
     }
 
-    private func buttonLabel(for user: UserProfile) -> String {
-        if isAlreadySent(user.id) {
+    private func buttonLabel(for state: SearchActionState) -> String {
+        switch state {
+        case .friend:
+            return String(localized: "已是好友")
+        case .sent:
             return String(localized: "已发送")
+        case .sending:
+            return "…"
+        case .add:
+            return String(localized: "添加")
+        }
+    }
+
+    private func actionState(for user: UserProfile) -> SearchActionState {
+        if vm.friends.contains(where: { $0.id == user.id }) {
+            return .friend
+        }
+
+        if isAlreadySent(user.id) {
+            return .sent
         }
 
         if sendingId == user.id {
-            return "…"
+            return .sending
         }
 
-        return String(localized: "添加")
+        return .add
     }
 
     private func isAlreadySent(_ userId: Int) -> Bool {

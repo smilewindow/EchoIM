@@ -454,6 +454,16 @@
         }
       }
     },
+    "已是好友" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Already friends"
+          }
+        }
+      }
+    },
     "已发送" : {
       "localizations" : {
         "en" : {
