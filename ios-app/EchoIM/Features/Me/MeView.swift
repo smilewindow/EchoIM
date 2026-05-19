@@ -50,7 +50,7 @@ struct MeView: View {
             Button("清除", role: .destructive) {
                 Task {
                     isClearing = true
-                    await container.clearChatCache()
+                    try? await container.clearChatCache()
                     isClearing = false
                 }
             }

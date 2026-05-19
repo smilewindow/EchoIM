@@ -18,7 +18,10 @@ struct AppContainerTests {
         }
     }
 
-    private func makeSetup(resetArg: Bool = false) -> Setup {
+    private func makeSetup(
+        resetArg: Bool = false,
+        imageCacheClearer: (@MainActor () throws -> Void)? = nil
+    ) -> Setup {
         let store = KeychainTokenStore(service: "com.echoim.test.\(UUID().uuidString)")
         let cacheBaseDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("EchoIMTests/\(UUID().uuidString)")
@@ -28,7 +31,8 @@ struct AppContainerTests {
             tokenStore: store,
             apiClient: APIClient(),
             currentUserCache: currentUserCache,
-            resetKeychainOnLaunch: resetArg
+            resetKeychainOnLaunch: resetArg,
+            imageCacheClearer: imageCacheClearer
         )
         return Setup(
             container: container,
@@ -184,6 +188,102 @@ struct AppContainerTests {
         #expect(!container.isRestoringCurrentUser)
         #expect(FileManager.default.fileExists(atPath: userDir.path))
         #expect(try store.load() != nil)
+    }
+
+    @Test
+    func clearChatCacheDeletesMessagesAndKeepsLightweightCaches() async throws {
+        let setup = makeSetup()
+        defer { setup.cleanup() }
+        let container = setup.container
+        let userId = Int.random(in: 700_000_000...799_999_999)
+        defer { removeUserCacheDirectory(userId: userId) }
+
+        container.handleLoginSuccess(
+            AuthResponse(
+                token: "dummy",
+                user: AuthenticatedUser(
+                    id: userId,
+                    username: "alice",
+                    email: "a@b.c",
+                    displayName: nil,
+                    avatarUrl: nil
+                )
+            )
+        )
+        let session = try #require(container.session)
+        let messageStore = session.messageStore()
+        let metaStore = session.conversationMetaStore()
+        let friendStore = session.friendCacheStore()
+
+        try await messageStore.append([
+            Message(
+                id: 101,
+                conversationId: 33,
+                senderId: userId,
+                body: "hello",
+                messageType: "text",
+                mediaUrl: nil,
+                createdAt: Date(),
+                clientTempId: nil
+            ),
+        ])
+        try await metaStore.upsert(
+            ConversationMetaSnapshot(
+                conversationId: 33,
+                peerUserId: 44,
+                peerUsername: "bob",
+                peerDisplayName: "Bob",
+                peerAvatarUrl: nil,
+                oldestCachedMessageId: 101,
+                newestCachedMessageId: 101,
+                lastReadMessageId: nil,
+                unreadCount: 1,
+                lastMessageBody: "hello",
+                lastMessageType: "text",
+                lastMessageAt: Date()
+            )
+        )
+        try await friendStore.saveAll([
+            UserProfile(id: 44, username: "bob", displayName: "Bob", avatarUrl: nil),
+        ])
+
+        try await container.clearChatCache()
+
+        let messages = try await messageStore.loadLatest(conversationId: 33, limit: 10)
+        let meta = try await metaStore.load(conversationId: 33)
+        let friends = try await friendStore.loadAll()
+        #expect(messages.isEmpty)
+        #expect(meta?.peerUsername == "bob")
+        #expect(meta?.oldestCachedMessageId == nil)
+        #expect(meta?.newestCachedMessageId == nil)
+        #expect(friends.map(\.username) == ["bob"])
+    }
+
+    @Test
+    func clearChatCacheSurfacesFailureToCaller() async throws {
+        struct CacheClearFailure: Error {}
+        let setup = makeSetup(imageCacheClearer: { throw CacheClearFailure() })
+        defer { setup.cleanup() }
+        let container = setup.container
+        let userId = Int.random(in: 600_000_000...699_999_999)
+        defer { removeUserCacheDirectory(userId: userId) }
+
+        container.handleLoginSuccess(
+            AuthResponse(
+                token: "dummy",
+                user: AuthenticatedUser(
+                    id: userId,
+                    username: "alice",
+                    email: "a@b.c",
+                    displayName: nil,
+                    avatarUrl: nil
+                )
+            )
+        )
+
+        await #expect(throws: CacheClearFailure.self) {
+            try await container.clearChatCache()
+        }
     }
 
     @Test

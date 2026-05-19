@@ -122,6 +122,10 @@ final class UserSession {
         FriendCacheStore(modelContainer: modelContainer)
     }
 
+    func clearChatCache() async throws {
+        try await ChatCacheStore(modelContainer: modelContainer).clearMessagesAndResetBounds()
+    }
+
     func connectWebSocketIfNeeded() {
         wsClient.connectIfNeeded()
     }

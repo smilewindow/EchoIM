@@ -11,6 +11,7 @@ final class AppContainer {
     let apiClient: APIClient
     private let toastCenter: ToastCenter
     private let currentUserCache: CurrentUserCacheStore
+    private let imageCacheClearer: @MainActor () throws -> Void
     var currentUser: AuthenticatedUser?
     var isRestoringCurrentUser = false
 
@@ -28,13 +29,17 @@ final class AppContainer {
         tokenStore: KeychainTokenStore? = nil,
         apiClient: APIClient? = nil,
         currentUserCache: CurrentUserCacheStore? = nil,
-        resetKeychainOnLaunch: Bool = false
+        resetKeychainOnLaunch: Bool = false,
+        imageCacheClearer: (@MainActor () throws -> Void)? = nil
     ) {
         self.tokenStore = tokenStore ?? KeychainTokenStore()
         self.apiClient = apiClient ?? APIClient()
         self.toastCenter = ToastCenter()
         self.currentUserCache = currentUserCache ?? CurrentUserCacheStore()
         self.resetKeychainOnLaunch = resetKeychainOnLaunch
+        self.imageCacheClearer = imageCacheClearer ?? {
+            ImagePipeline.shared.cache.removeAll()
+        }
 
         configureImagePipelineCache()
     }
@@ -169,12 +174,16 @@ final class AppContainer {
     }
 
     /// Me 页“清除聊天缓存”按钮入口。保留 session / token，只清 SwiftData + Nuke。
-    func clearChatCache() async {
-        ImagePipeline.shared.cache.removeAll()
-        guard let session else { return }
-        try? await session.messageStore().deleteAll()
-        try? await session.conversationMetaStore().deleteAll()
-        Log.info(.app, "cleared chat cache")
+    func clearChatCache() async throws {
+        do {
+            try imageCacheClearer()
+            guard let session else { return }
+            try await session.clearChatCache()
+            Log.info(.app, "cleared chat cache")
+        } catch {
+            Log.error(.cache, "clear chat cache failed: \(error)")
+            throw error
+        }
     }
 
     func updateCurrentUser(_ user: AuthenticatedUser) {
