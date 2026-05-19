@@ -3,6 +3,10 @@ import Foundation
 struct ServerAPIError: Decodable, Equatable, Sendable {
     let code: String
     let message: String
+
+    var knownCode: KnownServerErrorCode? {
+        KnownServerErrorCode(rawValue: code)
+    }
 }
 
 private struct ServerAPIErrorEnvelope: Decodable {

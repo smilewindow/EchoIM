@@ -19,7 +19,11 @@ enum ErrorPresenter {
 
     static func message(for error: APIError) -> String {
         if let serverError = error.serverError {
-            return message(forServerCode: serverError.code) ?? serverError.message
+            guard let knownCode = serverError.knownCode else {
+                return serverError.message
+            }
+
+            return message(forServerCode: knownCode)
         }
 
         switch error {
@@ -41,54 +45,52 @@ enum ErrorPresenter {
         }
     }
 
-    static func message(forServerCode code: String) -> String? {
+    static func message(forServerCode code: KnownServerErrorCode) -> String {
         switch code {
-        case "invalid_invite_code":
+        case .invalidInviteCode:
             return String(localized: "邀请码无效")
-        case "username_too_short":
+        case .usernameTooShort:
             return String(localized: "用户名至少需要 3 个字符")
-        case "invalid_email":
+        case .invalidEmail:
             return String(localized: "邮箱格式不正确")
-        case "email_already_in_use":
+        case .emailAlreadyInUse:
             return String(localized: "邮箱已被使用")
-        case "username_already_taken":
+        case .usernameAlreadyTaken:
             return String(localized: "用户名已被占用")
-        case "account_already_exists":
+        case .accountAlreadyExists:
             return String(localized: "账号已存在")
-        case "invalid_credentials":
+        case .invalidCredentials:
             return String(localized: "邮箱或密码错误")
-        case "user_not_found", "auth_missing", "auth_invalid", "auth_invalid_payload":
+        case .userNotFound, .authMissing, .authInvalid, .authInvalidPayload:
             return String(localized: "登录状态已失效，请重新登录")
-        case "no_fields_to_update":
+        case .noFieldsToUpdate:
             return String(localized: "没有可保存的修改")
-        case "friend_request_self":
+        case .friendRequestSelf:
             return String(localized: "不能添加自己为好友")
-        case "recipient_not_found":
+        case .recipientNotFound:
             return String(localized: "用户不存在")
-        case "friend_request_already_exists":
+        case .friendRequestAlreadyExists:
             return String(localized: "好友申请已存在")
-        case "friend_request_not_found":
+        case .friendRequestNotFound:
             return String(localized: "好友申请不存在或已处理")
-        case "message_body_required":
+        case .messageBodyRequired:
             return String(localized: "消息内容不能为空")
-        case "message_media_required", "message_media_invalid":
+        case .messageMediaRequired, .messageMediaInvalid:
             return String(localized: "图片消息无效，请重新选择")
-        case "message_dimensions_invalid":
+        case .messageDimensionsInvalid:
             return String(localized: "图片尺寸信息无效，请重新选择")
-        case "not_friends":
+        case .notFriends:
             return String(localized: "只能给好友发送消息")
-        case "invalid_conversation_id", "conversation_not_found":
+        case .invalidConversationId, .conversationNotFound:
             return String(localized: "会话不存在")
-        case "pagination_cursor_conflict", "invalid_last_read_message_id", "invalid_request":
+        case .paginationCursorConflict, .invalidLastReadMessageId, .invalidRequest:
             return String(localized: "请求参数无效，请重试")
-        case "file_required":
+        case .fileRequired:
             return String(localized: "请选择要上传的文件")
-        case "invalid_image_file":
+        case .invalidImageFile:
             return String(localized: "图片文件无效，请重新选择")
-        case "internal_error":
+        case .internalError:
             return String(localized: "服务器开小差了，请稍后重试")
-        default:
-            return nil
         }
     }
 

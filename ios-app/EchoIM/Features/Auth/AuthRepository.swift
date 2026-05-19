@@ -104,7 +104,8 @@ final class AuthRepositoryImpl: AuthRepository {
         }
 
         let message = Self.extractErrorMessage(body)
-        if let mappedError = Self.mapRegisterServerCode(error.serverError?.code, message: message) {
+        if let knownCode = error.serverError?.knownCode,
+           let mappedError = Self.mapRegisterServerCode(knownCode, message: message) {
             return mappedError
         }
 
@@ -125,19 +126,19 @@ final class AuthRepositoryImpl: AuthRepository {
     }
 
     nonisolated private static func mapRegisterServerCode(
-        _ code: String?,
+        _ code: KnownServerErrorCode,
         message: String
     ) -> AuthError? {
         switch code {
-        case "invalid_invite_code":
+        case .invalidInviteCode:
             return .invalidInviteCode
-        case "email_already_in_use":
+        case .emailAlreadyInUse:
             return .emailTaken
-        case "username_already_taken":
+        case .usernameAlreadyTaken:
             return .usernameTaken
-        case "invalid_email":
+        case .invalidEmail:
             return .fieldValidation(field: .email, message: message)
-        case "username_too_short":
+        case .usernameTooShort:
             return .fieldValidation(field: .username, message: message)
         default:
             return nil

@@ -9,7 +9,7 @@ struct ErrorPresenterTests {
         let body = """
         {
           "error": {
-            "code": "friend_request_already_exists",
+            "code": "\(KnownServerErrorCode.friendRequestAlreadyExists.rawValue)",
             "message": "Friend request already exists"
           }
         }

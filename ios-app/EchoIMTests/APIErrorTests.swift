@@ -37,7 +37,8 @@ struct APIErrorTests {
         """.data(using: .utf8)!
         let error = APIError.http(status: 409, body: body)
 
-        #expect(error.serverError?.code == "friend_request_already_exists")
+        #expect(error.serverError?.code == KnownServerErrorCode.friendRequestAlreadyExists.rawValue)
+        #expect(error.serverError?.knownCode == .friendRequestAlreadyExists)
         #expect(error.serverError?.message == "Friend request already exists")
     }
 
