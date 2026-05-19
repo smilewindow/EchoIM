@@ -59,6 +59,7 @@ struct RootView: View {
             .frame(width: 0, height: 0)
         }
         .environment(\.showErrorToast, container.showErrorToast(for:))
+        .environment(\.showToast, container.showToast(_:))
         .onChange(of: container.currentToast?.id) { _, _ in
             syncToastPresentation(toast: container.currentToast, scene: toastScene)
         }

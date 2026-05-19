@@ -5,6 +5,7 @@ struct MeView: View {
     var onLogout: () async -> Void
 
     @Environment(\.showErrorToast) private var showErrorToast
+    @Environment(\.showToast) private var showToast
     @State private var showClearCacheConfirm = false
     @State private var isClearing = false
     @State private var showLogViewer = false
@@ -50,7 +51,12 @@ struct MeView: View {
             Button("清除", role: .destructive) {
                 Task {
                     isClearing = true
-                    try? await container.clearChatCache()
+                    do {
+                        try await container.clearChatCache()
+                        showToast(String(localized: "缓存已清除"))
+                    } catch {
+                        showToast(String(localized: "清除缓存失败，请稍后重试"))
+                    }
                     isClearing = false
                 }
             }

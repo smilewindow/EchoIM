@@ -740,6 +740,16 @@
         }
       }
     },
+    "缓存已清除" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cache cleared"
+          }
+        }
+      }
+    },
     "清除" : {
       "localizations" : {
         "en" : {
@@ -756,6 +766,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Clearing..."
+          }
+        }
+      }
+    },
+    "清除缓存失败，请稍后重试" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to clear cache. Please try again later."
           }
         }
       }
