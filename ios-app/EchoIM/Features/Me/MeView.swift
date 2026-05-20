@@ -7,6 +7,7 @@ struct MeView: View {
     @Environment(\.showErrorToast) private var showErrorToast
     @Environment(\.showToast) private var showToast
     @State private var showClearCacheConfirm = false
+    @State private var showLogoutConfirm = false
     @State private var isClearing = false
     @State private var showLogViewer = false
 
@@ -63,6 +64,18 @@ struct MeView: View {
             Button("取消", role: .cancel) {}
         } message: {
             Text("将删除本设备上缓存的消息与图片。服务器上的消息不受影响。")
+        }
+        .confirmationDialog(
+            "确认登出？",
+            isPresented: $showLogoutConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("登出", role: .destructive) {
+                Task { await onLogout() }
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("登出后需要重新登录。")
         }
         .overlay(alignment: .center) {
             if isClearing {
@@ -205,7 +218,7 @@ struct MeView: View {
                 title: "登出",
                 isDestructive: true
             ) {
-                Task { await onLogout() }
+                showLogoutConfirm = true
             }
             .padding(.horizontal, 16)
             .accessibilityIdentifier("homeLogout")

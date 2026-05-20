@@ -801,6 +801,16 @@
         }
       }
     },
+    "确认登出？" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign out?"
+          }
+        }
+      }
+    },
     "点击右上角 + 搜索并添加好友" : {
 
     },
@@ -892,6 +902,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sign Out"
+          }
+        }
+      }
+    },
+    "登出后需要重新登录。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You will need to sign in again."
           }
         }
       }
