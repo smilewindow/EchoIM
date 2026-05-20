@@ -164,11 +164,15 @@ export type ApiErrorResponse = {
   }
 }
 
-export function sendApiError(reply: FastifyReply, error: ApiErrorEntry) {
+export function sendApiError(
+  reply: FastifyReply,
+  error: ApiErrorEntry,
+  override: { message?: string } = {},
+) {
   return reply.status(error.statusCode).send({
     error: {
       code: error.code,
-      message: error.message,
+      message: override.message ?? error.message,
     },
   } satisfies ApiErrorResponse)
 }

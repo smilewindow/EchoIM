@@ -26,6 +26,10 @@ export async function buildApp(opts: FastifyServerOptions = {}) {
   app.setErrorHandler((err: FastifyError, _request, reply) => {
     const statusCode = err.statusCode ?? 500
 
+    if (err.validation) {
+      return sendApiError(reply, ApiErrors.invalidRequest, { message: err.message })
+    }
+
     if (statusCode >= 400 && statusCode < 500) {
       return sendApiError(reply, ApiErrors.invalidRequest)
     }

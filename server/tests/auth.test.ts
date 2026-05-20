@@ -35,13 +35,18 @@ describe('POST /api/auth/register', () => {
     expect(decoded.id).toBe(user.id)
   })
 
-  it('returns 400 when username is missing', async () => {
+  it('returns 400 with validation details when username is missing', async () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/auth/register',
-      payload: { email: 'alice@test.com', password: 'password123' },
+      payload: { email: 'alice@test.com', password: 'password123', inviteCode: getInviteCode() },
     })
     expect(res.statusCode).toBe(400)
+
+    const body = res.json() as { error?: { code?: unknown; message?: unknown } }
+    expect(body.error?.code).toBe('invalid_request')
+    expect(body.error?.message).toEqual(expect.stringContaining('username'))
+    expect(body.error?.message).not.toBe('Invalid request')
   })
 
   it('returns 400 when password is shorter than 8 characters', async () => {
