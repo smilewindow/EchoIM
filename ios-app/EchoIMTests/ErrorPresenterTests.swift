@@ -35,6 +35,21 @@ struct ErrorPresenterTests {
     }
 
     @Test
+    func hidesInvalidRequestDetailsFromUserMessage() {
+        let body = """
+        {
+          "error": {
+            "code": "\(KnownServerErrorCode.invalidRequest.rawValue)",
+            "message": "body must have required property 'username'"
+          }
+        }
+        """.data(using: .utf8)!
+        let error = APIError.http(status: 400, body: body)
+
+        #expect(ErrorPresenter.message(for: error) == "请求参数无效，请重试")
+    }
+
+    @Test
     func mapsNetworkErrorLocally() {
         let error = APIError.network(URLError(.notConnectedToInternet))
 

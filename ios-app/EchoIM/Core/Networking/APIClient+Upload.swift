@@ -10,6 +10,7 @@ extension APIClient {
         token: String
     ) async throws -> Response {
         guard let url = URL(string: path, relativeTo: Endpoints.baseURL)?.absoluteURL else {
+            Log.error(.network, "✗ invalid URL POST \(path)")
             throw APIError.invalidResponse
         }
 
