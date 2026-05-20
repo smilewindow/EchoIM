@@ -2,148 +2,191 @@ import Foundation
 import Testing
 @testable import EchoIM
 
-@Suite("AuthRepository error mapping")
-struct AuthRepositoryErrorMapTests {
-    func makeBody(code: String, message: String) -> Data {
-        try! JSONSerialization.data(withJSONObject: [
-            "error": [
-                "code": code,
-                "message": message,
-            ],
-        ])
+@MainActor
+@Suite("AuthRepository")
+struct AuthRepositoryTests {
+    private func makeClient(
+        handler: @escaping (URLRequest) -> (HTTPURLResponse, Data)
+    ) -> (APIClient, KeychainTokenStore) {
+        let (configuration, _) = MockURLProtocol.configure(handler)
+        let api = APIClient(session: URLSession(configuration: configuration))
+        let tokenStore = KeychainTokenStore(service: "com.echoim.test.\(UUID().uuidString)")
+        try? tokenStore.clear()
+        return (api, tokenStore)
     }
 
-    func makeBody(code: KnownServerErrorCode, message: String) -> Data {
-        makeBody(code: code.rawValue, message: message)
-    }
-
-    @Test
-    func invalidInviteCodeIs403() {
-        let error = AuthRepositoryImpl.mapRegisterError(
-            .http(status: 403, body: makeBody(code: .invalidInviteCode, message: "Invalid invite code"))
-        )
-        #expect(error == .invalidInviteCode)
-    }
-
-    @Test
-    func invalidInviteCodeUsesServerCodeWhenMessageIsGeneric() {
-        let error = AuthRepositoryImpl.mapRegisterError(
-            .http(status: 403, body: makeBody(code: .invalidInviteCode, message: "Forbidden"))
-        )
-        #expect(error == .invalidInviteCode)
-    }
-
-    @Test
-    func emailTakenIs409() {
-        let error = AuthRepositoryImpl.mapRegisterError(
-            .http(status: 409, body: makeBody(code: .emailAlreadyInUse, message: "Email already in use"))
-        )
-        #expect(error == .emailTaken)
-    }
-
-    @Test
-    func emailTakenUsesServerCodeWhenMessageIsGeneric() {
-        let error = AuthRepositoryImpl.mapRegisterError(
-            .http(status: 409, body: makeBody(code: .emailAlreadyInUse, message: "Conflict"))
-        )
-        #expect(error == .emailTaken)
-    }
-
-    @Test
-    func usernameTakenIs409() {
-        let error = AuthRepositoryImpl.mapRegisterError(
-            .http(status: 409, body: makeBody(code: .usernameAlreadyTaken, message: "Username already taken"))
-        )
-        #expect(error == .usernameTaken)
-    }
-
-    @Test
-    func fieldValidationEmailIs400() {
-        let error = AuthRepositoryImpl.mapRegisterError(
-            .http(status: 400, body: makeBody(code: .invalidEmail, message: "Invalid email address"))
-        )
-
-        if case .fieldValidation(let field, let message) = error {
-            #expect(field == .email)
-            #expect(message == "Invalid email address")
-        } else {
-            Issue.record("expected .fieldValidation(email), got \(error)")
+    private func requestBodyData(from request: URLRequest?) throws -> Data {
+        if let body = request?.httpBody {
+            return body
         }
-    }
 
-    @Test
-    func fieldValidationUsernameIs400() {
-        let error = AuthRepositoryImpl.mapRegisterError(
-            .http(
-                status: 400,
-                body: makeBody(
-                    code: .usernameTooShort,
-                    message: "Username must be at least 3 characters"
-                )
-            )
-        )
-
-        if case .fieldValidation(let field, _) = error {
-            #expect(field == .username)
-        } else {
-            Issue.record("expected .fieldValidation(username), got \(error)")
+        guard let stream = request?.httpBodyStream else {
+            throw CocoaError(.fileReadUnknown)
         }
-    }
 
-    @Test
-    func fieldValidationPasswordIs400() {
-        let error = AuthRepositoryImpl.mapRegisterError(
-            .http(
-                status: 400,
-                body: makeBody(
-                    code: .invalidRequest,
-                    message: "body/password must NOT have fewer than 8 characters"
-                )
-            )
-        )
+        // URLProtocol 拦截到的请求有时只保留 httpBodyStream，不再暴露 httpBody。
+        stream.open()
+        defer { stream.close() }
 
-        if case .fieldValidation(let field, _) = error {
-            #expect(field == .password)
-        } else {
-            Issue.record("expected .fieldValidation(password)")
+        var data = Data()
+        let bufferSize = 1024
+        let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
+        defer { buffer.deallocate() }
+
+        while stream.hasBytesAvailable {
+            let readCount = stream.read(buffer, maxLength: bufferSize)
+            if readCount < 0 {
+                throw stream.streamError ?? CocoaError(.fileReadUnknown)
+            }
+            if readCount == 0 {
+                break
+            }
+            data.append(buffer, count: readCount)
         }
+
+        return data
     }
 
     @Test
-    func fieldValidationInviteCodeIs400() {
-        let error = AuthRepositoryImpl.mapRegisterError(
-            .http(
-                status: 400,
-                body: makeBody(
-                    code: .invalidRequest,
-                    message: "body/inviteCode must NOT have fewer than 1 character"
-                )
-            )
-        )
-
-        if case .fieldValidation(let field, _) = error {
-            #expect(field == .inviteCode)
-        } else {
-            Issue.record("expected .fieldValidation(inviteCode)")
+    func loginHitsCorrectEndpointAndStoresToken() async throws {
+        var captured: URLRequest?
+        let (api, tokenStore) = makeClient { request in
+            captured = request
+            let body = """
+            {"token":"jwt-abc","user":{"id":7,"username":"alice","email":"a@b.c","display_name":null,"avatar_url":null}}
+            """.data(using: .utf8)!
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: nil
+            )!
+            return (response, body)
         }
+        let repository = AuthRepositoryImpl(api: api, tokenStore: tokenStore)
+
+        let response = try await repository.login(email: "a@b.c", password: "password123")
+
+        #expect(captured?.httpMethod == "POST")
+        #expect(captured?.url?.path.hasSuffix("/api/auth/login") == true)
+
+        let bodyData = try requestBodyData(from: captured)
+        let json = try JSONSerialization.jsonObject(with: bodyData) as? [String: Any]
+        #expect(json?["email"] as? String == "a@b.c")
+        #expect(json?["password"] as? String == "password123")
+        #expect(json?.count == 2)
+
+        let stored = try tokenStore.load()
+        #expect(stored?.token == "jwt-abc")
+        #expect(stored?.userId == 7)
+        #expect(response.user.username == "alice")
+
+        try tokenStore.clear()
     }
 
     @Test
-    func fieldValidationUnknownFieldFallsToToast() {
-        let error = AuthRepositoryImpl.mapRegisterError(
-            .http(status: 400, body: makeBody(code: .invalidRequest, message: "something obscure"))
-        )
-
-        if case .fieldValidation(let field, _) = error {
-            #expect(field == nil)
-        } else {
-            Issue.record("expected .fieldValidation(nil)")
+    func registerSendsCamelCaseInviteCodeAndStoresToken() async throws {
+        var captured: URLRequest?
+        let (api, tokenStore) = makeClient { request in
+            captured = request
+            let body = """
+            {"token":"jwt-xyz","user":{"id":11,"username":"bob","email":"b@c.d","display_name":"Bob","avatar_url":null}}
+            """.data(using: .utf8)!
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 201,
+                httpVersion: nil,
+                headerFields: nil
+            )!
+            return (response, body)
         }
+        let repository = AuthRepositoryImpl(api: api, tokenStore: tokenStore)
+
+        _ = try await repository.register(RegisterRequest(
+            username: "bob",
+            email: "b@c.d",
+            password: "password123",
+            inviteCode: "INVITE1"
+        ))
+
+        #expect(captured?.url?.path.hasSuffix("/api/auth/register") == true)
+
+        let bodyData = try requestBodyData(from: captured)
+        let json = try JSONSerialization.jsonObject(with: bodyData) as? [String: Any]
+        // 关键断言：注册接口必须发送 camelCase 的 inviteCode，不能误发 invite_code。
+        #expect(json?["inviteCode"] as? String == "INVITE1")
+        #expect(json?["invite_code"] == nil)
+        #expect(json?["username"] as? String == "bob")
+        #expect(json?["email"] as? String == "b@c.d")
+        #expect(json?["password"] as? String == "password123")
+
+        let stored = try tokenStore.load()
+        #expect(stored?.token == "jwt-xyz")
+        #expect(stored?.userId == 11)
+
+        try tokenStore.clear()
     }
 
     @Test
-    func loginInvalidCredentialsIs401() {
-        let error = AuthRepositoryImpl.mapLoginError(.unauthorized)
-        #expect(error == .invalidCredentials)
+    func registerReturnsOriginalHTTPError() async throws {
+        let (api, tokenStore) = makeClient { request in
+            let body = try! JSONSerialization.data(withJSONObject: [
+                "error": [
+                    "code": KnownServerErrorCode.invalidInviteCode.rawValue,
+                    "message": "Invalid invite code",
+                ],
+            ])
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 403,
+                httpVersion: nil,
+                headerFields: nil
+            )!
+            return (response, body)
+        }
+        let repository = AuthRepositoryImpl(api: api, tokenStore: tokenStore)
+
+        do {
+            _ = try await repository.register(RegisterRequest(
+                username: "x",
+                email: "x@y.z",
+                password: "12345678",
+                inviteCode: "BAD"
+            ))
+            Issue.record("expected throw")
+        } catch let error as APIError {
+            if case .http(let status, _) = error {
+                #expect(status == 403)
+                #expect(error.serverError?.knownCode == .invalidInviteCode)
+            } else {
+                Issue.record("expected .http(403), got \(error)")
+            }
+        }
+
+        #expect(try tokenStore.load() == nil)
+    }
+
+    @Test
+    func loginReturnsUnauthorizedAPIError() async throws {
+        let (api, tokenStore) = makeClient { request in
+            let body = try! JSONSerialization.data(withJSONObject: ["error": "Invalid email or password"])
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 401,
+                httpVersion: nil,
+                headerFields: nil
+            )!
+            return (response, body)
+        }
+        let repository = AuthRepositoryImpl(api: api, tokenStore: tokenStore)
+
+        do {
+            _ = try await repository.login(email: "a@b.c", password: "wrong")
+            Issue.record("expected throw")
+        } catch APIError.unauthorized {
+            // ok
+        }
+
+        #expect(try tokenStore.load() == nil)
     }
 }

@@ -4,7 +4,7 @@ struct RegisterView: View {
     @Bindable var vm: RegisterViewModel
     var onBackToLogin: () -> Void
 
-    @Environment(\.showToast) private var showToast
+    @Environment(\.showErrorToast) private var showErrorToast
 
     var body: some View {
         NavigationStack {
@@ -30,8 +30,8 @@ struct RegisterView: View {
                 formCard
             }
             .navigationBarHidden(true)
-            .onChange(of: vm.toast) { _, message in
-                presentToast(message)
+            .task {
+                vm.setOnErrorHandler(showErrorToast)
             }
         }
     }
@@ -139,9 +139,4 @@ struct RegisterView: View {
         .ignoresSafeArea(.container, edges: .bottom)
     }
 
-    private func presentToast(_ message: String?) {
-        guard let message else { return }
-        showToast(message)
-        vm.toast = nil
-    }
 }

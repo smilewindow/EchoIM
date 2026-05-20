@@ -7,7 +7,7 @@ final class RegisterViewModel {
     enum State: Equatable {
         case idle
         case submitting
-        case failed(AuthError)
+        case failed
         case success
     }
 
@@ -20,15 +20,24 @@ final class RegisterViewModel {
     var usernameError: String?
     var emailError: String?
     var passwordError: String?
-    var toast: String?
     var state: State = .idle
 
     private let repo: AuthRepository
     private let onSuccess: (AuthResponse) -> Void
+    private var onError: @MainActor (Error) -> Void
 
-    init(repo: AuthRepository, onSuccess: @escaping (AuthResponse) -> Void) {
+    init(
+        repo: AuthRepository,
+        onSuccess: @escaping (AuthResponse) -> Void,
+        onError: @escaping @MainActor (Error) -> Void = { _ in }
+    ) {
         self.repo = repo
         self.onSuccess = onSuccess
+        self.onError = onError
+    }
+
+    func setOnErrorHandler(_ handler: @escaping @MainActor (Error) -> Void) {
+        onError = handler
     }
 
     func submit() async {
@@ -55,10 +64,7 @@ final class RegisterViewModel {
               usernameError == nil,
               emailError == nil,
               passwordError == nil else {
-            state = .failed(.fieldValidation(
-                field: nil,
-                message: String(localized: "客户端校验未通过")
-            ))
+            state = .failed
             return
         }
 
@@ -73,12 +79,9 @@ final class RegisterViewModel {
             ))
             state = .success
             onSuccess(response)
-        } catch let error as AuthError {
-            mapServerError(error)
-            state = .failed(error)
         } catch {
-            toast = ErrorPresenter.message(for: error)
-            state = .failed(.unknown(String(describing: error)))
+            handleRegisterError(error)
+            state = .failed
         }
     }
 
@@ -87,36 +90,31 @@ final class RegisterViewModel {
         usernameError = nil
         emailError = nil
         passwordError = nil
-        toast = nil
     }
 
-    private func mapServerError(_ error: AuthError) {
-        switch error {
+    private func handleRegisterError(_ error: Error) {
+        guard let apiError = error as? APIError,
+              let knownCode = apiError.serverError?.knownCode else {
+            onError(error)
+            return
+        }
+
+        let errorMessage = ErrorPresenter.message(for: apiError)
+
+        switch knownCode {
         case .invalidInviteCode:
-            // 设计文档要求邀请码错误既有字段红字，也要有 toast。
+            // 字段错误直接落到输入框下方，避免和全局 toast 重复。
             inviteCodeError = String(localized: "邀请码无效")
-            toast = String(localized: "邀请码无效")
-        case .emailTaken:
+        case .emailAlreadyInUse:
             emailError = String(localized: "邮箱已被注册")
-        case .usernameTaken:
+        case .usernameAlreadyTaken:
             usernameError = String(localized: "用户名已被占用")
-        case .fieldValidation(let field, let message):
-            switch field {
-            case .inviteCode:
-                inviteCodeError = message
-            case .username:
-                usernameError = message
-            case .email:
-                emailError = message
-            case .password:
-                passwordError = message
-            case .none:
-                toast = message
-            }
-        case .network:
-            toast = String(localized: "网络错误，请检查连接")
+        case .invalidEmail:
+            emailError = errorMessage
+        case .usernameTooShort:
+            usernameError = errorMessage
         default:
-            toast = String(localized: "注册失败，请重试")
+            onError(error)
         }
     }
 

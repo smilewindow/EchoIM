@@ -7,32 +7,45 @@ final class LoginViewModel {
     enum State: Equatable {
         case idle
         case submitting
-        case failed(AuthError)
+        case failed
         case success
     }
 
     var email = ""
     var password = ""
     var state: State = .idle
-    /// 登录页错误统一走 toast，和设计文档里的交互保持一致。
-    var toast: String?
 
     private let repo: AuthRepository
     private let onSuccess: (AuthResponse) -> Void
+    private var onError: @MainActor (Error) -> Void
+    private var onToast: @MainActor (String) -> Void
 
-    init(repo: AuthRepository, onSuccess: @escaping (AuthResponse) -> Void) {
+    init(
+        repo: AuthRepository,
+        onSuccess: @escaping (AuthResponse) -> Void,
+        onError: @escaping @MainActor (Error) -> Void = { _ in },
+        onToast: @escaping @MainActor (String) -> Void = { _ in }
+    ) {
         self.repo = repo
         self.onSuccess = onSuccess
+        self.onError = onError
+        self.onToast = onToast
+    }
+
+    func setOnErrorHandler(_ handler: @escaping @MainActor (Error) -> Void) {
+        onError = handler
+    }
+
+    func setOnToastHandler(_ handler: @escaping @MainActor (String) -> Void) {
+        onToast = handler
     }
 
     func submit() async {
-        toast = nil
         let trimmedEmail = email.trimmingCharacters(in: .whitespaces)
 
         guard !trimmedEmail.isEmpty, !password.isEmpty else {
-            let message = String(localized: "邮箱和密码不能为空")
-            toast = message
-            state = .failed(.fieldValidation(field: nil, message: message))
+            state = .failed
+            onToast(String(localized: "邮箱和密码不能为空"))
             return
         }
 
@@ -42,25 +55,12 @@ final class LoginViewModel {
             let response = try await repo.login(email: trimmedEmail, password: password)
             state = .success
             onSuccess(response)
-        } catch let error as AuthError {
-            state = .failed(error)
-            toast = Self.toastMessage(for: error)
+        } catch APIError.unauthorized {
+            state = .failed
+            onToast(String(localized: "邮箱或密码错误"))
         } catch {
-            state = .failed(.unknown(String(describing: error)))
-            toast = ErrorPresenter.message(for: error)
-        }
-    }
-
-    nonisolated static func toastMessage(for error: AuthError) -> String {
-        switch error {
-        case .invalidCredentials:
-            return String(localized: "邮箱或密码错误")
-        case .network:
-            return String(localized: "网络错误，请检查连接")
-        case .fieldValidation(_, let message):
-            return message
-        default:
-            return String(localized: "登录失败，请重试")
+            state = .failed
+            onError(error)
         }
     }
 }

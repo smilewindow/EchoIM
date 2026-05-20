@@ -6,7 +6,7 @@ import Testing
 @Suite("LoginViewModel")
 struct LoginViewModelTests {
     final class StubRepo: AuthRepository {
-        var loginResult: Result<AuthResponse, Error> = .failure(AuthError.unknown(""))
+        var loginResult: Result<AuthResponse, Error> = .failure(APIError.invalidResponse)
 
         func login(email: String, password: String) async throws -> AuthResponse {
             try loginResult.get()
@@ -39,55 +39,71 @@ struct LoginViewModelTests {
 
         #expect(received?.user == user)
         #expect(viewModel.state == .success)
-        #expect(viewModel.toast == nil)
     }
 
     @Test
     func invalidCredentialsSurfacesAsToast() async {
         let repo = StubRepo()
-        repo.loginResult = .failure(AuthError.invalidCredentials)
-        let viewModel = LoginViewModel(repo: repo) { _ in }
+        repo.loginResult = .failure(APIError.unauthorized)
+        var receivedToast: String?
+        let viewModel = LoginViewModel(
+            repo: repo,
+            onSuccess: { _ in },
+            onToast: { receivedToast = $0 }
+        )
         viewModel.email = "a@b.c"
         viewModel.password = "wrong"
         await viewModel.submit()
 
-        #expect(viewModel.toast == "邮箱或密码错误")
-        if case .failed(let error) = viewModel.state {
-            #expect(error == .invalidCredentials)
-        } else {
-            Issue.record("expected .failed(.invalidCredentials), got \(viewModel.state)")
-        }
+        #expect(viewModel.state == .failed)
+        #expect(receivedToast == "邮箱或密码错误")
     }
 
     @Test
-    func networkErrorSurfacesAsToast() async {
+    func networkErrorIsForwardedToErrorHandler() async {
         let repo = StubRepo()
-        repo.loginResult = .failure(AuthError.network)
-        let viewModel = LoginViewModel(repo: repo) { _ in }
+        let expectedError = APIError.network(URLError(.notConnectedToInternet))
+        repo.loginResult = .failure(expectedError)
+        var receivedError: Error?
+        var receivedToast: String?
+        let viewModel = LoginViewModel(
+            repo: repo,
+            onSuccess: { _ in },
+            onError: { receivedError = $0 },
+            onToast: { receivedToast = $0 }
+        )
         viewModel.email = "a@b.c"
         viewModel.password = "12345678"
         await viewModel.submit()
-        #expect(viewModel.toast == "网络错误，请检查连接")
+
+        #expect(viewModel.state == .failed)
+        if let apiError = receivedError as? APIError {
+            #expect(apiError == expectedError)
+        } else {
+            Issue.record("expected APIError.network")
+        }
+        #expect(receivedToast == nil)
     }
 
     @Test
     func blocksEmptyInput() async {
         let repo = StubRepo()
-        let viewModel = LoginViewModel(repo: repo) { _ in }
+        var receivedToast: String?
+        let viewModel = LoginViewModel(
+            repo: repo,
+            onSuccess: { _ in },
+            onToast: { receivedToast = $0 }
+        )
         viewModel.email = ""
         viewModel.password = ""
         await viewModel.submit()
 
-        #expect(viewModel.toast == "邮箱和密码不能为空")
-        if case .failed(let error) = viewModel.state, case .fieldValidation = error {
-            // ok
-        } else {
-            Issue.record("expected .fieldValidation, got \(viewModel.state)")
-        }
+        #expect(viewModel.state == .failed)
+        #expect(receivedToast == "邮箱和密码不能为空")
     }
 
     @Test
-    func submittingClearsStaleToast() async {
+    func successfulSubmitDoesNotCallHandlers() async {
         let repo = StubRepo()
         let user = AuthenticatedUser(
             id: 1,
@@ -96,12 +112,19 @@ struct LoginViewModelTests {
             displayName: nil,
             avatarUrl: nil
         )
-        let viewModel = LoginViewModel(repo: repo) { _ in }
-        viewModel.toast = "旧错误"
+        var didCallOnError = false
+        var didCallOnToast = false
+        let viewModel = LoginViewModel(
+            repo: repo,
+            onSuccess: { _ in },
+            onError: { _ in didCallOnError = true },
+            onToast: { _ in didCallOnToast = true }
+        )
         repo.loginResult = .success(AuthResponse(token: "t", user: user))
         viewModel.email = "a@b.c"
         viewModel.password = "12345678"
         await viewModel.submit()
-        #expect(viewModel.toast == nil)
+        #expect(didCallOnError == false)
+        #expect(didCallOnToast == false)
     }
 }

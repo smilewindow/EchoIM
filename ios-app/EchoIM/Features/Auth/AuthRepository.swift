@@ -1,23 +1,5 @@
 import Foundation
 
-enum RegisterField: String, Equatable, Sendable {
-    case inviteCode
-    case username
-    case email
-    case password
-}
-
-enum AuthError: Error, Equatable, Sendable {
-    case invalidCredentials
-    case invalidInviteCode
-    case emailTaken
-    case usernameTaken
-    /// `field == nil` 代表服务端返回了 400，但无法定位到具体字段，交给 View 走 toast。
-    case fieldValidation(field: RegisterField?, message: String)
-    case network
-    case unknown(String)
-}
-
 struct LoginRequest: Encodable {
     let email: String
     let password: String
@@ -48,127 +30,26 @@ final class AuthRepositoryImpl: AuthRepository {
     }
 
     func login(email: String, password: String) async throws -> AuthResponse {
-        do {
-            let response: AuthResponse = try await api.request(
-                Endpoints.Auth.login,
-                method: "POST",
-                body: LoginRequest(email: email, password: password)
-            )
-            try tokenStore.save(token: response.token, userId: response.user.id)
-            return response
-        } catch let error as APIError {
-            throw Self.mapLoginError(error)
-        }
+        let response: AuthResponse = try await api.request(
+            Endpoints.Auth.login,
+            method: "POST",
+            body: LoginRequest(email: email, password: password)
+        )
+        try tokenStore.save(token: response.token, userId: response.user.id)
+        return response
     }
 
     func register(_ request: RegisterRequest) async throws -> AuthResponse {
-        do {
-            let response: AuthResponse = try await api.request(
-                Endpoints.Auth.register,
-                method: "POST",
-                body: request
-            )
-            try tokenStore.save(token: response.token, userId: response.user.id)
-            return response
-        } catch let error as APIError {
-            throw Self.mapRegisterError(error)
-        }
+        let response: AuthResponse = try await api.request(
+            Endpoints.Auth.register,
+            method: "POST",
+            body: request
+        )
+        try tokenStore.save(token: response.token, userId: response.user.id)
+        return response
     }
 
     func logout() async {
         try? tokenStore.clear()
-    }
-
-    nonisolated static func mapLoginError(_ error: APIError) -> AuthError {
-        switch error {
-        case .unauthorized:
-            return .invalidCredentials
-        case .network:
-            return .network
-        case .decoding(let message):
-            return .unknown(message)
-        case .invalidResponse:
-            return .unknown("invalid response")
-        case .http(let status, let body):
-            let message = Self.extractErrorMessage(body)
-            return .unknown("\(status): \(message)")
-        }
-    }
-
-    nonisolated static func mapRegisterError(_ error: APIError) -> AuthError {
-        guard case .http(let status, let body) = error else {
-            if case .network = error {
-                return .network
-            }
-            return .unknown(String(describing: error))
-        }
-
-        let message = Self.extractErrorMessage(body)
-        if let knownCode = error.serverError?.knownCode,
-           let mappedError = Self.mapRegisterServerCode(knownCode, message: message) {
-            return mappedError
-        }
-
-        let lowerMessage = message.lowercased()
-
-        switch status {
-        case 403 where lowerMessage.contains("invite"):
-            return .invalidInviteCode
-        case 409 where lowerMessage.contains("email"):
-            return .emailTaken
-        case 409 where lowerMessage.contains("username"):
-            return .usernameTaken
-        case 400:
-            return .fieldValidation(field: Self.detectField(lowerMessage), message: message)
-        default:
-            return .unknown("\(status): \(message)")
-        }
-    }
-
-    nonisolated private static func mapRegisterServerCode(
-        _ code: KnownServerErrorCode,
-        message: String
-    ) -> AuthError? {
-        switch code {
-        case .invalidInviteCode:
-            return .invalidInviteCode
-        case .emailAlreadyInUse:
-            return .emailTaken
-        case .usernameAlreadyTaken:
-            return .usernameTaken
-        case .invalidEmail:
-            return .fieldValidation(field: .email, message: message)
-        case .usernameTooShort:
-            return .fieldValidation(field: .username, message: message)
-        default:
-            return nil
-        }
-    }
-
-    /// 这里优先识别 `inviteCode`，避免后续如果消息里既带 invite 又带其它通用词时落错字段。
-    nonisolated static func detectField(_ lowerMessage: String) -> RegisterField? {
-        if lowerMessage.contains("invitecode")
-            || lowerMessage.contains("invite code")
-            || lowerMessage.contains("invite") {
-            return .inviteCode
-        }
-        if lowerMessage.contains("username") {
-            return .username
-        }
-        if lowerMessage.contains("email") {
-            return .email
-        }
-        if lowerMessage.contains("password") {
-            return .password
-        }
-        return nil
-    }
-
-    nonisolated private static func extractErrorMessage(_ body: Data) -> String {
-        if let serverError = APIError.decodeServerError(from: body) {
-            return serverError.message
-        }
-
-        return String(data: body, encoding: .utf8) ?? ""
     }
 }

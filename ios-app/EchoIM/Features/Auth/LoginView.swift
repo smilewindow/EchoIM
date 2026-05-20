@@ -5,6 +5,7 @@ struct LoginView: View {
     var onNavigateToRegister: () -> Void
 
     @Environment(\.showToast) private var showToast
+    @Environment(\.showErrorToast) private var showErrorToast
 
     var body: some View {
         NavigationStack {
@@ -34,8 +35,9 @@ struct LoginView: View {
                 dismissKeyboard()
             }
             .navigationBarHidden(true)
-            .onChange(of: vm.toast) { _, message in
-                presentToast(message)
+            .task {
+                vm.setOnErrorHandler(showErrorToast)
+                vm.setOnToastHandler(showToast)
             }
         }
     }
@@ -137,9 +139,4 @@ struct LoginView: View {
         )
     }
 
-    private func presentToast(_ message: String?) {
-        guard let message else { return }
-        showToast(message)
-        vm.toast = nil
-    }
 }

@@ -6,7 +6,7 @@ import Testing
 @Suite("RegisterViewModel")
 struct RegisterViewModelTests {
     final class StubRepo: AuthRepository {
-        var registerResult: Result<AuthResponse, Error> = .failure(AuthError.unknown(""))
+        var registerResult: Result<AuthResponse, Error> = .failure(APIError.invalidResponse)
 
         func login(email: String, password: String) async throws -> AuthResponse {
             fatalError()
@@ -21,6 +21,16 @@ struct RegisterViewModelTests {
 
     func viewModel(_ repo: AuthRepository) -> RegisterViewModel {
         RegisterViewModel(repo: repo) { _ in }
+    }
+
+    func apiError(_ code: KnownServerErrorCode, message: String) -> APIError {
+        let body = try! JSONSerialization.data(withJSONObject: [
+            "error": [
+                "code": code.rawValue,
+                "message": message,
+            ],
+        ])
+        return APIError.http(status: 400, body: body)
     }
 
     @Test
@@ -75,8 +85,13 @@ struct RegisterViewModelTests {
     @Test
     func mapsEmailTakenToEmailErrorOnly() async {
         let repo = StubRepo()
-        repo.registerResult = .failure(AuthError.emailTaken)
-        let viewModel = viewModel(repo)
+        repo.registerResult = .failure(apiError(.emailAlreadyInUse, message: "Email already in use"))
+        var didCallOnError = false
+        let viewModel = RegisterViewModel(
+            repo: repo,
+            onSuccess: { _ in },
+            onError: { _ in didCallOnError = true }
+        )
         viewModel.username = "alice"
         viewModel.email = "a@b.co"
         viewModel.password = "12345678"
@@ -84,13 +99,13 @@ struct RegisterViewModelTests {
         await viewModel.submit()
         #expect(viewModel.emailError == "邮箱已被注册")
         #expect(viewModel.usernameError == nil)
-        #expect(viewModel.toast == nil)
+        #expect(didCallOnError == false)
     }
 
     @Test
     func mapsUsernameTakenToUsernameError() async {
         let repo = StubRepo()
-        repo.registerResult = .failure(AuthError.usernameTaken)
+        repo.registerResult = .failure(apiError(.usernameAlreadyTaken, message: "Username already taken"))
         let viewModel = viewModel(repo)
         viewModel.username = "alice"
         viewModel.email = "a@b.co"
@@ -102,49 +117,77 @@ struct RegisterViewModelTests {
     }
 
     @Test
-    func mapsInvalidInviteCodeToFieldAndToast() async {
+    func mapsUsernameTooShortToUsernameError() async {
         let repo = StubRepo()
-        repo.registerResult = .failure(AuthError.invalidInviteCode)
+        repo.registerResult = .failure(
+            apiError(.usernameTooShort, message: "Username must be at least 3 characters")
+        )
         let viewModel = viewModel(repo)
+        viewModel.username = "alice"
+        viewModel.email = "a@b.co"
+        viewModel.password = "12345678"
+        viewModel.inviteCode = "X"
+        await viewModel.submit()
+        #expect(viewModel.usernameError == "用户名至少需要 3 个字符")
+    }
+
+    @Test
+    func mapsInvalidInviteCodeToFieldError() async {
+        let repo = StubRepo()
+        repo.registerResult = .failure(apiError(.invalidInviteCode, message: "Invalid invite code"))
+        let viewModel = RegisterViewModel(
+            repo: repo,
+            onSuccess: { _ in }
+        )
         viewModel.username = "alice"
         viewModel.email = "a@b.co"
         viewModel.password = "12345678"
         viewModel.inviteCode = "WRONG"
         await viewModel.submit()
         #expect(viewModel.inviteCodeError == "邀请码无效")
-        #expect(viewModel.toast == "邀请码无效")
     }
 
     @Test
-    func mapsFieldValidationEmailToEmailError() async {
+    func mapsInvalidEmailToEmailError() async {
         let repo = StubRepo()
-        repo.registerResult = .failure(
-            AuthError.fieldValidation(field: .email, message: "Invalid email address")
-        )
+        repo.registerResult = .failure(apiError(.invalidEmail, message: "Invalid email address"))
         let viewModel = viewModel(repo)
         viewModel.username = "alice"
         viewModel.email = "a@b.co"
         viewModel.password = "12345678"
         viewModel.inviteCode = "X"
         await viewModel.submit()
-        #expect(viewModel.emailError == "Invalid email address")
-        #expect(viewModel.toast == nil)
+        #expect(viewModel.emailError == "邮箱格式不正确")
     }
 
     @Test
-    func mapsFieldValidationUnknownToToast() async {
+    func invalidRequestIsForwardedToErrorHandler() async {
         let repo = StubRepo()
-        repo.registerResult = .failure(
-            AuthError.fieldValidation(field: nil, message: "server said something weird")
+        let expectedError = apiError(
+            .invalidRequest,
+            message: "body must have required property 'username'"
         )
-        let viewModel = viewModel(repo)
+        repo.registerResult = .failure(expectedError)
+        var receivedError: Error?
+        let viewModel = RegisterViewModel(
+            repo: repo,
+            onSuccess: { _ in },
+            onError: { receivedError = $0 }
+        )
         viewModel.username = "alice"
         viewModel.email = "a@b.co"
         viewModel.password = "12345678"
         viewModel.inviteCode = "X"
         await viewModel.submit()
-        #expect(viewModel.toast == "server said something weird")
+
+        #expect(viewModel.inviteCodeError == nil)
         #expect(viewModel.emailError == nil)
+        #expect(viewModel.usernameError == nil)
+        if let apiError = receivedError as? APIError {
+            #expect(apiError == expectedError)
+        } else {
+            Issue.record("expected invalid_request APIError")
+        }
     }
 
     @Test
@@ -161,7 +204,6 @@ struct RegisterViewModelTests {
         let viewModel = viewModel(repo)
         viewModel.emailError = "stale"
         viewModel.usernameError = "stale"
-        viewModel.toast = "stale"
         viewModel.username = "alice"
         viewModel.email = "a@b.co"
         viewModel.password = "12345678"
@@ -169,6 +211,5 @@ struct RegisterViewModelTests {
         await viewModel.submit()
         #expect(viewModel.emailError == nil)
         #expect(viewModel.usernameError == nil)
-        #expect(viewModel.toast == nil)
     }
 }
