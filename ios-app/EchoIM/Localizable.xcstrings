@@ -416,6 +416,7 @@
       }
     },
     "客户端校验未通过" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -703,6 +704,7 @@
       }
     },
     "注册失败，请重试" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -919,6 +921,7 @@
       }
     },
     "登录失败，请重试" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1013,6 +1016,7 @@
       }
     },
     "网络错误，请检查连接" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
