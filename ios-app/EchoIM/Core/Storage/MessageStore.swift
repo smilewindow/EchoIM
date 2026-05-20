@@ -72,11 +72,9 @@ actor MessageStore {
 
     /// 清空所有会话消息。用于 Me 页清缓存和登出前释放。
     func deleteAll() async throws {
-        let descriptor = FetchDescriptor<CachedMessage>()
-        let rows = try modelContext.fetch(descriptor)
-        for row in rows { modelContext.delete(row) }
+        let deletedCount = try modelContext.fetchCount(FetchDescriptor<CachedMessage>())
+        try modelContext.delete(model: CachedMessage.self)
         try modelContext.save()
-        let deletedCount = rows.count
         Log.info(.cache, "messages cleared (\(deletedCount) rows)")
     }
 }

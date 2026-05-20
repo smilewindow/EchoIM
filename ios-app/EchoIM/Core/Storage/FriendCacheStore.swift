@@ -45,10 +45,9 @@ actor FriendCacheStore {
     }
 
     func deleteAll() throws {
-        let all = try modelContext.fetch(FetchDescriptor<CachedFriend>())
-        for row in all { modelContext.delete(row) }
+        let deletedCount = try modelContext.fetchCount(FetchDescriptor<CachedFriend>())
+        try modelContext.delete(model: CachedFriend.self)
         try modelContext.save()
-        let deletedCount = all.count
         Log.info(.cache, "friends cleared (\(deletedCount) rows)")
     }
 }

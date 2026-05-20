@@ -81,11 +81,9 @@ actor ConversationMetaStore {
     }
 
     func deleteAll() async throws {
-        let descriptor = FetchDescriptor<ConversationMeta>()
-        let rows = try modelContext.fetch(descriptor)
-        for row in rows { modelContext.delete(row) }
+        let deletedCount = try modelContext.fetchCount(FetchDescriptor<ConversationMeta>())
+        try modelContext.delete(model: ConversationMeta.self)
         try modelContext.save()
-        let deletedCount = rows.count
         Log.info(.cache, "conversation meta cleared (\(deletedCount) rows)")
     }
 }

@@ -91,6 +91,20 @@ struct ContactsViewModelTests {
     }
 
     @Test
+    func friendCacheStoreDeleteAllClearsRows() async throws {
+        let store = FriendCacheStore(modelContainer: try makeFriendCacheContainer())
+
+        try await store.saveAll([
+            makeFriend(id: 1, username: "alice"),
+            makeFriend(id: 2, username: "bob"),
+        ])
+
+        try await store.deleteAll()
+
+        #expect(try await store.loadAll().isEmpty)
+    }
+
+    @Test
     func refreshShowsCachedFriendsWhenNetworkRefreshFails() async throws {
         let store = FriendCacheStore(modelContainer: try makeFriendCacheContainer())
         try await store.saveAll([
