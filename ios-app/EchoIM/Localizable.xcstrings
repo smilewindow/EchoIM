@@ -354,6 +354,7 @@
       }
     },
     "好" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -454,16 +455,6 @@
         }
       }
     },
-    "已是好友" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Already friends"
-          }
-        }
-      }
-    },
     "已发送" : {
       "localizations" : {
         "en" : {
@@ -490,6 +481,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Accepted"
+          }
+        }
+      }
+    },
+    "已是好友" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Already friends"
           }
         }
       }
@@ -691,6 +692,7 @@
       }
     },
     "注册失败" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -740,16 +742,6 @@
         }
       }
     },
-    "缓存已清除" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cache cleared"
-          }
-        }
-      }
-    },
     "清除" : {
       "localizations" : {
         "en" : {
@@ -770,22 +762,22 @@
         }
       }
     },
-    "清除缓存失败，请稍后重试" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Failed to clear cache. Please try again later."
-          }
-        }
-      }
-    },
     "清除本地聊天缓存？" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Clear local chat cache?"
+          }
+        }
+      }
+    },
+    "清除缓存失败，请稍后重试" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to clear cache. Please try again later."
           }
         }
       }
@@ -797,16 +789,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Clear chat cache"
-          }
-        }
-      }
-    },
-    "确认登出？" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sign out?"
           }
         }
       }
@@ -896,7 +878,6 @@
       }
     },
     "登出" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -927,6 +908,7 @@
       }
     },
     "登录失败" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -967,6 +949,16 @@
         }
       }
     },
+    "确认登出？" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign out?"
+          }
+        }
+      }
+    },
     "离线" : {
       "localizations" : {
         "en" : {
@@ -989,6 +981,16 @@
     },
     "级别" : {
 
+    },
+    "缓存已清除" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cache cleared"
+          }
+        }
+      }
     },
     "编辑资料" : {
       "localizations" : {
