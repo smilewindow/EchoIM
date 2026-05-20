@@ -4,6 +4,8 @@ struct RegisterView: View {
     @Bindable var vm: RegisterViewModel
     var onBackToLogin: () -> Void
 
+    @Environment(\.showToast) private var showToast
+
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
@@ -28,18 +30,8 @@ struct RegisterView: View {
                 formCard
             }
             .navigationBarHidden(true)
-            .alert(
-                "注册失败",
-                isPresented: Binding(
-                    get: { vm.toast != nil },
-                    set: { if !$0 { vm.toast = nil } }
-                ),
-                presenting: vm.toast
-            ) { _ in
-                Button("好", role: .cancel) { vm.toast = nil }
-                    .accessibilityIdentifier("regToastOK")
-            } message: { msg in
-                Text(msg)
+            .onChange(of: vm.toast) { _, message in
+                presentToast(message)
             }
         }
     }
@@ -145,5 +137,11 @@ struct RegisterView: View {
                 ))
         )
         .ignoresSafeArea(.container, edges: .bottom)
+    }
+
+    private func presentToast(_ message: String?) {
+        guard let message else { return }
+        showToast(message)
+        vm.toast = nil
     }
 }

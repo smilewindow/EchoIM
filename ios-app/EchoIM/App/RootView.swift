@@ -6,10 +6,21 @@ struct RootView: View {
     @State private var showLaunchSplash = true
     @State private var didStartLaunchSequence = false
     @State private var showRegister = false
+    @State private var authFlowViewModel: AuthFlowViewModel
     @State private var toastScene: UIWindowScene?
     @State private var toastPresenter = ToastWindowPresenter()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
+
+    init(container: AppContainer) {
+        self.container = container
+        self._authFlowViewModel = State(wrappedValue: AuthFlowViewModel(
+            makeRepository: { container.makeAuthRepository() },
+            onSuccess: { response in
+                container.handleLoginSuccess(response)
+            }
+        ))
+    }
 
     var body: some View {
         ZStack {
@@ -18,16 +29,17 @@ struct RootView: View {
                     MainTabView(container: container) {
                         await container.logout()
                         showRegister = false
+                        authFlowViewModel.reset()
                     }
                     .task {
                         container.connectWebSocketIfNeeded()
                     }
                 } else if showRegister {
-                    RegisterView(vm: makeRegisterViewModel()) {
+                    RegisterView(vm: authFlowViewModel.register) {
                         showRegister = false
                     }
                 } else {
-                    LoginView(vm: makeLoginViewModel()) {
+                    LoginView(vm: authFlowViewModel.login) {
                         showRegister = true
                     }
                 }
@@ -63,6 +75,11 @@ struct RootView: View {
         .onChange(of: container.currentToast?.id) { _, _ in
             syncToastPresentation(toast: container.currentToast, scene: toastScene)
         }
+        .onChange(of: container.currentUser?.id) { _, userId in
+            guard userId != nil else { return }
+            showRegister = false
+            authFlowViewModel.reset()
+        }
         .onChange(of: scenePhase) { _, newPhase in
             guard let session = container.session else { return }
             switch newPhase {
@@ -76,19 +93,6 @@ struct RootView: View {
             @unknown default:
                 break
             }
-        }
-    }
-
-    private func makeLoginViewModel() -> LoginViewModel {
-        LoginViewModel(repo: container.makeAuthRepository()) { response in
-            container.handleLoginSuccess(response)
-        }
-    }
-
-    private func makeRegisterViewModel() -> RegisterViewModel {
-        RegisterViewModel(repo: container.makeAuthRepository()) { response in
-            container.handleLoginSuccess(response)
-            showRegister = false
         }
     }
 

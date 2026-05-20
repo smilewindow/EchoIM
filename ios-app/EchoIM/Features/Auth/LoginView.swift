@@ -4,6 +4,8 @@ struct LoginView: View {
     @Bindable var vm: LoginViewModel
     var onNavigateToRegister: () -> Void
 
+    @Environment(\.showToast) private var showToast
+
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
@@ -32,18 +34,8 @@ struct LoginView: View {
                 dismissKeyboard()
             }
             .navigationBarHidden(true)
-            .alert(
-                "登录失败",
-                isPresented: Binding(
-                    get: { vm.toast != nil },
-                    set: { if !$0 { vm.toast = nil } }
-                ),
-                presenting: vm.toast
-            ) { _ in
-                Button("好", role: .cancel) { vm.toast = nil }
-                    .accessibilityIdentifier("loginToastOK")
-            } message: { msg in
-                Text(msg)
+            .onChange(of: vm.toast) { _, message in
+                presentToast(message)
             }
         }
     }
@@ -143,5 +135,11 @@ struct LoginView: View {
             from: nil,
             for: nil
         )
+    }
+
+    private func presentToast(_ message: String?) {
+        guard let message else { return }
+        showToast(message)
+        vm.toast = nil
     }
 }
