@@ -28,6 +28,7 @@ For `xcodebuild`, prefer the default `DerivedData`. Only set `-derivedDataPath` 
 
 ### iOS Test Execution Constraints
 - By default, run only the smallest test scope directly related to the change; do not run the full test suite.
+- Do not run `xcodebuild test` commands in parallel; combine related scopes into one command with multiple `-only-testing:` arguments.
 
 ### iOS TDD / Test Policy
 
