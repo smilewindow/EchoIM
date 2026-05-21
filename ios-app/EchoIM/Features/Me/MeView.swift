@@ -10,6 +10,8 @@ struct MeView: View {
     @State private var showLogoutConfirm = false
     @State private var isClearing = false
     @State private var showLogViewer = false
+    @AppStorage(MessageSoundSettings.userDefaultsKey)
+    private var isMessageSoundEnabled = MessageSoundSettings.defaultIsEnabled
 
     var body: some View {
         Group {
@@ -22,6 +24,7 @@ struct MeView: View {
                             userInfoCard(user: user)
                             editProfileCard(user: user)
                         }
+                        soundCard
                         cacheCard
                         logoutCard
 
@@ -93,6 +96,36 @@ struct MeView: View {
         }
         .toolbarBackground(Color.echoInteractive, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
+    }
+
+    // MARK: - 消息声音卡片
+    private var soundCard: some View {
+        VStack(spacing: 0) {
+            Toggle(isOn: $isMessageSoundEnabled) {
+                HStack(spacing: 14) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 7)
+                            .fill(Color.echoBlue.opacity(0.15))
+                            .frame(width: 28, height: 28)
+
+                        Image(systemName: "speaker.wave.2")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(Color.echoBlue)
+                    }
+
+                    Text("消息声音")
+                        .foregroundStyle(Color.echoTextDeep)
+                        .font(.body)
+                }
+            }
+            .frame(minHeight: 44)
+            .accessibilityIdentifier("meMessageSoundToggle")
+            .padding(.horizontal, 16)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color(uiColor: .systemBackground))
+        )
     }
 
     // MARK: - 资料恢复中卡片

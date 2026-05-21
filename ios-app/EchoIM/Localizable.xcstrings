@@ -526,6 +526,16 @@
         }
       }
     },
+    "消息声音" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Message Sound"
+          }
+        }
+      }
+    },
     "拒绝" : {
       "localizations" : {
         "en" : {

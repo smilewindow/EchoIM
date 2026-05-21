@@ -20,17 +20,23 @@ final class UserSession {
     private let apiClient: APIClient
     private let tokenLoader: @MainActor () -> String?
     private let onUnauthorized: @MainActor () async -> Void
+    private let messageSoundPlayer: MessageSoundPlaying
+    private let messageSoundDefaults: UserDefaults
 
     init(
         userId: Int,
         apiClient: APIClient,
         tokenLoader: @escaping @MainActor () -> String?,
-        onUnauthorized: @escaping @MainActor () async -> Void
+        onUnauthorized: @escaping @MainActor () async -> Void,
+        messageSoundPlayer: MessageSoundPlaying? = nil,
+        messageSoundDefaults: UserDefaults = .standard
     ) throws {
         self.userId = userId
         self.apiClient = apiClient
         self.tokenLoader = tokenLoader
         self.onUnauthorized = onUnauthorized
+        self.messageSoundPlayer = messageSoundPlayer ?? AudioToolboxMessageSoundPlayer()
+        self.messageSoundDefaults = messageSoundDefaults
 
         let storeURL = URL.applicationSupportDirectory
             .appendingPathComponent("EchoIM/users/\(userId)/cache.sqlite")
@@ -69,9 +75,11 @@ final class UserSession {
 
         // 把 wsClient 上的事件路由到对应 store（不变式 1）。
         routingSubscriptions.append(
-            wsClient.subscribe { [presenceStore, typingStore] event in
+            wsClient.subscribe { [weak self, presenceStore, typingStore] event in
                 Log.debug(.app, "routing \(event)")
                 switch event {
+                case .messageNew(let message):
+                    self?.playMessageSoundIfNeeded(for: message)
                 case .presenceOnline(let payload):
                     presenceStore.setOnline(payload.userId)
                 case .presenceOffline(let payload):
@@ -132,6 +140,13 @@ final class UserSession {
 
     func disconnectWebSocket(reason: WSDisconnectReason) {
         wsClient.disconnect(reason: reason)
+    }
+
+    private func playMessageSoundIfNeeded(for message: Message) {
+        guard message.senderId != userId else { return }
+        guard MessageSoundSettings.isEnabled(defaults: messageSoundDefaults) else { return }
+
+        messageSoundPlayer.playIncomingMessageSound()
     }
 
     private static func excludeFromBackup(_ url: URL) throws {
