@@ -29,6 +29,12 @@ For `xcodebuild`, prefer the default `DerivedData`. Only set `-derivedDataPath` 
 ### iOS Test Execution Constraints
 - By default, run only the smallest test scope directly related to the change; do not run the full test suite.
 - Do not run `xcodebuild test` commands in parallel; combine related scopes into one command with multiple `-only-testing:` arguments.
+- Before starting any `xcodebuild test`, ensure no previous `xcodebuild test` from this session is still running. After interruption, timeout, context compaction, or unclear command state, do not start another test run until the previous run is confirmed stopped.
+- All iOS `xcodebuild test` commands must disable parallel simulator execution by default:
+  `-parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1`.
+- If `xcodebuild test` hangs, produces no test progress for a long time, or fails at simulator launch/install, stop and report the failure. Do not automatically retry the test command.
+- If simulator or test processes appear to be causing high CPU, heat, or many simulator instances, immediately stop testing, shut down simulators, and ask before running any further iOS test command.
+- Prefer a targeted `xcodebuild build` or code inspection when simulator test verification is not strictly necessary.
 
 ### iOS TDD / Test Policy
 
