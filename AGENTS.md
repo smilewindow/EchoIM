@@ -29,12 +29,9 @@ For `xcodebuild`, prefer the default `DerivedData`. Only set `-derivedDataPath` 
 ### iOS Test Execution Constraints
 - By default, run only the smallest test scope directly related to the change; do not run the full test suite.
 - Do not run `xcodebuild test` commands in parallel; combine related scopes into one command with multiple `-only-testing:` arguments.
-- Before starting any `xcodebuild test`, ensure no previous `xcodebuild test` from this session is still running. After interruption, timeout, context compaction, or unclear command state, do not start another test run until the previous run is confirmed stopped.
-- All iOS `xcodebuild test` commands must disable parallel simulator execution by default:
-  `-parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1`.
-- If `xcodebuild test` hangs, produces no test progress for a long time, or fails at simulator launch/install, stop and report the failure. Do not automatically retry the test command.
-- If simulator or test processes appear to be causing high CPU, heat, or many simulator instances, immediately stop testing, shut down simulators, and ask before running any further iOS test command.
-- Prefer a targeted `xcodebuild build` or code inspection when simulator test verification is not strictly necessary.
+- Before starting `xcodebuild test`, ensure no previous test run from this session is still running; after interruption, timeout, context compaction, or unclear command state, confirm it has stopped before running another.
+- If `xcodebuild test` hangs or stops making progress, do not retry blindly. First inspect likely test-code deadlocks such as unresumed continuations, unfinished async tasks, or expectation waits.
+- For noisy `xcodebuild` commands, prefer concise grep filters while preserving stderr: tests with `grep -E "passed|failed|SUCCEEDED|FAILED|PASS|FAIL|Test run"`, builds with `grep -E "BUILD SUCCEEDED|BUILD FAILED|error:|fatal error:"`.
 
 ### iOS TDD / Test Policy
 
