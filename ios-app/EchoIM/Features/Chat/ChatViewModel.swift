@@ -9,6 +9,15 @@ enum ChatPhase: Equatable, Sendable {
     case error(String)
 }
 
+private struct PendingImageState: Sendable {
+    /// prepare 前的原图 owner：供后台压缩和 prepare 失败重试使用。
+    var originalData: Data?
+
+    /// prepare 成功后的上传数据；上传成功但消息发送失败时仍需支持重试，
+    /// 直到消息 confirmed 后才随 pendingImages 一起清理。
+    var uploadData: Data?
+}
+
 @Observable
 @MainActor
 final class ChatViewModel {
@@ -21,6 +30,8 @@ final class ChatViewModel {
     private(set) var lastReadMessageId: Int?
     /// key 是 `LocalMessage.localId`（即 `clientTempId`）。confirmed 后移除，避免长期堆积。
     private(set) var imageSendStages: [String: ImageSendStage] = [:]
+    /// 图片发送的临时数据只在 pending/failed 生命周期内存在；confirmed 后统一走远程 URL。
+    private var pendingImages: [String: PendingImageState] = [:]
 
     // MARK: - Identity
     /// 当前会话 id；从联系人进入未聊过的好友时先保持 nil，首条消息成功后再回填。
@@ -36,6 +47,7 @@ final class ChatViewModel {
     private let metaStore: ConversationMetaStore?
     weak var wsClient: WebSocketClient?
     private let tokenProvider: @MainActor () -> String?
+    private let imagePreparer: @Sendable (Data) async -> PreparedMessageImage?
     private let haptics: HapticFeedbackProvider
     private var onError: @MainActor (Error) -> Void
 
@@ -71,6 +83,7 @@ final class ChatViewModel {
         typingStore: TypingStore? = nil,
         typingSender: @escaping @MainActor (Int, Bool) -> Void = { _, _ in },
         idleTypingDuration: TimeInterval = 3.0,
+        imagePreparer: (@Sendable (Data) async -> PreparedMessageImage?)? = nil,
         tokenProvider: @escaping @MainActor () -> String?,
         haptics: HapticFeedbackProvider? = nil,
         onError: @escaping @MainActor (Error) -> Void = { _ in }
@@ -95,6 +108,10 @@ final class ChatViewModel {
         self.typingStore = typingStore
         self.typingSender = typingSender
         self.idleTypingDuration = idleTypingDuration
+        let defaultImagePreparer: @Sendable (Data) async -> PreparedMessageImage? = { data in
+            await ImageCompressor.prepareForMessageImage(data: data)
+        }
+        self.imagePreparer = imagePreparer ?? defaultImagePreparer
         self.tokenProvider = tokenProvider
         self.haptics = haptics ?? UIKitHapticFeedback()
         self.onError = onError
@@ -108,6 +125,16 @@ final class ChatViewModel {
     var peerIsTyping: Bool {
         guard let conversationId, let typingStore else { return false }
         return typingStore.isTyping(conversationId)
+    }
+
+    func imageUploadProgress(for localId: String) -> Double? {
+        guard let imageSendStage = imageSendStages[localId] else { return nil }
+        if case .preparing = imageSendStage {
+            return 0
+        }
+        guard case .uploading(let progress) = imageSendStage else { return nil }
+        let clamped = min(max(progress, 0), 1)
+        return clamped < 1 ? clamped : nil
     }
 
     // MARK: - Load
@@ -289,12 +316,49 @@ final class ChatViewModel {
     }
 
     func sendImage(_ image: UIImage) async {
-        stopTyping()    // 不变式 4 触发点 ②；在 compressForUpload 之前执行
-        guard let compressed = ImageCompressor.compressForUpload(image) else {
-            // 编码失败极少发生；P5 先静默放弃，P8 接日志/提示体系时再补用户反馈。
-            return
-        }
-        await sendCompressedImage(data: compressed.data, width: compressed.width, height: compressed.height)
+        stopTyping()    // 不变式 4 触发点 ②；UIImage 入口仅保留给非 PhotosPicker 调用点。
+        guard let data = image.jpegData(compressionQuality: 1.0) ?? image.pngData() else { return }
+        await sendImage(originalData: data)
+    }
+
+    func sendImage(originalData: Data) async {
+        stopTyping()    // 选图后立即停止输入态；后台压缩不应阻塞主线程。
+        guard let token = tokenProvider() else { return }
+        guard let uploadRepo else { return }
+
+        let tempId = makeTempId()
+        let optimistic = Message(
+            id: -Int.random(in: 1...Int.max),
+            conversationId: conversationId ?? -1,
+            senderId: currentUserId,
+            body: nil,
+            messageType: "image",
+            mediaUrl: nil,
+            mediaWidth: nil,
+            mediaHeight: nil,
+            createdAt: Date(),
+            clientTempId: tempId
+        )
+        // 这里短暂重复持有原图是有意取舍：发送后必须马上出现图片气泡，
+        // LocalMessage 会派生 UIImage 缓存，避免 SwiftUI 重绘时反复 decode。
+        // pendingImages 负责后台 prepare/retry，prepare 成功或 confirmed 后会清理。
+        messages.append(
+            LocalMessage(
+                localId: tempId,
+                message: optimistic,
+                sendState: .pending,
+                localImageData: originalData
+            )
+        )
+        pendingImages[tempId] = PendingImageState(originalData: originalData)
+        imageSendStages[tempId] = .preparing
+
+        await prepareAndSendImage(
+            tempId: tempId,
+            originalData: originalData,
+            token: token,
+            uploadRepo: uploadRepo
+        )
     }
 
     func sendCompressedImage(data: Data, width: Int, height: Int) async {
@@ -324,9 +388,10 @@ final class ChatViewModel {
                 localImageData: data
             )
         )
-        imageSendStages[tempId] = .notStarted
+        imageSendStages[tempId] = .uploading(progress: 0)
+        pendingImages[tempId] = PendingImageState(uploadData: data)
 
-        await executeImageSend(tempId: tempId, data: data, token: token, uploadRepo: uploadRepo)
+        await uploadAndSendImage(tempId: tempId, data: data, token: token, uploadRepo: uploadRepo)
     }
 
     func retry(localId: String) async {
@@ -336,12 +401,35 @@ final class ChatViewModel {
 
         if local.message.messageType == "image" {
             guard let token = tokenProvider() else { return }
-            guard let uploadRepo else { return }
-            // VM 重建后会丢 localImageData（已知妥协）；此时 no-op，等待用户重选图。
-            guard let data = local.localImageData else { return }
 
+            if case .uploaded(let mediaURL, let mediaWidth, let mediaHeight) = imageSendStages[localId] {
+                // 已上传成功的失败消息重试时，直接复用服务端媒体地址。
+                let uploaded = UploadedMessageImage(
+                    mediaUrl: mediaURL,
+                    mediaWidth: mediaWidth,
+                    mediaHeight: mediaHeight
+                )
+                messages[index].sendState = .pending
+                await sendUploadedImage(tempId: localId, uploaded: uploaded, token: token)
+                return
+            }
+
+            guard let uploadRepo else { return }
             messages[index].sendState = .pending
-            await executeImageSend(tempId: localId, data: data, token: token, uploadRepo: uploadRepo)
+            if let data = pendingImages[localId]?.uploadData {
+                imageSendStages[localId] = .uploading(progress: 0)
+                await uploadAndSendImage(tempId: localId, data: data, token: token, uploadRepo: uploadRepo)
+            } else if let originalData = pendingImages[localId]?.originalData {
+                imageSendStages[localId] = .preparing
+                await prepareAndSendImage(
+                    tempId: localId,
+                    originalData: originalData,
+                    token: token,
+                    uploadRepo: uploadRepo
+                )
+            } else {
+                messages[index].sendState = .failed("missing local image data")
+            }
             return
         }
 
@@ -366,29 +454,110 @@ final class ChatViewModel {
         }
     }
 
-    private func executeImageSend(
+    private func prepareAndSendImage(
+        tempId: String,
+        originalData: Data,
+        token: String,
+        uploadRepo: UploadRepository
+    ) async {
+        let prepared = await imagePreparer(originalData)
+        guard let prepared else {
+            imageSendStages[tempId] = .notStarted
+            markFailed(tempId: tempId, error: APIError.invalidResponse)
+            return
+        }
+
+        guard updatePreparedImage(tempId: tempId, prepared: prepared) else {
+            return
+        }
+
+        await uploadAndSendImage(
+            tempId: tempId,
+            data: prepared.upload.data,
+            token: token,
+            uploadRepo: uploadRepo
+        )
+    }
+
+    private func applyImagePreviewIfNeeded(tempId: String, previewData: Data?) {
+        guard let previewData else { return }
+        guard pendingImages[tempId] != nil else { return }
+        guard let index = messages.firstIndex(where: { $0.localId == tempId }) else { return }
+        guard messages[index].message.messageType == "image" else { return }
+        guard messages[index].sendState == .pending || isFailed(messages[index].sendState) else { return }
+
+        messages[index].localImageData = previewData
+    }
+
+    private func isFailed(_ sendState: MessageSendState) -> Bool {
+        if case .failed = sendState {
+            return true
+        }
+        return false
+    }
+
+    private func updatePreparedImage(
+        tempId: String,
+        prepared: PreparedMessageImage
+    ) -> Bool {
+        guard let index = messages.firstIndex(where: { $0.localId == tempId }) else { return false }
+        guard messages[index].sendState == .pending else { return false }
+        applyImagePreviewIfNeeded(tempId: tempId, previewData: prepared.previewData)
+
+        let current = messages[index].message
+        messages[index].message = Message(
+            id: current.id,
+            conversationId: current.conversationId,
+            senderId: current.senderId,
+            body: current.body,
+            messageType: current.messageType,
+            mediaUrl: current.mediaUrl,
+            mediaWidth: prepared.upload.width,
+            mediaHeight: prepared.upload.height,
+            createdAt: current.createdAt,
+            clientTempId: current.clientTempId
+        )
+        var state = pendingImages[tempId] ?? PendingImageState()
+        // prepare 成功后 UI 若拿到 previewData 会切到小图；重试只需要 uploadData，
+        // 所以释放 originalData，缩短大图驻留时间。
+        state.uploadData = prepared.upload.data
+        state.originalData = nil
+        pendingImages[tempId] = state
+        return true
+    }
+
+    private func uploadAndSendImage(
         tempId: String,
         data: Data,
         token: String,
         uploadRepo: UploadRepository
     ) async {
-        let uploaded: UploadedMessageImage
-        if case .uploaded(let url, let width, let height) = imageSendStages[tempId] {
-            uploaded = UploadedMessageImage(mediaUrl: url, mediaWidth: width, mediaHeight: height)
-        } else {
-            do {
-                uploaded = try await uploadRepo.uploadMessageImage(data: data, token: token)
-                imageSendStages[tempId] = .uploaded(
-                    mediaURL: uploaded.mediaUrl,
-                    mediaWidth: uploaded.mediaWidth,
-                    mediaHeight: uploaded.mediaHeight
-                )
-            } catch {
-                markFailed(tempId: tempId, error: error)
-                return
-            }
+        do {
+            imageSendStages[tempId] = .uploading(progress: 0)
+            let uploaded = try await uploadRepo.uploadMessageImage(
+                data: data,
+                token: token,
+                onProgress: { [weak self] progress in
+                    self?.updateImageUploadProgress(tempId: tempId, progress: progress)
+                }
+            )
+            imageSendStages[tempId] = .uploaded(
+                mediaURL: uploaded.mediaUrl,
+                mediaWidth: uploaded.mediaWidth,
+                mediaHeight: uploaded.mediaHeight
+            )
+            await sendUploadedImage(tempId: tempId, uploaded: uploaded, token: token)
+        } catch {
+            imageSendStages[tempId] = .notStarted
+            markFailed(tempId: tempId, error: error)
         }
+    }
 
+    private func sendUploadedImage(
+        tempId: String,
+        uploaded: UploadedMessageImage,
+        token: String
+    ) async {
         do {
             let result = try await messageRepo.sendImage(
                 recipientId: peer.id,
@@ -399,11 +568,24 @@ final class ChatViewModel {
                 token: token
             )
             mergeServerResult(result, tempId: tempId)
-            imageSendStages.removeValue(forKey: tempId)
             // 不在 REST 响应时触发 haptic，等 WS echo
         } catch {
             markFailed(tempId: tempId, error: error)
         }
+    }
+
+    private func updateImageUploadProgress(tempId: String, progress: Double) {
+        let clamped = min(max(progress, 0), 1)
+        let rounded = (clamped * 100).rounded() / 100
+
+        if case .uploaded = imageSendStages[tempId] {
+            return
+        }
+        guard imageSendStages[tempId] != .uploading(progress: rounded) else { return }
+        guard let index = messages.firstIndex(where: { $0.localId == tempId }) else { return }
+        guard messages[index].sendState == .pending else { return }
+
+        imageSendStages[tempId] = .uploading(progress: rounded)
     }
 
     /// REST 201 与后续 WS echo 都按 clientTempId 走同一条合并路径。
@@ -421,14 +603,16 @@ final class ChatViewModel {
             // 不再覆盖现有 confirmed，避免误伤本地附带状态（如 localImageData）。
             if let pendingIndex, pendingIndex != confirmedIndex {
                 messages.remove(at: pendingIndex)
+                clearPendingImageState(tempId)
             }
         } else if let pendingIndex {
             messages[pendingIndex] = LocalMessage(
                 localId: "id-\(message.id)",
                 message: message,
                 sendState: .confirmed,
-                localImageData: messages[pendingIndex].localImageData
+                localImageData: nil
             )
+            clearPendingImageState(tempId)
             didConfirm = true
         } else if !messages.contains(where: { $0.message.id == message.id }) {
             messages.append(LocalMessage.confirmed(message))
@@ -438,6 +622,11 @@ final class ChatViewModel {
             await self?.writeThroughAndMeta([message])
         }
         return didConfirm
+    }
+
+    private func clearPendingImageState(_ tempId: String) {
+        imageSendStages.removeValue(forKey: tempId)
+        pendingImages.removeValue(forKey: tempId)
     }
 
     private func markFailed(tempId: String, error: Error) {
@@ -758,6 +947,18 @@ extension ChatViewModel {
             )
         )
         imageSendStages[tempId] = stage
+    }
+
+    func _pendingImageCountForTesting() -> Int {
+        pendingImages.count
+    }
+
+    func _pendingImageOriginalDataCountForTesting() -> Int {
+        pendingImages.values.filter { $0.originalData != nil }.count
+    }
+
+    func _pendingImageUploadDataCountForTesting() -> Int {
+        pendingImages.values.filter { $0.uploadData != nil }.count
     }
 }
 #endif

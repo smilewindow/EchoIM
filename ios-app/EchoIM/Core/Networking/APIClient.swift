@@ -26,6 +26,50 @@ struct AuthResponse: Codable, Equatable {
 
 struct EmptyResponse: Decodable, Equatable {}
 
+private final class UploadTaskState: @unchecked Sendable {
+    private let lock = NSLock()
+    // 项目默认 MainActor 隔离；这些字段由 lock 保护，并且必须能在取消 handler 中同步访问。
+    nonisolated(unsafe) private var observation: NSKeyValueObservation?
+    nonisolated(unsafe) private var task: URLSessionUploadTask?
+    nonisolated(unsafe) private var cancelled = false
+
+    nonisolated func configure(task: URLSessionUploadTask, observation: NSKeyValueObservation) -> Bool {
+        lock.lock()
+        if cancelled {
+            lock.unlock()
+            observation.invalidate()
+            task.cancel()
+            return false
+        }
+
+        self.task = task
+        self.observation = observation
+        lock.unlock()
+        return true
+    }
+
+    nonisolated func invalidateObservation() {
+        lock.lock()
+        let observation = observation
+        self.observation = nil
+        lock.unlock()
+        observation?.invalidate()
+    }
+
+    nonisolated func cancel() {
+        lock.lock()
+        cancelled = true
+        let observation = observation
+        let task = task
+        self.observation = nil
+        self.task = nil
+        lock.unlock()
+
+        observation?.invalidate()
+        task?.cancel()
+    }
+}
+
 @MainActor
 final class APIClient {
     let session: URLSession
@@ -110,11 +154,62 @@ final class APIClient {
         path: String
     ) async throws -> Response {
         let start = Date()
-        let data: Data
-        let response: URLResponse
+        let (data, response) = try await performTransport(
+            method: method,
+            path: path,
+            start: start
+        ) {
+            try await session.data(for: urlRequest)
+        }
 
+        return try decodeResponse(
+            data: data,
+            response: response,
+            method: method,
+            path: path,
+            start: start
+        )
+    }
+
+    func executeUploadWithProgress<Response: Decodable>(
+        _ request: URLRequest,
+        method: String,
+        path: String,
+        body: Data,
+        onProgress: @escaping @MainActor @Sendable (Double) -> Void
+    ) async throws -> Response {
+        let start = Date()
+        let (data, response) = try await performTransport(
+            method: method,
+            path: path,
+            start: start
+        ) {
+            try await uploadDataWithProgress(
+                request,
+                body: body,
+                onProgress: onProgress
+            )
+        }
+
+        return try decodeResponse(
+            data: data,
+            response: response,
+            method: method,
+            path: path,
+            start: start
+        )
+    }
+
+    private func performTransport(
+        method: String,
+        path: String,
+        start: Date,
+        operation: () async throws -> (Data, URLResponse)
+    ) async throws -> (Data, URLResponse) {
         do {
-            (data, response) = try await session.data(for: urlRequest)
+            return try await operation()
+        } catch let apiError as APIError {
+            throw apiError
         } catch let urlError as URLError {
             let elapsed = Int(Date().timeIntervalSince(start) * 1000)
             Log.error(
@@ -130,7 +225,59 @@ final class APIClient {
             )
             throw error
         }
+    }
 
+    private func uploadDataWithProgress(
+        _ request: URLRequest,
+        body: Data,
+        onProgress: @escaping @MainActor @Sendable (Double) -> Void
+    ) async throws -> (Data, URLResponse) {
+        let state = UploadTaskState()
+
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                let task = session.uploadTask(with: request, from: body) { data, response, error in
+                    state.invalidateObservation()
+
+                    if let error {
+                        continuation.resume(throwing: error)
+                        return
+                    }
+
+                    guard let data, let response else {
+                        continuation.resume(throwing: APIError.invalidResponse)
+                        return
+                    }
+
+                    Task { @MainActor in onProgress(1) }
+                    continuation.resume(returning: (data, response))
+                }
+
+                Task { @MainActor in onProgress(0) }
+                let observation = task.progress.observe(\.fractionCompleted, options: [.new]) {
+                    progress, _ in
+                    let clamped = min(max(progress.fractionCompleted, 0), 1)
+                    Task { @MainActor in onProgress(clamped) }
+                }
+
+                guard state.configure(task: task, observation: observation) else {
+                    continuation.resume(throwing: CancellationError())
+                    return
+                }
+                task.resume()
+            }
+        } onCancel: {
+            state.cancel()
+        }
+    }
+
+    private func decodeResponse<Response: Decodable>(
+        data: Data,
+        response: URLResponse,
+        method: String,
+        path: String,
+        start: Date
+    ) throws -> Response {
         let elapsed = Int(Date().timeIntervalSince(start) * 1000)
 
         guard let http = response as? HTTPURLResponse else {

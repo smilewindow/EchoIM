@@ -3,15 +3,33 @@ import SwiftUI
 struct MessageBubble: View {
     let message: LocalMessage
     let isSelf: Bool
+    let uploadProgress: Double?
     var isConsecutive: Bool = false
     var onRetry: () -> Void = {}
     var onOpenImage: () -> Void = {}
+
+    init(
+        message: LocalMessage,
+        isSelf: Bool,
+        uploadProgress: Double? = nil,
+        isConsecutive: Bool = false,
+        onRetry: @escaping () -> Void = {},
+        onOpenImage: @escaping () -> Void = {}
+    ) {
+        self.message = message
+        self.isSelf = isSelf
+        self.uploadProgress = uploadProgress
+        self.isConsecutive = isConsecutive
+        self.onRetry = onRetry
+        self.onOpenImage = onOpenImage
+    }
 
     var body: some View {
         if message.message.messageType == "image" {
             ImageMessageBubble(
                 message: message,
                 isSelf: isSelf,
+                uploadProgress: uploadProgress,
                 onTap: onOpenImage,
                 onRetry: onRetry
             )

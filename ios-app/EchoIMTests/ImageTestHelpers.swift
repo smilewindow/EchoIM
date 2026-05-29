@@ -9,6 +9,7 @@ final class MockUploadRepo: UploadRepository {
         mediaHeight: 1200
     )
     var uploadError: Error?
+    var progressEvents: [Double] = []
     private(set) var uploadCalls = 0
 
     // P7：avatar 上传 stub。默认返回固定 URL；测试可按需覆盖。
@@ -16,8 +17,15 @@ final class MockUploadRepo: UploadRepository {
     var uploadAvatarError: Error?
     private(set) var uploadAvatarCalls = 0
 
-    func uploadMessageImage(data: Data, token: String) async throws -> UploadedMessageImage {
+    func uploadMessageImage(
+        data: Data,
+        token: String,
+        onProgress: (@MainActor @Sendable (Double) -> Void)?
+    ) async throws -> UploadedMessageImage {
         uploadCalls += 1
+        for progress in progressEvents {
+            onProgress?(progress)
+        }
         if let uploadError {
             throw uploadError
         }
@@ -37,9 +45,23 @@ final class MockUploadRepo: UploadRepository {
 final class SuspendableUploadRepo: UploadRepository {
     private var continuation: CheckedContinuation<UploadedMessageImage, Error>?
     private var avatarContinuation: CheckedContinuation<String, Error>?
+    private var onProgress: ((Double) -> Void)?
+    private var uploadWaiters: [CheckedContinuation<Void, Never>] = []
+    private(set) var uploadCalls = 0
+    private(set) var uploadedMessageImageData: [Data] = []
 
-    func uploadMessageImage(data: Data, token: String) async throws -> UploadedMessageImage {
-        try await withCheckedThrowingContinuation { continuation in
+    func uploadMessageImage(
+        data: Data,
+        token: String,
+        onProgress: (@MainActor @Sendable (Double) -> Void)?
+    ) async throws -> UploadedMessageImage {
+        uploadCalls += 1
+        uploadedMessageImageData.append(data)
+        self.onProgress = onProgress
+        let waiters = uploadWaiters
+        uploadWaiters.removeAll()
+        waiters.forEach { $0.resume() }
+        return try await withCheckedThrowingContinuation { continuation in
             self.continuation = continuation
         }
     }
@@ -55,11 +77,27 @@ final class SuspendableUploadRepo: UploadRepository {
             returning: UploadedMessageImage(mediaUrl: mediaURL, mediaWidth: width, mediaHeight: height)
         )
         continuation = nil
+        onProgress = nil
     }
 
     func resume(throwing error: Error) {
         continuation?.resume(throwing: error)
         continuation = nil
+        onProgress = nil
+    }
+
+    func emitProgress(_ progress: Double) {
+        onProgress?(progress)
+    }
+
+    func waitForUploadCall() async {
+        if uploadCalls > 0 {
+            return
+        }
+
+        await withCheckedContinuation { continuation in
+            uploadWaiters.append(continuation)
+        }
     }
 
     func resumeAvatar(with avatarURL: String) {
@@ -70,6 +108,45 @@ final class SuspendableUploadRepo: UploadRepository {
     func resumeAvatar(throwing error: Error) {
         avatarContinuation?.resume(throwing: error)
         avatarContinuation = nil
+    }
+}
+
+actor SuspendableImagePreparer {
+    private var continuation: CheckedContinuation<PreparedMessageImage?, Never>?
+    private var requestWaiters: [CheckedContinuation<Void, Never>] = []
+    private var requestedData: [Data] = []
+
+    func prepare(data: Data) async -> PreparedMessageImage? {
+        requestedData.append(data)
+        return await withCheckedContinuation { continuation in
+            self.continuation = continuation
+            let waiters = requestWaiters
+            requestWaiters.removeAll()
+            waiters.forEach { $0.resume() }
+        }
+    }
+
+    func resume(returning result: PreparedMessageImage?) {
+        continuation?.resume(returning: result)
+        continuation = nil
+    }
+
+    func callCount() -> Int {
+        requestedData.count
+    }
+
+    func waitForRequest() async {
+        if !requestedData.isEmpty {
+            return
+        }
+
+        await withCheckedContinuation { continuation in
+            requestWaiters.append(continuation)
+        }
+    }
+
+    func requestedDataValues() -> [Data] {
+        requestedData
     }
 }
 
@@ -143,7 +220,8 @@ func makeImageVM(
     upload: UploadRepository,
     messages: MessageRepository,
     messageStore: MessageStore? = nil,
-    metaStore: ConversationMetaStore? = nil
+    metaStore: ConversationMetaStore? = nil,
+    imagePreparer: (@Sendable (Data) async -> PreparedMessageImage?)? = nil
 ) -> ChatViewModel {
     let peer = UserProfile(id: peerId, username: "p", displayName: nil, avatarUrl: nil)
     let route: ChatRoute = conversationId.map { id in
@@ -171,6 +249,7 @@ func makeImageVM(
         messageStore: messageStore,
         metaStore: metaStore,
         uploadRepo: upload,
+        imagePreparer: imagePreparer,
         tokenProvider: { "tok" }
     )
 }

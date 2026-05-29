@@ -270,7 +270,7 @@ struct ChatViewModelWSTests {
     }
 
     @Test
-    func wsEchoFromSelfMergesIntoPendingImageBubblePreservingLocalData() async throws {
+    func wsEchoFromSelfMergesIntoPendingImageBubbleClearingLocalData() async throws {
         let upload = MockUploadRepo()
         upload.uploadResult = UploadedMessageImage(
             mediaUrl: "/uploads/messages/3-1.jpg",
@@ -316,7 +316,8 @@ struct ChatViewModelWSTests {
         await Task.yield()
 
         #expect(vm.messages.count == 1)
-        #expect(vm.messages[0].localImageData == imgBytes, "WS echo 不应擦掉 localImageData")
+        #expect(vm.messages[0].localImageData == nil, "确认后应清掉本地 Data，UI 走 Nuke 远程加载")
+        #expect(vm.messages[0].message.mediaUrl == "/uploads/messages/3-1.jpg")
         #expect(vm.messages[0].sendState == .confirmed)
     }
 }

@@ -61,7 +61,11 @@ struct HapticFeedbackInjectionTests {
     }
 
     final class UploadRepo: UploadRepository {
-        func uploadMessageImage(data: Data, token: String) async throws -> UploadedMessageImage {
+        func uploadMessageImage(
+            data: Data,
+            token: String,
+            onProgress: (@MainActor @Sendable (Double) -> Void)?
+        ) async throws -> UploadedMessageImage {
             UploadedMessageImage(mediaUrl: "/uploads/messages/test.jpg", mediaWidth: 100, mediaHeight: 100)
         }
 

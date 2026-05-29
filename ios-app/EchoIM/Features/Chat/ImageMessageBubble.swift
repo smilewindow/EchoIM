@@ -4,6 +4,7 @@ import SwiftUI
 struct ImageMessageBubble: View {
     let message: LocalMessage
     let isSelf: Bool
+    let uploadProgress: Double?
     var onTap: () -> Void = {}
     var onRetry: () -> Void = {}
 
@@ -19,14 +20,7 @@ struct ImageMessageBubble: View {
                     .frame(maxWidth: 220)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
                     .overlay(alignment: .center) {
-                        if message.sendState == .pending {
-                            ZStack {
-                                Color.black.opacity(0.25)
-                                ProgressView()
-                                    .tint(.white)
-                            }
-                            .clipShape(RoundedRectangle(cornerRadius: 16))
-                        }
+                        overlayContent
                     }
                     .onTapGesture {
                         if case .pending = message.sendState {
@@ -46,9 +40,39 @@ struct ImageMessageBubble: View {
     }
 
     @ViewBuilder
+    private var overlayContent: some View {
+        switch message.sendState {
+        case .pending:
+            if let uploadProgress {
+                ZStack {
+                    Color.black.opacity(0.25)
+                    CircularUploadProgress(progress: uploadProgress)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+            }
+        case .failed:
+            ZStack {
+                Color.black.opacity(0.42)
+                VStack(spacing: 6) {
+                    Image(systemName: "photo.badge.exclamationmark")
+                        .font(.system(size: 26, weight: .semibold))
+                    Text("图片发送失败")
+                        .font(.caption.weight(.semibold))
+                }
+                .foregroundStyle(.white)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        case .confirmed:
+            EmptyView()
+        }
+    }
+
+    @ViewBuilder
     private var imageContent: some View {
-        // 优先渲染本地压缩数据，避免确认后立刻切远端 URL 导致缩略图闪烁。
-        if let data = message.localImageData, let image = UIImage(data: data) {
+        // 本地 Data 只服务 pending/failed 生命周期；confirmed 后由 VM 清空并走 Nuke URL 缓存。
+        if let image = message.localImage {
             Image(uiImage: image)
                 .resizable()
                 .modifier(ScaleToFitIfRatioUnknown(ratio: serverAspectRatio))
@@ -162,5 +186,30 @@ struct ImageMessageBubble: View {
                     .buttonStyle(.plain)
             }
         }
+    }
+}
+
+private struct CircularUploadProgress: View {
+    let progress: Double
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(.white.opacity(0.35), lineWidth: 4)
+            Circle()
+                .trim(from: 0, to: progress)
+                .stroke(
+                    .white,
+                    style: StrokeStyle(lineWidth: 4, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+            Text("\(Int((progress * 100).rounded()))%")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.white)
+                .monospacedDigit()
+        }
+        .frame(width: 44, height: 44)
+        .accessibilityLabel(Text("图片上传进度"))
+        .accessibilityValue(Text("\(Int((progress * 100).rounded()))%"))
     }
 }

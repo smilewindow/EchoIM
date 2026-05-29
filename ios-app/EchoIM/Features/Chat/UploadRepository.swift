@@ -11,7 +11,11 @@ struct UploadedMessageImage: Sendable, Equatable {
 protocol UploadRepository {
     /// 上传已压缩的消息图片 JPEG，返回服务端分配的 media_url + 真实像素尺寸。
     /// 调用方必须原样传给发消息接口，客户端不要自行拼路径或自行测尺寸。
-    func uploadMessageImage(data: Data, token: String) async throws -> UploadedMessageImage
+    func uploadMessageImage(
+        data: Data,
+        token: String,
+        onProgress: (@MainActor @Sendable (Double) -> Void)?
+    ) async throws -> UploadedMessageImage
     /// P7：上传已压缩的头像 JPEG，返回服务端写库的 avatar_url。
     /// 服务端在响应内已 UPDATE users.avatar_url（不变式 1）；客户端调用方应再调
     /// AppContainer.refreshCurrentUser() 拿完整 user 来同步本地 currentUser（不变式 4）。
@@ -36,7 +40,11 @@ final class UploadRepositoryImpl: UploadRepository {
         self.api = api
     }
 
-    func uploadMessageImage(data: Data, token: String) async throws -> UploadedMessageImage {
+    func uploadMessageImage(
+        data: Data,
+        token: String,
+        onProgress: (@MainActor @Sendable (Double) -> Void)? = nil
+    ) async throws -> UploadedMessageImage {
         let boundary = "Boundary-\(UUID().uuidString)"
         let body = Self.makeMultipartBody(
             fieldName: "file",
@@ -50,7 +58,8 @@ final class UploadRepositoryImpl: UploadRepository {
             Endpoints.Upload.messageImage,
             boundary: boundary,
             body: body,
-            token: token
+            token: token,
+            onProgress: onProgress
         )
         return UploadedMessageImage(
             mediaUrl: response.mediaUrl,

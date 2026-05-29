@@ -47,6 +47,16 @@
     "%lld 条新消息" : {
 
     },
+    "%lld%%" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld%%"
+          }
+        }
+      }
+    },
     "→ %@" : {
 
     },
@@ -297,8 +307,28 @@
         }
       }
     },
+    "图片上传进度" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Image upload progress"
+          }
+        }
+      }
+    },
     "图片加载失败" : {
 
+    },
+    "图片发送失败" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Image failed to send"
+          }
+        }
+      }
     },
     "图片尺寸信息无效，请重新选择" : {
       "localizations" : {
@@ -526,16 +556,6 @@
         }
       }
     },
-    "消息声音" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Message Sound"
-          }
-        }
-      }
-    },
     "拒绝" : {
       "localizations" : {
         "en" : {
@@ -730,6 +750,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Message cannot be empty"
+          }
+        }
+      }
+    },
+    "消息声音" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Message Sound"
           }
         }
       }

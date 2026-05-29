@@ -2,8 +2,33 @@ import Testing
 import UIKit
 @testable import EchoIM
 
+@MainActor
 @Suite
 struct ImageCompressorTests {
+    @Test
+    func preparesMessageImageUploadAndPreviewFromOneEntryPoint() async throws {
+        let big = makeOpaqueImage(size: CGSize(width: 4000, height: 2000), color: .red)
+        let data = try #require(big.pngData())
+
+        let prepared = try #require(await ImageCompressor.prepareForMessageImage(data: data))
+        let previewData = try #require(prepared.previewData)
+        let preview = try #require(UIImage(data: previewData)?.cgImage)
+
+        #expect(prepared.upload.width == 1600)
+        #expect(prepared.upload.height == 800)
+        #expect(prepared.upload.data.starts(with: [0xFF, 0xD8]))
+        #expect(preview.width == 720)
+        #expect(preview.height == 360)
+        #expect(previewData.starts(with: [0xFF, 0xD8]))
+    }
+
+    @Test
+    func messageImagePreparationReturnsNilForInvalidImageBytes() async throws {
+        let result = await ImageCompressor.prepareForMessageImage(data: Data([0x00, 0x01]))
+
+        #expect(result == nil)
+    }
+
     @Test
     func transparentInputBecomesWhiteBackgroundJPEG() throws {
         let transparent = makeTransparentPNG(size: CGSize(width: 200, height: 200))

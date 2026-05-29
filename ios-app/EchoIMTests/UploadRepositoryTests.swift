@@ -45,6 +45,67 @@ struct UploadRepositoryTests {
     }
 
     @Test
+    func uploadMessageImageForwardsUploadProgress() async throws {
+        var capturedRequest: URLRequest?
+        let (config, _) = MockURLProtocol.configure { request in
+            capturedRequest = request
+            return (
+                HTTPURLResponse(
+                    url: request.url!,
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: nil
+                )!,
+                "{\"media_url\":\"/uploads/messages/7-1745800000000.jpg\",\"media_width\":1600,\"media_height\":900}".data(using: .utf8)!
+            )
+        }
+        let api = APIClient(session: URLSession(configuration: config))
+        let repo = UploadRepositoryImpl(api: api)
+        var progressValues: [Double] = []
+
+        _ = try await repo.uploadMessageImage(
+            data: Data(repeating: 0xFF, count: 1024),
+            token: "tok",
+            onProgress: { progress in progressValues.append(progress) }
+        )
+        await Task.yield()
+
+        let request = try #require(capturedRequest)
+        #expect(request.httpBody == nil)
+        #expect(progressValues.contains(0))
+        #expect(progressValues.contains(1))
+    }
+
+    @Test
+    func uploadAvatarWithoutProgressSendsMultipartBody() async throws {
+        var capturedRequest: URLRequest?
+        let (config, _) = MockURLProtocol.configure { request in
+            capturedRequest = request
+            return (
+                HTTPURLResponse(
+                    url: request.url!,
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: nil
+                )!,
+                "{\"avatar_url\":\"/uploads/avatars/7-1745800000000.jpg\"}".data(using: .utf8)!
+            )
+        }
+        let api = APIClient(session: URLSession(configuration: config))
+        let repo = UploadRepositoryImpl(api: api)
+
+        let avatarURL = try await repo.uploadAvatar(data: Data([0xFF, 0xD8]), token: "tok")
+
+        #expect(avatarURL == "/uploads/avatars/7-1745800000000.jpg")
+        let request = try #require(capturedRequest)
+        let body = try #require(Self.bodyData(from: request))
+        let bodyText = String(decoding: body, as: UTF8.self)
+        #expect(bodyText.contains("name=\"file\""))
+        #expect(bodyText.contains("filename=\"avatar.jpg\""))
+        #expect(bodyText.contains("Content-Type: image/jpeg"))
+    }
+
+    @Test
     func uploadMessageImagePropagatesUnauthorized() async throws {
         let (config, _) = MockURLProtocol.configure { request in
             (
@@ -94,14 +155,11 @@ struct UploadRepositoryTests {
 
     @Test
     func boundaryIsUniquePerCall() async throws {
-        nonisolated(unsafe) var boundaries: [String] = []
-        let lock = NSLock()
+        let recorder = BoundaryRecorder()
         let (config, _) = MockURLProtocol.configure { request in
             let contentType = request.value(forHTTPHeaderField: "Content-Type") ?? ""
             let boundary = String(contentType.split(separator: "=").last ?? "")
-            lock.lock()
-            boundaries.append(boundary)
-            lock.unlock()
+            recorder.append(boundary)
             return (
                 HTTPURLResponse(
                     url: request.url!,
@@ -118,9 +176,7 @@ struct UploadRepositoryTests {
         _ = try await repo.uploadMessageImage(data: Data([0xFF]), token: "t")
         _ = try await repo.uploadMessageImage(data: Data([0xFF]), token: "t")
 
-        lock.lock()
-        let recorded = boundaries
-        lock.unlock()
+        let recorded = recorder.values()
         #expect(recorded.count == 2)
         #expect(recorded[0] != recorded[1], "每次调用必须用新的 boundary，避免请求间字节窜流")
     }
@@ -150,5 +206,22 @@ struct UploadRepositoryTests {
             data.append(buffer, count: count)
         }
         return data
+    }
+}
+
+private final class BoundaryRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var recorded: [String] = []
+
+    func append(_ boundary: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        recorded.append(boundary)
+    }
+
+    func values() -> [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return recorded
     }
 }

@@ -216,6 +216,7 @@ struct ChatView: View {
                                     MessageBubble(
                                         message: message,
                                         isSelf: message.message.senderId == vm.currentUserId,
+                                        uploadProgress: vm.imageUploadProgress(for: message.localId),
                                         isConsecutive: vm.isConsecutive(
                                             message,
                                             previous: originalIndex > 0
@@ -446,12 +447,11 @@ struct ChatView: View {
     }
 
     private func handlePickedItem(_ item: PhotosPickerItem) async {
-        guard let data = try? await item.loadTransferable(type: Data.self),
-              let image = UIImage(data: data) else {
+        guard let data = try? await item.loadTransferable(type: Data.self) else {
             return
         }
 
-        await vm.sendImage(image)
+        await vm.sendImage(originalData: data)
     }
 }
 

@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 enum MessageSendState: Equatable, Sendable {
     case confirmed
@@ -15,9 +16,35 @@ struct LocalMessage: Identifiable, Equatable, Sendable {
     let localId: String
     var message: Message
     var sendState: MessageSendState
-    var localImageData: Data?
+    var localImageData: Data? {
+        didSet {
+            localImage = localImageData.flatMap(UIImage.init(data:))
+        }
+    }
 
     var id: String { localId }
+
+    private(set) var localImage: UIImage?
+
+    init(
+        localId: String,
+        message: Message,
+        sendState: MessageSendState,
+        localImageData: Data?
+    ) {
+        self.localId = localId
+        self.message = message
+        self.sendState = sendState
+        self.localImageData = localImageData
+        self.localImage = localImageData.flatMap(UIImage.init(data:))
+    }
+
+    static func == (lhs: LocalMessage, rhs: LocalMessage) -> Bool {
+        lhs.localId == rhs.localId &&
+            lhs.message == rhs.message &&
+            lhs.sendState == rhs.sendState &&
+            lhs.localImageData == rhs.localImageData
+    }
 
     static func confirmed(_ message: Message) -> LocalMessage {
         LocalMessage(
