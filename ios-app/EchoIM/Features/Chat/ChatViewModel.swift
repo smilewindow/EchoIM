@@ -659,29 +659,42 @@ final class ChatViewModel {
 
     // MARK: - Mark read
 
+    /// 是否有 mark-read PUT 在途。连收多条消息会各触发一次本方法，
+    /// lastReadMessageId 要等 await 返回才推进，没有它会打出多个重复 PUT。
+    private var isMarkingRead = false
+
     func markReadIfNeeded() async {
-        guard let conversationId else { return }
-        guard let token = tokenProvider() else { return }
+        guard !isMarkingRead else { return }
+        isMarkingRead = true
+        defer { isMarkingRead = false }
 
-        let latest = messages.reduce(into: 0) { result, localMessage in
-            if case .confirmed = localMessage.sendState {
-                result = max(result, localMessage.message.id)
+        // 循环补游标：PUT 在途期间到达的新消息，完成后重查 latest 再发一轮，
+        // 每轮严格推进 lastReadMessageId，否则退出。
+        while true {
+            guard let conversationId else { return }
+            guard let token = tokenProvider() else { return }
+
+            let latest = messages.reduce(into: 0) { result, localMessage in
+                if case .confirmed = localMessage.sendState {
+                    result = max(result, localMessage.message.id)
+                }
             }
-        }
-        guard latest > 0 else { return }
-        guard latest > (lastReadMessageId ?? 0) else { return }
+            guard latest > 0 else { return }
+            guard latest > (lastReadMessageId ?? 0) else { return }
 
-        do {
-            try await messageRepo.markRead(
-                conversationId: conversationId,
-                lastReadMessageId: latest,
-                token: token
-            )
-            // 服务端也会通过 conversation.updated 推进；本地先乐观推进，避免重复 PUT。
-            lastReadMessageId = latest
-            await writeReadProgress(latest)
-        } catch {
-            onError(error)
+            do {
+                try await messageRepo.markRead(
+                    conversationId: conversationId,
+                    lastReadMessageId: latest,
+                    token: token
+                )
+                // 服务端也会通过 conversation.updated 推进；本地先乐观推进，避免重复 PUT。
+                lastReadMessageId = latest
+                await writeReadProgress(latest)
+            } catch {
+                onError(error)
+                return
+            }
         }
     }
 
