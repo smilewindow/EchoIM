@@ -411,13 +411,10 @@ struct ChatView: View {
                         vm.handleTypingInput()
                     }
                 }
+                .onSubmit(sendDraft)
                 .accessibilityIdentifier("chatInput")
 
-            Button {
-                let text = draft
-                draft = ""
-                Task { await vm.sendText(text) }
-            } label: {
+            Button(action: sendDraft) {
                 ZStack {
                     Circle()
                         .fill(canSend ? Color.echoInteractive : Color.echoSurface)
@@ -444,6 +441,14 @@ struct ChatView: View {
 
     private var canSend: Bool {
         !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// 键盘 send 键（onSubmit）没有 disabled 保护，和发送按钮共用同一入口并自行 guard。
+    private func sendDraft() {
+        guard canSend else { return }
+        let text = draft
+        draft = ""
+        Task { await vm.sendText(text) }
     }
 
     private func handlePickedItem(_ item: PhotosPickerItem) async {
