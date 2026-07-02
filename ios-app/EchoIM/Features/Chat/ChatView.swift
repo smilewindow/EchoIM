@@ -281,19 +281,19 @@ struct ChatView: View {
     }
 
     private func handleObservedScrollOffset(_ offset: CGFloat) {
+        // 滚动回调每帧触发；@State 的 mutating 访问哪怕值没变也可能触发 body 重算，
+        // 所以先用纯判断过滤，只有 near-bottom 真正翻转时才写 scrollState。
+        guard scrollState.isNearBottom(offset: offset) != scrollState.isNearBottom else { return }
+
         let wasNearBottom = scrollState.isNearBottom
         let oldNewMessageCount = scrollState.newMessageCount
-        let didUpdate = scrollState.updateOffset(offset)
-        let didChangeImportantState = wasNearBottom != scrollState.isNearBottom
-            || oldNewMessageCount != scrollState.newMessageCount
-        if didUpdate, didChangeImportantState {
-            Log.debug(
-                .app,
-                "scroll offset y=\(offset) distance=\(abs(offset)) "
-                + "updated=\(didUpdate) nearBottom:\(wasNearBottom)->\(scrollState.isNearBottom) "
-                + "badge:\(oldNewMessageCount)->\(scrollState.newMessageCount)"
-            )
-        }
+        scrollState.updateOffset(offset)
+        Log.debug(
+            .app,
+            "scroll offset y=\(offset) distance=\(abs(offset)) "
+            + "nearBottom:\(wasNearBottom)->\(scrollState.isNearBottom) "
+            + "badge:\(oldNewMessageCount)->\(scrollState.newMessageCount)"
+        )
     }
 
     private func scrollToBottom(_ proxy: ScrollViewProxy, animated: Bool) {
@@ -458,12 +458,17 @@ struct ChatView: View {
 private struct TimestampPill: View {
     let date: Date
 
-    private var text: String {
+    // DateFormatter 初始化昂贵，而这个 view 在滚动路径上每行反复重建，必须复用。
+    private static let formatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale.current
         formatter.dateStyle = .short
         formatter.timeStyle = .short
-        return formatter.string(from: date)
+        return formatter
+    }()
+
+    private var text: String {
+        Self.formatter.string(from: date)
     }
 
     var body: some View {

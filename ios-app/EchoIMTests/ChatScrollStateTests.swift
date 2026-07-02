@@ -9,10 +9,10 @@ struct ChatScrollStateTests {
         #expect(state.newMessageCount == 0)
     }
 
-    @Test func offsetBelowThreshold_staysNearBottom() {
+    @Test func offsetBelowThreshold_staysNearBottom_withoutUpdate() {
         var state = ChatScrollState(threshold: 60)
         let didUpdate = state.updateOffset(30)
-        #expect(didUpdate)
+        #expect(!didUpdate)
         #expect(state.isNearBottom)
     }
 
@@ -30,22 +30,33 @@ struct ChatScrollStateTests {
         #expect(!state.isNearBottom)
     }
 
-    @Test func offsetWithinEpsilon_isIgnored() {
-        var state = ChatScrollState(threshold: 60, offsetEpsilon: 0.5)
+    @Test func offsetChangeOnSameSideOfThreshold_isIgnored() {
+        var state = ChatScrollState(threshold: 60)
+        state.updateOffset(100)
 
-        let didUpdate = state.updateOffset(0.25)
+        let didUpdate = state.updateOffset(200)
         #expect(!didUpdate)
-        #expect(state.isNearBottom)
+        #expect(!state.isNearBottom)
     }
 
-    @Test func offsetWithinEpsilon_crossingThreshold_updatesNearBottom() {
-        var state = ChatScrollState(threshold: 60, offsetEpsilon: 0.5)
+    @Test func smallOffsetChange_crossingThreshold_updatesNearBottom() {
+        var state = ChatScrollState(threshold: 60)
 
         state.updateOffset(60.1)
         let didUpdate = state.updateOffset(59.9)
 
         #expect(didUpdate)
         #expect(state.isNearBottom)
+    }
+
+    @Test func isNearBottomOffset_isPureAndDoesNotMutate() {
+        let state = ChatScrollState(threshold: 60)
+        #expect(state.isNearBottom(offset: 30))
+        #expect(state.isNearBottom(offset: -30))
+        #expect(!state.isNearBottom(offset: 100))
+        #expect(!state.isNearBottom(offset: -100))
+        #expect(state.isNearBottom)
+        #expect(state.newMessageCount == 0)
     }
 
     @Test func incomingMessage_whenNotNearBottom_increments() {

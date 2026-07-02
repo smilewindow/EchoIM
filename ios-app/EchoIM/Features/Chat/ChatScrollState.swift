@@ -10,30 +10,27 @@ struct ChatScrollState {
     private(set) var newMessageCount: Int = 0
 
     let threshold: CGFloat
-    let offsetEpsilon: CGFloat
 
-    private var lastDistanceFromBottom: CGFloat = 0
     private var hasHandledInitialNewestMessage = false
 
-    init(threshold: CGFloat = 60, offsetEpsilon: CGFloat = 0.5) {
+    init(threshold: CGFloat = 60) {
         self.threshold = threshold
-        self.offsetEpsilon = offsetEpsilon
+    }
+
+    /// 纯判断，不 mutate。滚动回调每帧触发，ChatView 用它前置过滤，
+    /// 只有跨越阈值时才调 `updateOffset` 写 @State，避免整个 body 每帧重算。
+    func isNearBottom(offset: CGFloat) -> Bool {
+        // 翻转 ScrollView 下 offset 可能为负；这里统一成“离视觉底部的距离”。
+        abs(offset) < threshold
     }
 
     @discardableResult
     mutating func updateOffset(_ offset: CGFloat) -> Bool {
-        // 翻转 ScrollView 下 offset 可能为负；这里统一成“离视觉底部的距离”。
-        let distanceFromBottom = abs(offset)
-        let nextIsNearBottom = distanceFromBottom < threshold
-        guard abs(distanceFromBottom - lastDistanceFromBottom) >= offsetEpsilon
-                || nextIsNearBottom != isNearBottom else {
-            return false
-        }
+        let nextIsNearBottom = isNearBottom(offset: offset)
+        guard nextIsNearBottom != isNearBottom else { return false }
 
-        let wasNearBottom = isNearBottom
-        lastDistanceFromBottom = distanceFromBottom
         isNearBottom = nextIsNearBottom
-        if isNearBottom, !wasNearBottom {
+        if isNearBottom {
             newMessageCount = 0
         }
         return true
