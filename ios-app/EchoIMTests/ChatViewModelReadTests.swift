@@ -248,6 +248,89 @@ struct ChatViewModelReadTests {
     }
 
     @Test
+    func markReadDeferredWhileAwayFromBottomAndFlushedOnReturn() async {
+        let repo = FakeMessageRepo()
+        let vm = ChatViewModel(
+            route: .conversation(makeConversation()),
+            currentUserId: 9,
+            messageRepo: repo,
+            wsClient: nil,
+            messageStore: nil,
+            metaStore: nil,
+            tokenProvider: { "jwt" }
+        )
+
+        // 用户上翻历史时收到新消息：不推进已读（对齐 Web 端语义）
+        vm.updateIsNearBottom(false)
+        vm.handleWSEvent(.messageNew(msg(id: 3)))
+        for _ in 0..<20 { await Task.yield() }
+        #expect(repo.markCalls.isEmpty)
+        #expect(vm.lastReadMessageId == nil)
+
+        // 滚回底部后补报
+        vm.updateIsNearBottom(true)
+        await waitUntil { vm.lastReadMessageId == 3 }
+        #expect(repo.markCalls.count == 1)
+        #expect(repo.markCalls[0].id == 3)
+    }
+
+    @Test
+    func reconnectCatchUpAdvancesReadCursorWhenNearBottom() async {
+        let repo = FakeMessageRepo()
+        let vm = ChatViewModel(
+            route: .conversation(makeConversation()),
+            currentUserId: 9,
+            messageRepo: repo,
+            wsClient: nil,
+            messageStore: nil,
+            metaStore: nil,
+            tokenProvider: { "jwt" }
+        )
+
+        vm.handleWSEvent(.messageNew(msg(id: 3)))
+        await waitUntil { vm.lastReadMessageId == 3 }
+
+        // 重连补拉到 3 条新消息，用户在底部 → 立即推进已读游标
+        repo.listResult = .success([msg(id: 4), msg(id: 5), msg(id: 6)])
+        await vm.reconcileAfterReconnect(conversations: [])
+
+        #expect(vm.messages.count == 4)
+        #expect(repo.markCalls.last?.id == 6)
+        #expect(vm.lastReadMessageId == 6)
+    }
+
+    @Test
+    func reconnectCatchUpDefersReadCursorWhileAwayFromBottom() async {
+        let repo = FakeMessageRepo()
+        let vm = ChatViewModel(
+            route: .conversation(makeConversation()),
+            currentUserId: 9,
+            messageRepo: repo,
+            wsClient: nil,
+            messageStore: nil,
+            metaStore: nil,
+            tokenProvider: { "jwt" }
+        )
+
+        vm.handleWSEvent(.messageNew(msg(id: 3)))
+        await waitUntil { vm.lastReadMessageId == 3 }
+
+        // 用户翻在历史位置时断线重连补拉：先不推进已读（列表未读数保持）
+        vm.updateIsNearBottom(false)
+        repo.listResult = .success([msg(id: 4), msg(id: 5), msg(id: 6)])
+        await vm.reconcileAfterReconnect(conversations: [])
+
+        #expect(vm.messages.count == 4)
+        #expect(vm.lastReadMessageId == 3)
+        #expect(repo.markCalls.last?.id == 3)
+
+        // 点角标/滚回底部 → 补报到最新
+        vm.updateIsNearBottom(true)
+        await waitUntil { vm.lastReadMessageId == 6 }
+        #expect(repo.markCalls.last?.id == 6)
+    }
+
+    @Test
     func markReadSkipsForDraftConversation() async {
         let repo = FakeMessageRepo()
         let vm = ChatViewModel(

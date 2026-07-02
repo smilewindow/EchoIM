@@ -663,6 +663,21 @@ final class ChatViewModel {
     /// lastReadMessageId 要等 await 返回才推进，没有它会打出多个重复 PUT。
     private var isMarkingRead = false
 
+    /// 用户是否位于消息列表可见底部（由 View 的滚动观察同步进来）。
+    /// 对齐 Web 端语义（ChatView.tsx markReadIfVisible）：
+    /// 上翻历史时收到的消息不推进已读游标，避免误清未读；回到底部时补报。
+    private var isNearBottom = true
+
+    func updateIsNearBottom(_ nearBottom: Bool) {
+        let wasNearBottom = isNearBottom
+        isNearBottom = nearBottom
+        if nearBottom, !wasNearBottom {
+            Task { [weak self] in
+                await self?.markReadIfNeeded()
+            }
+        }
+    }
+
     func markReadIfNeeded() async {
         guard !isMarkingRead else { return }
         isMarkingRead = true
@@ -671,6 +686,7 @@ final class ChatViewModel {
         // 循环补游标：PUT 在途期间到达的新消息，完成后重查 latest 再发一轮，
         // 每轮严格推进 lastReadMessageId，否则退出。
         while true {
+            guard isNearBottom else { return }
             guard let conversationId else { return }
             guard let token = tokenProvider() else { return }
 
@@ -825,8 +841,15 @@ final class ChatViewModel {
                 onError(error)
             }
         } else {
-            await refetchMissedMessages()
+            await catchUpAfterReconnect()
         }
+    }
+
+    /// 重连补拉后必须尝试推进已读游标（受 near-bottom 闸门控制），
+    /// 否则在底部收到补拉消息时服务端 unread_count 不清零。
+    private func catchUpAfterReconnect() async {
+        await refetchMissedMessages()
+        await markReadIfNeeded()
     }
 
     // MARK: - Reconnect hook
@@ -834,7 +857,7 @@ final class ChatViewModel {
     /// connection.ready 后，如果草稿态的 peer 已经有会话，回填 conversationId 并补拉最新。
     func reconcileAfterReconnect(conversations: [Conversation]) async {
         guard conversationId == nil else {
-            await refetchMissedMessages()
+            await catchUpAfterReconnect()
             return
         }
 

@@ -294,6 +294,8 @@ struct ChatView: View {
         let wasNearBottom = scrollState.isNearBottom
         let oldNewMessageCount = scrollState.newMessageCount
         scrollState.updateOffset(offset)
+        // 已读上报的 near-bottom 闸门与角标共用同一判定；回到底部时 VM 会补报已读。
+        vm.updateIsNearBottom(scrollState.isNearBottom)
         Log.debug(
             .app,
             "scroll offset y=\(offset) distance=\(abs(offset)) "
