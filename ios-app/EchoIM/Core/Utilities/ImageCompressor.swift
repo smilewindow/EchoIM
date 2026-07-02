@@ -78,30 +78,18 @@ enum ImageCompressor {
     }
 
     /// 按目标像素上限降采样解码，避免为小尺寸展示解出全幅位图（原图可能是 48MP）。
-    /// 优先取文件内嵌缩略图（免全图解码、毫秒级，pending 气泡秒出图）；
-    /// 没有内嵌缩略图（如截图）再强制从全图生成。仅显示用：不做白底 flatten，保留 alpha。
+    /// IfAbsent 模式：有内嵌 EXIF/HEIF 缩略图直接用（免全图解码、毫秒级，pending 气泡秒出图），
+    /// 没有（如截图、我们自己编码的 preview JPEG）才从全图生成——单次调用，
+    /// 不会像 embedded-only 尝试那样在缺缩略图时打系统 ERROR 日志。
+    /// 仅显示用：不做白底 flatten，保留 alpha。
     nonisolated static func decodeThumbnail(from data: Data, maxPixelSize: Int) -> UIImage? {
         let start = Date()
-        if let embedded = decodeEmbeddedThumbnail(from: data, maxPixelSize: maxPixelSize) {
-            Log.debug(.app, "decodeThumbnail embedded hit \(elapsedMs(since: start))ms")
-            return embedded
-        }
-
         guard let source = CGImageSourceCreateWithData(data as CFData, nil),
-              let thumbnail = rawThumbnail(from: source, maxPixelSize: maxPixelSize, forceGenerate: true) else {
+              let thumbnail = rawThumbnail(from: source, maxPixelSize: maxPixelSize, preferEmbedded: true) else {
             Log.debug(.app, "decodeThumbnail failed \(elapsedMs(since: start))ms")
             return nil
         }
-        Log.debug(.app, "decodeThumbnail generated \(elapsedMs(since: start))ms")
-        return UIImage(cgImage: thumbnail)
-    }
-
-    /// 只取文件内嵌的 EXIF/HEIF 缩略图；没有则返回 nil（不做全图解码）。
-    nonisolated static func decodeEmbeddedThumbnail(from data: Data, maxPixelSize: Int) -> UIImage? {
-        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
-              let thumbnail = rawThumbnail(from: source, maxPixelSize: maxPixelSize, forceGenerate: false) else {
-            return nil
-        }
+        Log.debug(.app, "decodeThumbnail ok \(elapsedMs(since: start))ms \(thumbnail.width)x\(thumbnail.height)")
         return UIImage(cgImage: thumbnail)
     }
 
@@ -109,7 +97,7 @@ enum ImageCompressor {
         from source: CGImageSource,
         maxPixelSize: Int
     ) -> CGImage? {
-        guard let thumbnail = rawThumbnail(from: source, maxPixelSize: maxPixelSize, forceGenerate: true) else {
+        guard let thumbnail = rawThumbnail(from: source, maxPixelSize: maxPixelSize, preferEmbedded: false) else {
             return nil
         }
 
@@ -119,15 +107,20 @@ enum ImageCompressor {
     nonisolated private static func rawThumbnail(
         from source: CGImageSource,
         maxPixelSize: Int,
-        forceGenerate: Bool
+        preferEmbedded: Bool
     ) -> CGImage? {
-        let thumbnailOptions: [CFString: Any] = [
-            // false = 只用内嵌缩略图，取不到就失败；true = 从全图生成（完整解码，慢）。
-            kCGImageSourceCreateThumbnailFromImageAlways: forceGenerate,
+        var thumbnailOptions: [CFString: Any] = [
             kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
             kCGImageSourceCreateThumbnailWithTransform: true,
             kCGImageSourceShouldCacheImmediately: true,
         ]
+        if preferEmbedded {
+            // 显示路径：内嵌缩略图优先，缺失时自动从全图生成。
+            thumbnailOptions[kCGImageSourceCreateThumbnailFromImageIfAbsent] = true
+        } else {
+            // 上传路径：必须按 maxPixelSize 从全图生成，不能用低分辨率内嵌缩略图。
+            thumbnailOptions[kCGImageSourceCreateThumbnailFromImageAlways] = true
+        }
         return CGImageSourceCreateThumbnailAtIndex(
             source,
             0,

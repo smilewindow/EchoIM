@@ -61,25 +61,26 @@ struct ImageCompressorTests {
     }
 
     @Test
-    func decodeEmbeddedThumbnailReturnsEmbeddedWithoutFullDecode() throws {
+    func decodeThumbnailHandlesJPEGWithEmbeddedThumbnail() throws {
         let big = makeOpaqueImage(size: CGSize(width: 2000, height: 1000), color: .red)
         let data = try #require(makeJPEGWithEmbeddedThumbnail(big))
 
-        let embedded = try #require(ImageCompressor.decodeEmbeddedThumbnail(from: data, maxPixelSize: 720))
-        let cg = try #require(embedded.cgImage)
+        let thumbnail = try #require(ImageCompressor.decodeThumbnail(from: data, maxPixelSize: 720))
+        let cg = try #require(thumbnail.cgImage)
 
         #expect(max(cg.width, cg.height) <= 720)
     }
 
     @Test
-    func decodeEmbeddedThumbnailReturnsNilWhenNoEmbeddedThumbnail() throws {
-        // renderer 直出的 JPEG 不含内嵌缩略图；embedded-only 必须失败，
-        // 而 decodeThumbnail 要靠 fallback 强制生成成功。
+    func decodeThumbnailGeneratesWhenNoEmbeddedThumbnail() throws {
+        // renderer 直出的 JPEG 不含内嵌缩略图；IfAbsent 模式必须自动从全图生成。
         let big = makeOpaqueImage(size: CGSize(width: 2000, height: 1000), color: .red)
         let data = try #require(big.jpegData(compressionQuality: 0.9))
 
-        #expect(ImageCompressor.decodeEmbeddedThumbnail(from: data, maxPixelSize: 720) == nil)
-        #expect(ImageCompressor.decodeThumbnail(from: data, maxPixelSize: 720) != nil)
+        let thumbnail = try #require(ImageCompressor.decodeThumbnail(from: data, maxPixelSize: 720))
+        let cg = try #require(thumbnail.cgImage)
+
+        #expect(max(cg.width, cg.height) <= 720)
     }
 
     @Test
