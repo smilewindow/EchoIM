@@ -282,7 +282,13 @@ final class ChatViewModel {
                 return
             }
 
-            let older = rows.reversed().map(LocalMessage.confirmed)
+            // meta 的 oldestCachedMessageId 与展示中的最旧消息可能不一致（如缓存被清），
+            // 远端补页按 id 去重，避免 ForEach 出现重复 identifier（未定义行为）。
+            let displayedIds = Set(messages.map(\.message.id))
+            let older = rows
+                .filter { !displayedIds.contains($0.id) }
+                .reversed()
+                .map(LocalMessage.confirmed)
             messages.insert(contentsOf: older, at: 0)
             hasMoreOlder = rows.count == need
             await writeThroughAndMeta(rows)

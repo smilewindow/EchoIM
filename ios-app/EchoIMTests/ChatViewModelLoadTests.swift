@@ -180,6 +180,38 @@ struct ChatViewModelLoadTests {
     }
 
     @Test
+    func loadOlderSkipsRowsAlreadyDisplayed() async {
+        let repo = FakeMessageRepo()
+        repo.listResult = .success(
+            (28...77).reversed().map { makeMessage(id: $0, body: "m-\($0)") }
+        )
+        let vm = ChatViewModel(
+            route: .conversation(makeConversation(id: 5, peerId: 9)),
+            currentUserId: 9,
+            messageRepo: repo,
+            wsClient: nil,
+            messageStore: nil,
+            metaStore: nil,
+            tokenProvider: { "jwt" }
+        )
+
+        await vm.load()
+        #expect(vm.messages.count == 50)
+
+        // 服务端补页返回了与已展示区间重叠的行（如 meta 游标与展示不一致时）
+        repo.listResult = .success([
+            makeMessage(id: 28, body: "dup"),
+            makeMessage(id: 27, body: "older1"),
+        ])
+        await vm.loadOlder()
+
+        #expect(vm.messages.count == 51)
+        #expect(vm.messages[0].message.id == 27)
+        #expect(vm.messages[1].message.id == 28)
+        #expect(vm.messages.filter { $0.message.id == 28 }.count == 1)
+    }
+
+    @Test
     func draftRouteSkipsNetwork() async {
         let repo = FakeMessageRepo()
         let vm = ChatViewModel(
