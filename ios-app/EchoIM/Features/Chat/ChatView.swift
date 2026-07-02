@@ -406,7 +406,7 @@ struct ChatView: View {
                     RoundedRectangle(cornerRadius: 20)
                         .fill(Color.echoSurface)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 18)
+                            RoundedRectangle(cornerRadius: 20)
                                 .stroke(Color.echoBlue.opacity(0.2), lineWidth: 1)
                         )
                 )
