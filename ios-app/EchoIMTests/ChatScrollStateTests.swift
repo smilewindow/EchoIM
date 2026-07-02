@@ -59,27 +59,35 @@ struct ChatScrollStateTests {
         #expect(state.newMessageCount == 0)
     }
 
-    @Test func incomingMessage_whenNotNearBottom_increments() {
+    @Test func incomingMessages_whenNotNearBottom_accumulate() {
         var state = ChatScrollState(threshold: 60)
         state.updateOffset(100)
-        state.recordIncomingMessage()
+        state.recordIncomingMessages(1)
         #expect(state.newMessageCount == 1)
-        state.recordIncomingMessage()
-        #expect(state.newMessageCount == 2)
+        // 重连补拉等批量场景一次累加整批数量
+        state.recordIncomingMessages(50)
+        #expect(state.newMessageCount == 51)
     }
 
-    @Test func incomingMessage_whenNearBottom_doesNotIncrement() {
+    @Test func incomingMessages_whenNearBottom_doNotIncrement() {
         var state = ChatScrollState(threshold: 60)
         state.updateOffset(30)
-        state.recordIncomingMessage()
+        state.recordIncomingMessages(1)
+        #expect(state.newMessageCount == 0)
+    }
+
+    @Test func incomingMessages_nonPositiveCount_isIgnored() {
+        var state = ChatScrollState(threshold: 60)
+        state.updateOffset(100)
+        state.recordIncomingMessages(0)
+        state.recordIncomingMessages(-3)
         #expect(state.newMessageCount == 0)
     }
 
     @Test func scrollBackToBottom_resetsCount() {
         var state = ChatScrollState(threshold: 60)
         state.updateOffset(100)
-        state.recordIncomingMessage()
-        state.recordIncomingMessage()
+        state.recordIncomingMessages(2)
         #expect(state.newMessageCount == 2)
         state.updateOffset(30)
         #expect(state.isNearBottom)
@@ -89,7 +97,7 @@ struct ChatScrollStateTests {
     @Test func reset_clearsCount() {
         var state = ChatScrollState(threshold: 60)
         state.updateOffset(100)
-        state.recordIncomingMessage()
+        state.recordIncomingMessages(1)
         state.reset()
         #expect(state.newMessageCount == 0)
     }
@@ -117,21 +125,24 @@ struct ChatScrollStateTests {
         #expect(state.newMessageCount == 0)
     }
 
-    @Test func peerNewestMessage_awayFromBottom_incrementsCountWithoutScrolling() {
+    @Test func peerNewestMessage_awayFromBottom_doesNotScrollAndLeavesCountToRecord() {
         var state = ChatScrollState()
         _ = state.handleNewestMessage(isFromCurrentUser: false)
         state.updateOffset(100)
 
+        // 计数由 recordIncomingMessages 驱动，handleNewestMessage 只决定滚动动作
         #expect(state.handleNewestMessage(isFromCurrentUser: false) == .none)
+        #expect(state.newMessageCount == 0)
+
+        state.recordIncomingMessages(1)
         #expect(state.newMessageCount == 1)
     }
 
-    @Test func peerNewestMessage_negativeOffsetAwayFromBottom_incrementsCountWithoutScrolling() {
+    @Test func peerNewestMessage_negativeOffsetAwayFromBottom_doesNotScroll() {
         var state = ChatScrollState()
         _ = state.handleNewestMessage(isFromCurrentUser: false)
         state.updateOffset(-100)
 
         #expect(state.handleNewestMessage(isFromCurrentUser: false) == .none)
-        #expect(state.newMessageCount == 1)
     }
 }

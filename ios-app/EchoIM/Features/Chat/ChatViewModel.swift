@@ -29,6 +29,9 @@ final class ChatViewModel {
     private(set) var hasMoreOlder = true
     /// 服务端已确认的 last_read_message_id；P3 只同步游标，不在消息列表里计算未读。
     private(set) var lastReadMessageId: Int?
+    /// 本会话收到的对方消息累计数（WS 单条 + 重连补拉批量）。
+    /// View 用 onChange 的差值驱动"新消息"角标，批量到达时不欠计数。
+    private(set) var incomingMessageCount = 0
     /// key 是 `LocalMessage.localId`（即 `clientTempId`）。confirmed 后移除，避免长期堆积。
     private(set) var imageSendStages: [String: ImageSendStage] = [:]
     /// 图片发送的临时数据只在 pending/failed 生命周期内存在；confirmed 后统一走远程 URL。
@@ -783,6 +786,7 @@ final class ChatViewModel {
         }
 
         if incoming.senderId != currentUserId {
+            incomingMessageCount += 1
             Task { [weak self] in
                 await self?.markReadIfNeeded()
             }
@@ -872,6 +876,9 @@ final class ChatViewModel {
 
                 for message in rows where !messages.contains(where: { $0.message.id == message.id }) {
                     messages.append(.confirmed(message))
+                    if message.senderId != currentUserId {
+                        incomingMessageCount += 1
+                    }
                 }
                 await writeThroughAndMeta(rows)
 

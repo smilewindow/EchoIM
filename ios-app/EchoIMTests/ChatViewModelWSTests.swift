@@ -233,6 +233,70 @@ struct ChatViewModelWSTests {
     }
 
     @Test
+    func incomingMessageCountTracksPeerMessagesButNotOwnEcho() async throws {
+        let upload = MockUploadRepo()
+        let messages = MockMessageRepo()
+        let vm = makeImageVM(
+            currentUserId: 3,
+            peerId: 9,
+            conversationId: 5,
+            upload: upload,
+            messages: messages
+        )
+        #expect(vm.incomingMessageCount == 0)
+
+        vm.handleWSEvent(
+            .messageNew(
+                Message(
+                    id: 700,
+                    conversationId: 5,
+                    senderId: 9,
+                    body: "hi",
+                    messageType: "text",
+                    mediaUrl: nil,
+                    createdAt: Date(),
+                    clientTempId: nil
+                )
+            )
+        )
+        #expect(vm.incomingMessageCount == 1)
+
+        // 自己在别处发出的消息（无 tempId 命中）不计入"新消息"角标
+        vm.handleWSEvent(
+            .messageNew(
+                Message(
+                    id: 701,
+                    conversationId: 5,
+                    senderId: 3,
+                    body: "from my other device",
+                    messageType: "text",
+                    mediaUrl: nil,
+                    createdAt: Date(),
+                    clientTempId: nil
+                )
+            )
+        )
+        #expect(vm.incomingMessageCount == 1)
+
+        // 重复投递不重复计数
+        vm.handleWSEvent(
+            .messageNew(
+                Message(
+                    id: 700,
+                    conversationId: 5,
+                    senderId: 9,
+                    body: "hi",
+                    messageType: "text",
+                    mediaUrl: nil,
+                    createdAt: Date(),
+                    clientTempId: nil
+                )
+            )
+        )
+        #expect(vm.incomingMessageCount == 1)
+    }
+
+    @Test
     func wsImageMessageFromPeerAppendsAsImageBubble() async throws {
         let upload = MockUploadRepo()
         let messages = MockMessageRepo()

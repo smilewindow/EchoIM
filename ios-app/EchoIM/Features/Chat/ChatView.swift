@@ -278,6 +278,9 @@ struct ChatView: View {
                 .onChange(of: vm.messages.last?.localId) { _, _ in
                     handleNewMessage(proxy: proxy)
                 }
+                .onChange(of: vm.incomingMessageCount) { oldCount, newCount in
+                    scrollState.recordIncomingMessages(newCount - oldCount)
+                }
             }
         }
         .background(Color(uiColor: .systemBackground))

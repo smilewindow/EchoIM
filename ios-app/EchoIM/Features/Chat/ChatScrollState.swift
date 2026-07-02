@@ -47,13 +47,14 @@ struct ChatScrollState {
             return .scrollToBottom(animated: true)
         }
 
-        recordIncomingMessage()
+        // 角标计数由 recordIncomingMessages 按批次驱动（VM 的 incomingMessageCount 差值），
+        // tail 变化在批量到达时只触发一次，不能在这里 +1。
         return .none
     }
 
-    mutating func recordIncomingMessage() {
-        guard !isNearBottom else { return }
-        newMessageCount += 1
+    mutating func recordIncomingMessages(_ count: Int) {
+        guard !isNearBottom, count > 0 else { return }
+        newMessageCount += count
     }
 
     mutating func reset() {
