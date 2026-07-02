@@ -18,7 +18,7 @@ struct LocalMessage: Identifiable, Equatable, Sendable {
     var sendState: MessageSendState
     var localImageData: Data? {
         didSet {
-            localImage = localImageData.flatMap(UIImage.init(data:))
+            localImage = Self.decodeBubblePreview(localImageData)
         }
     }
 
@@ -36,7 +36,16 @@ struct LocalMessage: Identifiable, Equatable, Sendable {
         self.message = message
         self.sendState = sendState
         self.localImageData = localImageData
-        self.localImage = localImageData.flatMap(UIImage.init(data:))
+        self.localImage = Self.decodeBubblePreview(localImageData)
+    }
+
+    /// 气泡只有 220pt 宽，按 previewMaxPixelSize 降采样解码；
+    /// 直接 UIImage(data:) 会把相册原图整幅解出来，pending 期间产生大内存尖峰。
+    /// Lightbox 放大查看拿的是 localImageData 原始数据，不受影响。
+    private static func decodeBubblePreview(_ data: Data?) -> UIImage? {
+        data.flatMap {
+            ImageCompressor.decodeThumbnail(from: $0, maxPixelSize: ImageCompressor.previewMaxPixelSize)
+        }
     }
 
     static func == (lhs: LocalMessage, rhs: LocalMessage) -> Bool {

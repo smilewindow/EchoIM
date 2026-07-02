@@ -1,3 +1,4 @@
+import Nuke
 import NukeUI
 import SwiftUI
 
@@ -77,7 +78,9 @@ struct ImageMessageBubble: View {
                 .resizable()
                 .modifier(ScaleToFitIfRatioUnknown(ratio: serverAspectRatio))
         } else if let url = remoteURL {
-            LazyImage(url: url) { state in
+            // 气泡最大 220pt，按 points 降采样（Nuke 自动乘屏幕 scale），
+            // 避免 1600px 原图整幅解码驻留内存缓存；Lightbox 走无 processor 请求不受影响。
+            LazyImage(request: ImageRequest(url: url, processors: [.resize(width: 220)])) { state in
                 if let image = state.image {
                     image
                         .resizable()

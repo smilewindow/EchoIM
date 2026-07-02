@@ -30,6 +30,36 @@ struct ImageCompressorTests {
     }
 
     @Test
+    func decodeThumbnailCapsLongerEdgeAtMaxPixelSize() throws {
+        let big = makeOpaqueImage(size: CGSize(width: 2000, height: 1000), color: .red)
+        let data = try #require(big.jpegData(compressionQuality: 0.9))
+
+        let thumbnail = try #require(ImageCompressor.decodeThumbnail(from: data, maxPixelSize: 720))
+        let cg = try #require(thumbnail.cgImage)
+
+        #expect(max(cg.width, cg.height) <= 720)
+        // 降采样保持宽高比
+        #expect(cg.width == cg.height * 2)
+    }
+
+    @Test
+    func decodeThumbnailKeepsSmallImageDimensions() throws {
+        let small = makeOpaqueImage(size: CGSize(width: 8, height: 8), color: .blue)
+        let data = try #require(small.jpegData(compressionQuality: 0.9))
+
+        let thumbnail = try #require(ImageCompressor.decodeThumbnail(from: data, maxPixelSize: 720))
+        let cg = try #require(thumbnail.cgImage)
+
+        #expect(cg.width == 8)
+        #expect(cg.height == 8)
+    }
+
+    @Test
+    func decodeThumbnailReturnsNilForInvalidImageBytes() {
+        #expect(ImageCompressor.decodeThumbnail(from: Data([0x00, 0x01]), maxPixelSize: 720) == nil)
+    }
+
+    @Test
     func transparentInputBecomesWhiteBackgroundJPEG() throws {
         let transparent = makeTransparentPNG(size: CGSize(width: 200, height: 200))
         let result = try #require(ImageCompressor.compressForUpload(transparent))

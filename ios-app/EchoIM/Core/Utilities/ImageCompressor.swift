@@ -16,7 +16,8 @@ struct PreparedMessageImage: Sendable, Equatable {
 enum ImageCompressor {
     nonisolated private static let uploadMaxPixelSize = 1600
     nonisolated private static let uploadJPEGQuality = 0.80
-    nonisolated private static let previewMaxPixelSize = 720
+    /// 气泡预览的像素上限；LocalMessage 的本地缩略图解码也用它，保证与 previewData 同规格。
+    nonisolated static let previewMaxPixelSize = 720
     nonisolated private static let previewJPEGQuality = 0.75
     nonisolated(unsafe) private static let jpegUTI = "public.jpeg" as CFString
 
@@ -76,7 +77,28 @@ enum ImageCompressor {
         }.value
     }
 
+    /// 按目标像素上限降采样解码，避免为小尺寸展示解出全幅位图（原图可能是 48MP）。
+    /// 仅显示用：不做白底 flatten，保留 alpha。
+    nonisolated static func decodeThumbnail(from data: Data, maxPixelSize: Int) -> UIImage? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let thumbnail = rawThumbnail(from: source, maxPixelSize: maxPixelSize) else {
+            return nil
+        }
+        return UIImage(cgImage: thumbnail)
+    }
+
     nonisolated private static func makeThumbnail(
+        from source: CGImageSource,
+        maxPixelSize: Int
+    ) -> CGImage? {
+        guard let thumbnail = rawThumbnail(from: source, maxPixelSize: maxPixelSize) else {
+            return nil
+        }
+
+        return flattenOnWhiteBackground(thumbnail)
+    }
+
+    nonisolated private static func rawThumbnail(
         from source: CGImageSource,
         maxPixelSize: Int
     ) -> CGImage? {
@@ -86,15 +108,11 @@ enum ImageCompressor {
             kCGImageSourceCreateThumbnailWithTransform: true,
             kCGImageSourceShouldCacheImmediately: true,
         ]
-        guard let thumbnail = CGImageSourceCreateThumbnailAtIndex(
+        return CGImageSourceCreateThumbnailAtIndex(
             source,
             0,
             thumbnailOptions as CFDictionary
-        ) else {
-            return nil
-        }
-
-        return flattenOnWhiteBackground(thumbnail)
+        )
     }
 
     nonisolated private static func encodeJPEG(_ image: CGImage, jpegQuality: Double) -> Data? {

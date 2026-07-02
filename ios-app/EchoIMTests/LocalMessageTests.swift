@@ -20,6 +20,21 @@ struct LocalMessageTests {
     }
 
     @Test
+    func downsamplesLocalImageForBubblePreview() throws {
+        let data = try #require(makeJPEGData(size: CGSize(width: 2000, height: 1000)))
+
+        let local = LocalMessage(
+            localId: "tmp-1",
+            message: makeImageMessage(clientTempId: "tmp-1"),
+            sendState: .pending,
+            localImageData: data
+        )
+
+        let cg = try #require(local.localImage?.cgImage)
+        #expect(max(cg.width, cg.height) <= ImageCompressor.previewMaxPixelSize)
+    }
+
+    @Test
     func updatesLocalImageWhenLocalImageDataChanges() throws {
         let initialData = try #require(makeJPEGData(color: .red))
         let previewData = try #require(makeJPEGData(color: .blue))
@@ -72,11 +87,16 @@ struct LocalMessageTests {
         )
     }
 
-    private func makeJPEGData(color: UIColor = .red) -> Data? {
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 8, height: 8))
+    private func makeJPEGData(
+        color: UIColor = .red,
+        size: CGSize = CGSize(width: 8, height: 8)
+    ) -> Data? {
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        let renderer = UIGraphicsImageRenderer(size: size, format: format)
         let image = renderer.image { context in
             color.setFill()
-            context.fill(CGRect(x: 0, y: 0, width: 8, height: 8))
+            context.fill(CGRect(origin: .zero, size: size))
         }
         return image.jpegData(compressionQuality: 0.8)
     }
