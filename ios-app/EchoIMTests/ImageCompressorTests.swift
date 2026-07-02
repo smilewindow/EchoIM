@@ -1,3 +1,4 @@
+import ImageIO
 import Testing
 import UIKit
 @testable import EchoIM
@@ -57,6 +58,28 @@ struct ImageCompressorTests {
     @Test
     func decodeThumbnailReturnsNilForInvalidImageBytes() {
         #expect(ImageCompressor.decodeThumbnail(from: Data([0x00, 0x01]), maxPixelSize: 720) == nil)
+    }
+
+    @Test
+    func decodeEmbeddedThumbnailReturnsEmbeddedWithoutFullDecode() throws {
+        let big = makeOpaqueImage(size: CGSize(width: 2000, height: 1000), color: .red)
+        let data = try #require(makeJPEGWithEmbeddedThumbnail(big))
+
+        let embedded = try #require(ImageCompressor.decodeEmbeddedThumbnail(from: data, maxPixelSize: 720))
+        let cg = try #require(embedded.cgImage)
+
+        #expect(max(cg.width, cg.height) <= 720)
+    }
+
+    @Test
+    func decodeEmbeddedThumbnailReturnsNilWhenNoEmbeddedThumbnail() throws {
+        // renderer 直出的 JPEG 不含内嵌缩略图；embedded-only 必须失败，
+        // 而 decodeThumbnail 要靠 fallback 强制生成成功。
+        let big = makeOpaqueImage(size: CGSize(width: 2000, height: 1000), color: .red)
+        let data = try #require(big.jpegData(compressionQuality: 0.9))
+
+        #expect(ImageCompressor.decodeEmbeddedThumbnail(from: data, maxPixelSize: 720) == nil)
+        #expect(ImageCompressor.decodeThumbnail(from: data, maxPixelSize: 720) != nil)
     }
 
     @Test
@@ -127,6 +150,25 @@ struct ImageCompressorTests {
             color.setFill()
             ctx.fill(CGRect(origin: .zero, size: size))
         }
+    }
+
+    private func makeJPEGWithEmbeddedThumbnail(_ image: UIImage) -> Data? {
+        guard let cg = image.cgImage else { return nil }
+        let output = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(
+            output,
+            "public.jpeg" as CFString,
+            1,
+            nil
+        ) else { return nil }
+
+        let properties: [CFString: Any] = [
+            kCGImageDestinationEmbedThumbnail: true,
+            kCGImageDestinationLossyCompressionQuality: 0.9,
+        ]
+        CGImageDestinationAddImage(destination, cg, properties as CFDictionary)
+        guard CGImageDestinationFinalize(destination) else { return nil }
+        return output as Data
     }
 
     private func readFirstPixel(_ image: UIImage) -> RGB {

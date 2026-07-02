@@ -1,4 +1,5 @@
 import Foundation
+import Nuke
 import Observation
 import UIKit
 
@@ -48,6 +49,9 @@ final class ChatViewModel {
     weak var wsClient: WebSocketClient?
     private let tokenProvider: @MainActor () -> String?
     private let imagePreparer: @Sendable (Data) async -> PreparedMessageImage?
+    /// 上传成功后把刚上传的数据按最终 URL 种进图片缓存，
+    /// confirm 后气泡切远程加载时直接命中，发送者不用重新下载自己刚传的图。
+    private let uploadedImageCacheSeeder: @MainActor (Data, URL) -> Void
     private let haptics: HapticFeedbackProvider
     private var onError: @MainActor (Error) -> Void
 
@@ -84,6 +88,7 @@ final class ChatViewModel {
         typingSender: @escaping @MainActor (Int, Bool) -> Void = { _, _ in },
         idleTypingDuration: TimeInterval = 3.0,
         imagePreparer: (@Sendable (Data) async -> PreparedMessageImage?)? = nil,
+        uploadedImageCacheSeeder: (@MainActor (Data, URL) -> Void)? = nil,
         tokenProvider: @escaping @MainActor () -> String?,
         haptics: HapticFeedbackProvider? = nil,
         onError: @escaping @MainActor (Error) -> Void = { _ in }
@@ -112,6 +117,9 @@ final class ChatViewModel {
             await ImageCompressor.prepareForMessageImage(data: data)
         }
         self.imagePreparer = imagePreparer ?? defaultImagePreparer
+        self.uploadedImageCacheSeeder = uploadedImageCacheSeeder ?? { data, url in
+            ImagePipeline.shared.cache.storeCachedData(data, for: ImageRequest(url: url))
+        }
         self.tokenProvider = tokenProvider
         self.haptics = haptics ?? UIKitHapticFeedback()
         self.onError = onError
@@ -546,6 +554,9 @@ final class ChatViewModel {
                 mediaWidth: uploaded.mediaWidth,
                 mediaHeight: uploaded.mediaHeight
             )
+            if let url = Endpoints.absolute(uploaded.mediaUrl) {
+                uploadedImageCacheSeeder(data, url)
+            }
             await sendUploadedImage(tempId: tempId, uploaded: uploaded, token: token)
         } catch {
             imageSendStages[tempId] = .notStarted

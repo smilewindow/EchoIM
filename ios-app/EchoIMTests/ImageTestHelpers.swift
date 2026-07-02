@@ -221,7 +221,8 @@ func makeImageVM(
     messages: MessageRepository,
     messageStore: MessageStore? = nil,
     metaStore: ConversationMetaStore? = nil,
-    imagePreparer: (@Sendable (Data) async -> PreparedMessageImage?)? = nil
+    imagePreparer: (@Sendable (Data) async -> PreparedMessageImage?)? = nil,
+    uploadedImageCacheSeeder: (@MainActor (Data, URL) -> Void)? = nil
 ) -> ChatViewModel {
     let peer = UserProfile(id: peerId, username: "p", displayName: nil, avatarUrl: nil)
     let route: ChatRoute = conversationId.map { id in
@@ -250,6 +251,7 @@ func makeImageVM(
         metaStore: metaStore,
         uploadRepo: upload,
         imagePreparer: imagePreparer,
+        uploadedImageCacheSeeder: uploadedImageCacheSeeder,
         tokenProvider: { "tok" }
     )
 }

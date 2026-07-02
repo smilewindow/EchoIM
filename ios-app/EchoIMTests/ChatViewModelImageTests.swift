@@ -6,6 +6,81 @@ import Testing
 @Suite("ChatViewModel - Image send")
 struct ChatViewModelImageTests {
     @Test
+    func uploadSuccessSeedsImageCacheWithUploadedData() async throws {
+        let upload = MockUploadRepo()
+        upload.uploadResult = UploadedMessageImage(
+            mediaUrl: "/uploads/messages/3-0.jpg",
+            mediaWidth: 640,
+            mediaHeight: 360
+        )
+        let messages = MockMessageRepo()
+        messages.sendImageResult = .success(
+            Message(
+                id: 301,
+                conversationId: 5,
+                senderId: 3,
+                body: nil,
+                messageType: "image",
+                mediaUrl: "/uploads/messages/3-0.jpg",
+                mediaWidth: 640,
+                mediaHeight: 360,
+                createdAt: Date(),
+                clientTempId: "ignored"
+            )
+        )
+
+        var seeded: [(data: Data, url: URL)] = []
+        let vm = makeImageVM(
+            currentUserId: 3,
+            peerId: 9,
+            conversationId: 5,
+            upload: upload,
+            messages: messages,
+            uploadedImageCacheSeeder: { data, url in
+                seeded.append((data, url))
+            }
+        )
+
+        let uploadData = Data([0xFF, 0xD8, 0x10])
+        await vm.sendCompressedImage(data: uploadData, width: 640, height: 360)
+
+        #expect(seeded.count == 1)
+        #expect(seeded.first?.data == uploadData)
+        #expect(seeded.first?.url == Endpoints.absolute("/uploads/messages/3-0.jpg"))
+    }
+
+    @Test
+    func uploadFailureDoesNotSeedImageCache() async throws {
+        let upload = MockUploadRepo()
+        upload.uploadError = APIError.invalidResponse
+        let messages = MockMessageRepo()
+
+        var seedCalls = 0
+        let vm = makeImageVM(
+            currentUserId: 3,
+            peerId: 9,
+            conversationId: 5,
+            upload: upload,
+            messages: messages,
+            uploadedImageCacheSeeder: { _, _ in
+                seedCalls += 1
+            }
+        )
+
+        await vm.sendCompressedImage(data: Data([0xFF, 0xD8, 0x10]), width: 640, height: 360)
+
+        #expect(seedCalls == 0)
+        #expect(vm.messages.first.map { isFailedState($0.sendState) } == true)
+    }
+
+    private func isFailedState(_ state: MessageSendState) -> Bool {
+        if case .failed = state {
+            return true
+        }
+        return false
+    }
+
+    @Test
     func sendOriginalImageInsertsPreviewBeforePreparationCompletes() async throws {
         let upload = SuspendableUploadRepo()
         let messages = MockMessageRepo()
