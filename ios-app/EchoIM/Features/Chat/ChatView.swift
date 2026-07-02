@@ -392,7 +392,6 @@ struct ChatView: View {
             TextField("说点什么...", text: $draft, axis: .vertical)
                 .lineLimit(1...5)
                 .focused($isInputFocused)
-                .submitLabel(.send)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
                 .background(
@@ -411,7 +410,6 @@ struct ChatView: View {
                         vm.handleTypingInput()
                     }
                 }
-                .onSubmit(sendDraft)
                 .accessibilityIdentifier("chatInput")
 
             Button(action: sendDraft) {
@@ -443,7 +441,7 @@ struct ChatView: View {
         !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    /// 键盘 send 键（onSubmit）没有 disabled 保护，和发送按钮共用同一入口并自行 guard。
+    /// 发送只走右侧按钮（return = 换行，iMessage 式）；guard 与按钮 disabled 条件保持一致。
     private func sendDraft() {
         guard canSend else { return }
         let text = draft
