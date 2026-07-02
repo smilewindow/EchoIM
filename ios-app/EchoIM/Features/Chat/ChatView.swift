@@ -258,7 +258,10 @@ struct ChatView: View {
                 }
                 .coordinateSpace(name: ChatScrollIDs.coordinateSpace)
                 .scaleEffect(x: 1, y: -1)
-                .scrollDismissesKeyboard(.interactively)
+                // 输入栏位置靠键盘通知驱动，无法跟手；.interactively 慢速下推时
+                // 键盘跟手而输入栏停在原位、中间露缝。改为滚动即收（微信式），
+                // 收起走 willHide 通知的动画，输入栏与键盘同步落下。
+                .scrollDismissesKeyboard(.immediately)
                 .contentShape(Rectangle())
                 .simultaneousGesture(
                     TapGesture().onEnded { isInputFocused = false }
