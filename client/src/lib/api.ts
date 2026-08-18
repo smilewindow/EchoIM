@@ -6,6 +6,23 @@ export class ApiError extends Error {
   }
 }
 
+type ApiErrorResponse = {
+  error: {
+    code: string
+    message: string
+  }
+}
+
+async function readApiErrorMessage(res: Response, fallback: string): Promise<string> {
+  try {
+    const data = (await res.json()) as ApiErrorResponse
+    return data.error.message
+  } catch {
+    // 非 JSON 响应没有服务端错误信息，只能保留调用方提供的通用提示。
+    return fallback
+  }
+}
+
 export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem('token')
   const headers: Record<string, string> = {
@@ -17,14 +34,7 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers })
 
   if (!res.ok) {
-    let message = 'Request failed'
-    try {
-      const data = await res.json() as { error?: string }
-      if (data.error) message = data.error
-    } catch {
-      // non-JSON error body — use default message
-    }
-    throw new ApiError(message, res.status)
+    throw new ApiError(await readApiErrorMessage(res, 'Request failed'), res.status)
   }
 
   return await res.json() as T
@@ -42,14 +52,7 @@ export async function uploadAvatar(blob: Blob): Promise<{ avatar_url: string }> 
   })
 
   if (!res.ok) {
-    let message = 'Upload failed'
-    try {
-      const data = (await res.json()) as { error?: string }
-      if (data.error) message = data.error
-    } catch {
-      // non-JSON error body
-    }
-    throw new ApiError(message, res.status)
+    throw new ApiError(await readApiErrorMessage(res, 'Upload failed'), res.status)
   }
 
   return (await res.json()) as { avatar_url: string }
