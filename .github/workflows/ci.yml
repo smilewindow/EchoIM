@@ -89,6 +89,9 @@ jobs:
       - name: Build server
         run: npm run build --prefix server
 
+      - name: Run server tests
+        run: npm run test --prefix server
+
       # Playwright 的浏览器和系统依赖在 GitHub runner 上需要显式安装。
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
