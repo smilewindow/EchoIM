@@ -10,7 +10,7 @@ on:
 
 jobs:
   ci:
-    name: Lint, Build and E2E
+    name: Lint, Build, Test and E2E
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
