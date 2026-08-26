@@ -152,15 +152,3 @@ docker compose --profile multi up -d --build
 使用 Xcode 打开 [ios-app/EchoIM.xcodeproj](ios-app/EchoIM.xcodeproj)，选择 iOS 17+
 模拟器或设备运行。默认后端地址和其他 iOS 开发说明见
 [ios-app/README.md](ios-app/README.md)。
-
-## 分支协作
-
-- `dev` 用于日常开发和集成。
-- `main` 是受保护的稳定分支，只通过已通过 CI 的 Pull Request 更新。
-- `dev` 合并到 `main` 时应保留有意义的提交历史；不要对长期积累的 `dev`
-  分支执行 squash。
-- 小型、线性的变更可以使用 rebase merge；包含合并历史的长期分支应使用
-  merge commit 或在合并前明确确认策略。
-
-GitHub Actions 会在 Pull Request 和 `main` 更新时运行前后端 lint、构建与完整
-Playwright E2E。
